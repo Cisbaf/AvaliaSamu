@@ -1,0 +1,17 @@
+/* styles/Modal.module.css */
+.modalContent {
+    padding-top: 16px;
+    min-width: 400px;
+  }
+  
+  .modalInput {
+    margin-bottom: 16px !important;
+  }
+  
+  @media (max-width: 480px) {
+    .modalContent {
+      min-width: unset;
+      width: 90vw;
+      padding: 16px;
+    }
+  }
