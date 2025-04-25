@@ -1,7 +1,6 @@
-// src/app/page.tsx (atualizado)
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -14,44 +13,40 @@ import {
   IconButton
 } from '@mui/material';
 import Delete from '@mui/icons-material/Delete';
-import { useProjectContext } from '../context/ProjectContext';
+import { useProjects } from '../context/ProjectContext';
 import ProjectModal from '../components/ProjectModal';
 
 export default function HomePage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const { projects, selectProject }: { projects: { id: string; name: string; month: string }[]; selectProject: (id: string) => void } = useProjectContext();
-  const { removeProject } = useProjectContext();
+  const {
+    projects,
+    actions: { deleteProject, selectProject }
+  } = useProjects();
 
-
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Correção para hidratação do Next.js
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
 
   const handleProjectSelect = (projectId: string) => {
     selectProject(projectId);
     router.push(`/dashboard/${projectId}`);
-  }
+  };
 
-  if (!mounted) {
-    return null;
-  }
+  const handleDelete = async (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await deleteProject(projectId);
+    } catch (error) {
+      console.error('Erro ao deletar projeto:', error);
+    }
+  };
 
   return (
-    <Box sx={{
-      p: 4,
-      maxWidth: 800,
-      margin: '0 auto'
-    }}>
+    <Box sx={{ p: 4, maxWidth: 800, margin: '0 auto' }}>
       {/* Cabeçalho */}
-      <Box sx={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        mb: 4
-      }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" component="h1">
           Gestão de Projetos
         </Typography>
@@ -66,41 +61,28 @@ export default function HomePage() {
 
       {/* Lista de Projetos */}
       {projects.length > 0 ? (
-        <List sx={{
-          bgcolor: 'background.paper',
-          borderRadius: 2,
-          boxShadow: 1
-        }}>
+        <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
           {projects.map((project) => (
-            <ListItem
-              key={project.id}
-              disablePadding
-            >
+            <ListItem key={project._id} disablePadding>
               <ListItemButton
-                onClick={() => handleProjectSelect(project.id)}
+                onClick={() => handleProjectSelect(project._id!)}
                 sx={{
                   py: 2,
                   borderBottom: '1px solid',
                   borderColor: 'divider',
-                  position: 'relative' // Adicione isto
-                }}>
+                  position: 'relative'
+                }}
+              >
                 <ListItemText
                   primary={project.name}
                   secondary={`Mês: ${project.month}`}
-                  sx={{
-                    '& .MuiListItemText-secondary': {
-                      mt: 0.5
-                    }
-                  }}
+                  sx={{ '& .MuiListItemText-secondary': { mt: 0.5 } }}
                 />
 
                 <IconButton
                   size="small"
                   color="error"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeProject(project.id);
-                  }}
+                  onClick={(e) => handleDelete(project._id!, e)}
                   sx={{
                     position: 'absolute',
                     right: 16,
@@ -115,23 +97,14 @@ export default function HomePage() {
           ))}
         </List>
       ) : (
-        <Box sx={{
-          textAlign: 'center',
-          p: 4,
-          border: '1px dashed',
-          borderRadius: 2,
-          borderColor: 'text.disabled'
-        }}>
+        <Box sx={{ textAlign: 'center', p: 4, border: '1px dashed', borderRadius: 2, borderColor: 'text.disabled' }}>
           <Typography variant="body1" color="text.secondary">
             Nenhum projeto criado ainda
           </Typography>
         </Box>
       )}
 
-      <ProjectModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-      />
+      <ProjectModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </Box>
   );
 }

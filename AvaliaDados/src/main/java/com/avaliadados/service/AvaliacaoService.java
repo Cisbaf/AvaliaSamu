@@ -6,6 +6,7 @@ import com.avaliadados.model.TarmEntity;
 import com.avaliadados.repository.ColaboradorRepository;
 import com.avaliadados.repository.FrotaRepository;
 import com.avaliadados.repository.TarmRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Service;
@@ -113,9 +114,17 @@ public class AvaliacaoService {
     public List<ColaboradorEntity> findByName(String nome){
        return colaboradorRepository.findByNomeApproximate(nome);
     }
-    public ColaboradorEntity cadastroColaborador(ColaboradorEntity colaborador){
-        return null;
+    @Transactional
+    public ColaboradorEntity cadastrarOuAtualizar(ColaboradorEntity dto) {
+        return colaboradorRepository
+                .findByNomeApproximate(dto.getNome())
+                .stream().map(existing -> {
+                    existing.setNome(dto.getNome());
+                    existing.setPontuacao(dto.getPontuacao());
+                    existing.setRole(dto.getRole());
+                    return colaboradorRepository.save(existing);
+                })
+                .findAny().orElseGet(() -> colaboradorRepository.save(dto));
     }
-
 
 }

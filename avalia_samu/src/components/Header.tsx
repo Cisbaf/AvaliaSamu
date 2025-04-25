@@ -2,7 +2,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { useProjectContext } from '@/context/ProjectContext';
+import { useProjects } from '@/context/ProjectContext';
 import { Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CollaboratorModal from './AddCollaboratorModal';
@@ -10,15 +10,25 @@ import styles from './styles/Header.module.css';
 
 export function Header() {
   const [modalOpen, setModalOpen] = useState(false);
-  const { addCollaborator, selectedProject } = useProjectContext();
+  const {
+    selectedProject,
+    actions: { addCollaboratorToProject }
+  } = useProjects();
 
-  const handleSave = (data: { name: string; function: string }) => {
+  const handleSave = async (data: { name: string; function: string }) => {
     if (!selectedProject) return;
-    addCollaborator(selectedProject, {
-      ...data,
-      points: 0
-    });
-    setModalOpen(false);
+
+    try {
+      await addCollaboratorToProject(selectedProject, {
+        name: data.name,
+        function: data.function,
+        points: 0,
+        isGlobal: false // Indica que é específico do projeto
+      });
+      setModalOpen(false);
+    } catch (error) {
+      console.error('Erro ao adicionar colaborador:', error);
+    }
   };
 
   return (
@@ -27,14 +37,16 @@ export function Header() {
         Avaliação SAMU
       </Link>
 
-      <Button
-        variant="contained"
-        startIcon={<AddIcon />}
-        onClick={() => setModalOpen(true)}
-        className={styles.addButton}
-      >
-        Novo Colaborador
-      </Button>
+      {selectedProject && (
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setModalOpen(true)}
+          className={styles.addButton}
+        >
+          Novo Colaborador
+        </Button>
+      )}
 
       <CollaboratorModal
         open={modalOpen}

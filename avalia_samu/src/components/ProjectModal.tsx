@@ -10,7 +10,7 @@ import {
   DialogActions,
   Button
 } from '@mui/material';
-import { useProjectContext } from '../context/ProjectContext';
+import { useProjects } from '../context/ProjectContext';
 import styles from "./styles/Modal.module.css"
 
 
@@ -23,7 +23,7 @@ export default function ProjectModal({
 }) {
   const [projectName, setProjectName] = useState('');
   const [month, setMonth] = useState('');
-  const { addProject, projects } = useProjectContext();
+  const { projects, actions: { createProject } } = useProjects();
 
   const handleSubmit = () => {
     if (projectName && month) {
@@ -34,7 +34,7 @@ export default function ProjectModal({
         return;
       }
 
-      addProject({
+      createProject({
         name: projectName,
         month: month,
         parameters: { pausa1: 0, pausa2: 0, pausa3: 0, pausa4: 0 },

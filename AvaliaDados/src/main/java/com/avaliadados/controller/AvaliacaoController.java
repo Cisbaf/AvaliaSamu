@@ -1,6 +1,5 @@
 package com.avaliadados.controller;
 
-
 import com.avaliadados.model.ColaboradorEntity;
 import com.avaliadados.service.AvaliacaoService;
 import lombok.RequiredArgsConstructor;

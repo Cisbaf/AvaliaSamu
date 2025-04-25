@@ -1,4 +1,3 @@
-// components/CollaboratorModal.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,39 +12,62 @@ import {
     Select
 } from '@mui/material';
 import styles from "./styles/Modal.module.css"
+import { useProjects } from '../context/ProjectContext';
 
 interface CollaboratorModalProps {
     open: boolean;
     onClose: () => void;
-    onSave: (data: { name: string; function: string }) => void;
-    initialData?: { name: string; function: string };
+    onSave: (data: { _id?: string; name: string; function: string }) => void; // Adicionar _id
+    initialData?: {
+        _id?: string; // Usar _id ao invés de id
+        name: string;
+        function: string;
+        mode?: string; // Added the 'mode' property
+    };
 }
 
 export default function CollaboratorModal({
     open,
     onClose,
-    onSave,
     initialData
 }: CollaboratorModalProps) {
+    const {
+        actions: { createGlobalCollaborator, updateGlobalCollaborator }
+    } = useProjects();
     const [name, setName] = useState('');
+    const [collaboratorId, setCollaboratorId] = useState('');
     const [role, setRole] = useState('');
 
     useEffect(() => {
         if (initialData) {
             setName(initialData.name);
             setRole(initialData.function);
+            // Se precisar do _id para alguma lógica interna
+            if (initialData._id) setCollaboratorId(initialData._id);
         } else {
             setName('');
             setRole('');
+            setCollaboratorId('');
         }
     }, [initialData]);
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (name && role) {
-            onSave({ name, function: role });
-            setName('');
-            setRole('');
-            onClose();
+            try {
+                if (initialData?._id) {
+                    await updateGlobalCollaborator(initialData._id, { name, function: role });
+                } else {
+                    await createGlobalCollaborator({
+                        name,
+                        function: role,
+                        points: 0,
+                        isGlobal: true
+                    });
+                }
+                onClose();
+            } catch (error) {
+                console.error('Erro ao salvar colaborador:', error);
+            }
         }
     };
 
@@ -80,9 +102,9 @@ export default function CollaboratorModal({
                 </Select>
             </DialogContent>
             <DialogActions className={styles.modalActions}>
-                <Button onClick={onClose}>Cancelar</Button>
+                <Button onClick={() => { onClose(); setName(""); setRole(""); }}>Cancelar</Button>
                 <Button
-                    onClick={handleSubmit}
+                    onClick={() => { handleSubmit(); setName(""); setRole(""); }}
                     variant="contained"
                     disabled={!name || !role}
                 >
@@ -92,3 +114,5 @@ export default function CollaboratorModal({
         </Dialog>
     );
 }
+
+
