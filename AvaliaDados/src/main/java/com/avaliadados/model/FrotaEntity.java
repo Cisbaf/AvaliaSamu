@@ -2,6 +2,7 @@ package com.avaliadados.model;
 
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.PrimaryKeyJoinColumn;
 import jakarta.persistence.Table;
 import lombok.*;
 
@@ -15,6 +16,7 @@ import java.time.LocalTime;
 @ToString
 @Builder
 @Table(name = "frota")
+@PrimaryKeyJoinColumn(name = "colaborador_id")
 public class FrotaEntity extends CollaboratorEntity {
 
     private LocalTime regulacaoMedica;

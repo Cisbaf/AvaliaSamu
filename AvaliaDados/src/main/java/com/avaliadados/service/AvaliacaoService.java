@@ -68,7 +68,7 @@ public class AvaliacaoService {
         // Salvar atualizações
         var pessoa1 =tarmRepository.saveAll(tarmParaAtualizar);
         var pessoa2 = frotaRepository.saveAll(frotaParaAtualizar);
-        log.info("{} {}", pessoa2.toString(), pessoa1.toString());
+        log.info("{} {}", pessoa2, pessoa1);
     }
 
     private String getCellStringValue(Row row, Integer colIndex) {
