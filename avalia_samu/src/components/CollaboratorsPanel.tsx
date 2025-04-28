@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { Edit, Delete } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
+import { Collaborator } from '@/types/project';
 import { useState, useEffect } from 'react';
 import CollaboratorModal from './AddCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
@@ -54,11 +55,11 @@ export default function CollaboratorsPanel() {
       const matchesRole = filterRole === 'all' || c.function === filterRole;
       return matchesSearch && matchesRole;
     });
-  const handleSaveEdit = async (data: { _id?: string; name: string; function: string }) => {
-    if (editingCollaborator && data._id) {
-      await updateGlobalCollaborator(data._id, {
-        name: data.name,
-        function: data.function
+  const handleSaveEdit = async (data: Collaborator) => {
+    if (editingCollaborator && data.id) {
+      await updateGlobalCollaborator(data.id.toString(), {
+        name: data.nome,
+        function: data.role
       });
       setEditingCollaborator(null);
     }
@@ -132,14 +133,31 @@ export default function CollaboratorsPanel() {
           </TableBody>
         </Table>
       </TableContainer>
+      <div className={styles.noResults}>
+        {filteredCollaborators.length === 0 && (
+          <p>Nenhum colaborador encontrado.</p>
+        )}
 
-
-      <CollaboratorModal
-        open={!!editingCollaborator}
-        onClose={() => setEditingCollaborator(null)}
-        onSave={handleSaveEdit}
-        initialData={editingCollaborator || undefined} // Já contém _id
-      />
+        <CollaboratorModal
+          open={!!editingCollaborator}
+          onClose={() => setEditingCollaborator(null)}
+          onSave={handleSaveEdit}
+          onSuccess={() => {
+            console.log('Collaborator successfully updated');
+          }}
+          initialData={
+            editingCollaborator
+              ? {
+                id: undefined,
+                nome: editingCollaborator.name,
+                cpf: '', // Provide a default or fetch the actual value
+                idCallRote: '', // Provide a default or fetch the actual value
+                role: editingCollaborator.function,
+              }
+              : undefined
+          }
+        />
+      </div>
     </div>
   );
 }

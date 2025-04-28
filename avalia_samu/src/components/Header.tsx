@@ -1,27 +1,32 @@
 // components/Header.tsx
 'use client';
 import { useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useProjects } from '@/context/ProjectContext';
 import { Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import CollaboratorModal from './AddCollaboratorModal';
 import styles from './styles/Header.module.css';
+import { Collaborator } from '@/types/project';
 
 export function Header() {
   const [modalOpen, setModalOpen] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
   const {
     selectedProject,
     actions: { addCollaboratorToProject }
   } = useProjects();
 
-  const handleSave = async (data: { name: string; function: string }) => {
+
+  const handleSave = async (data: Collaborator) => {
     if (!selectedProject) return;
 
     try {
       await addCollaboratorToProject(selectedProject, {
-        name: data.name,
-        function: data.function,
+        name: data.nome,
+        function: data.role,
         points: 0,
         isGlobal: false // Indica que é específico do projeto
       });
@@ -37,7 +42,18 @@ export function Header() {
         Avaliação SAMU
       </Link>
 
-      {selectedProject && (
+      <div className={styles.buttonsContainer}>
+        {pathname !== '/colaboradores' && (
+          <Button
+            variant="contained"
+            onClick={() => router.push('/colaboradores')}
+            className={styles.collaboratorButton}
+          >
+            Gerenciar Colaboradores
+          </Button>)
+
+        }
+
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -46,12 +62,14 @@ export function Header() {
         >
           Novo Colaborador
         </Button>
-      )}
-
+      </div>
       <CollaboratorModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
+        onSuccess={() => {
+          console.log('Collaborator added successfully');
+        }}
       />
     </header>
   );

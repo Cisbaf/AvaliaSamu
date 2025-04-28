@@ -8,6 +8,19 @@ export interface BaseCollaborator {
     createdAt?: Date;
     updatedAt?: Date;
   }
+
+  
+  export interface Collaborator {
+      id: number;
+      nome: string;
+      cpf: string;
+      role: string;
+      pontuacao: number;
+      idCallRote: string;
+      tempoRegulaco?: string;
+      regulacaoMedica?: string;
+  }
+  
   
   export interface GlobalCollaborator extends BaseCollaborator {
     isGlobal: true;

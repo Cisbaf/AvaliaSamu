@@ -24,6 +24,10 @@ public class CollaboratorController {
             default -> throw new IllegalArgumentException("Função inválida");
         };
     }
+    @PutMapping("/{id}")
+    public ResponseEntity<Object> updateCollaborator(@RequestBody CollaboratorRequest request, @PathVariable Long id) {
+        return ResponseEntity.ok(service.updateColaborador(request, id));
+    }
 
     @GetMapping("/id/{id}")
     public CollaboratorsResponse findById(@PathVariable Long id) {
@@ -31,7 +35,7 @@ public class CollaboratorController {
     }
 
     @GetMapping
-    public ResponseEntity<List<String>> findAll() {
+    public ResponseEntity<List<CollaboratorEntity>> findAll() {
         return ResponseEntity.ok(service.findAll());
     }
 

@@ -9,110 +9,159 @@ import {
     Button,
     TextField,
     MenuItem,
-    Select
+    Select,
+    CircularProgress
 } from '@mui/material';
-import styles from "./styles/Modal.module.css"
-import { useProjects } from '../context/ProjectContext';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import styles from "./styles/Modal.module.css";
+import api from '@/lib/api';
+import { Collaborator } from "@/types/project"
+
 
 interface CollaboratorModalProps {
     open: boolean;
-    onClose: () => void;
-    onSave: (data: { _id?: string; name: string; function: string }) => void; // Adicionar _id
+    onSave: (data: Collaborator) => Promise<void>; onClose: () => void;
+    onSuccess: () => void;
     initialData?: {
-        _id?: string; // Usar _id ao invés de id
-        name: string;
-        function: string;
-        mode?: string; // Added the 'mode' property
+        id?: number;
+        nome: string;
+        cpf: string;
+        idCallRote: string;
+        role: string;
+
     };
 }
 
-export default function CollaboratorModal({
-    open,
-    onClose,
-    initialData
-}: CollaboratorModalProps) {
-    const {
-        actions: { createGlobalCollaborator, updateGlobalCollaborator }
-    } = useProjects();
-    const [name, setName] = useState('');
-    const [collaboratorId, setCollaboratorId] = useState('');
-    const [role, setRole] = useState('');
+export default function CollaboratorModal({ open, onClose, initialData, onSuccess }: CollaboratorModalProps) {
+    const [formData, setFormData] = useState({
+        nome: '',
+        cpf: '',
+        idCallRote: '',
+        role: '',
+
+    });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         if (initialData) {
-            setName(initialData.name);
-            setRole(initialData.function);
-            // Se precisar do _id para alguma lógica interna
-            if (initialData._id) setCollaboratorId(initialData._id);
-        } else {
-            setName('');
-            setRole('');
-            setCollaboratorId('');
+            setFormData({
+                nome: initialData.nome,
+                cpf: initialData.cpf,
+                idCallRote: initialData.idCallRote,
+                role: initialData.role,
+
+            });
         }
     }, [initialData]);
 
     const handleSubmit = async () => {
-        if (name && role) {
-            try {
-                if (initialData?._id) {
-                    await updateGlobalCollaborator(initialData._id, { name, function: role });
-                } else {
-                    await createGlobalCollaborator({
-                        name,
-                        function: role,
-                        points: 0,
-                        isGlobal: true
-                    });
-                }
+        setLoading(true);
+        setError('');
+
+        try {
+            const payload = {
+                ...formData,
+                cpf: formData.cpf.replace(/\D/g, ''), // Remove non-numeric characters
+            };
+
+            const response = initialData?.id
+                ? await api.put(`/collaborator/${initialData.id}`, payload)
+                : await api.post('/collaborator', payload);
+
+            if (response.status === 200) {
+                onSuccess();
                 onClose();
-            } catch (error) {
-                console.error('Erro ao salvar colaborador:', error);
             }
+        } catch (err) {
+            setError('Erro ao salvar colaborador. Verifique os dados e tente novamente.');
+            console.error('API Error:', err);
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
-        <Dialog open={open} onClose={onClose}>
-            <DialogTitle>{initialData ? 'Editar Colaborador' : 'Novo Colaborador'}</DialogTitle>
-            <DialogContent className={styles.modalContent}>
-                <TextField
-                    autoFocus
-                    margin="dense"
-                    label="Nome completo"
-                    fullWidth
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    sx={{ mb: 2 }}
-                />
-                <Select
-                    fullWidth
-                    value={role}
-                    className={styles.select}
-                    onChange={(e) => setRole(e.target.value)}
-                    displayEmpty
-                    inputProps={{ 'aria-label': 'Selecione a função' }}
-                >
-                    <MenuItem value="" disabled>
-                        Selecione a função
-                    </MenuItem>
-                    <MenuItem value="TARM">TARM</MenuItem>
-                    <MenuItem value="Frota">Frota</MenuItem>
-                    <MenuItem value="MEDICO">MÉDICO</MenuItem>
-                    <MenuItem value="MEDICO SUPERVISOR">MÉDICO SUPERVISOR</MenuItem>
-                </Select>
-            </DialogContent>
-            <DialogActions className={styles.modalActions}>
-                <Button onClick={() => { onClose(); setName(""); setRole(""); }}>Cancelar</Button>
-                <Button
-                    onClick={() => { handleSubmit(); setName(""); setRole(""); }}
-                    variant="contained"
-                    disabled={!name || !role}
-                >
-                    {initialData ? 'Salvar' : 'Cadastrar'}
-                </Button>
-            </DialogActions>
-        </Dialog>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+                <DialogTitle>
+                    {initialData ? 'Editar Colaborador' : 'Novo Colaborador'}
+                </DialogTitle>
+
+                <DialogContent className={styles.modalContent}>
+                    {error && <div className={styles.errorMessage}>{error}</div>}
+
+                    <div className={styles.formGrid}>
+                        <TextField
+                            label="Nome completo"
+                            value={formData.nome}
+                            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                            fullWidth
+                            margin="normal"
+                            required
+                        />
+
+                        <TextField
+                            label="CPF"
+                            value={formData.cpf}
+                            onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
+                            fullWidth
+                            margin="normal"
+                            inputProps={{ pattern: '[0-9]{11}' }}
+                            required
+                        />
+
+                        <TextField
+                            label="ID Call Rote"
+                            value={formData.idCallRote}
+                            onChange={(e) => setFormData({ ...formData, idCallRote: e.target.value })}
+                            fullWidth
+                            margin="normal"
+                        />
+
+
+
+                        <Select
+                            value={formData.role}
+                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                            fullWidth
+                            displayEmpty
+                            required
+                            className={styles.roleSelect}
+                        >
+                            <MenuItem value="" disabled>Selecione a função</MenuItem>
+                            <MenuItem value="TARM">TARM</MenuItem>
+                            <MenuItem value="FROTA">Frota</MenuItem>
+                            <MenuItem value="MEDICO">Médico</MenuItem>
+                            <MenuItem value="MEDICO_SUPERVISOR">Médico Supervisor</MenuItem>
+                        </Select>
+
+
+                    </div>
+                </DialogContent>
+
+                <DialogActions className={styles.modalActions}>
+                    <Button onClick={onClose} disabled={loading}>
+                        Cancelar
+                    </Button>
+
+                    <Button
+                        onClick={handleSubmit}
+                        variant="contained"
+                        color="primary"
+                        disabled={loading || !formData.nome || !formData.cpf || !formData.role}
+                    >
+                        {loading ? (
+                            <CircularProgress size={24} color="inherit" />
+                        ) : initialData ? (
+                            'Salvar Alterações'
+                        ) : (
+                            'Cadastrar'
+                        )}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </LocalizationProvider>
     );
 }
-
-

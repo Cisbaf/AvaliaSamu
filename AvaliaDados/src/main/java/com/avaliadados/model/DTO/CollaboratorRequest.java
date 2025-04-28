@@ -10,6 +10,7 @@ import java.time.LocalTime;
  * DTO for {@link com.avaliadados.model.CollaboratorEntity}
  */
 public record CollaboratorRequest(
+        Long id,
         @NotBlank(message = "Campo nome é obrigatorio")
         String nome,
         @Pattern(message = "CPF fornecido não existe",
