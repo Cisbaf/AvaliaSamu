@@ -11,14 +11,16 @@ import java.time.LocalTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "tarm")
 @ToString
-public class TarmEntity extends ColaboradorEntity {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@Builder
+@Table(name = "tarm")
+@PrimaryKeyJoinColumn(name = "colaborador_id")
+public class TarmEntity extends CollaboratorEntity {
+
     private LocalTime tempoRegulaco;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "colaborador_id")
-    private ColaboradorEntity colaborador;
+    public TarmEntity(String nome, String cpf, String idCallRote, int pontuacao, String role, LocalTime tempoRegulaco) {
+        super(nome, cpf, idCallRote, pontuacao, role);
+        this.tempoRegulaco = tempoRegulaco;
+    }
 }

@@ -1,7 +1,8 @@
 package com.avaliadados.model;
 
 
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import lombok.*;
 
 import java.time.LocalTime;
@@ -11,15 +12,16 @@ import java.time.LocalTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "frota")
 @ToString
-public class FrotaEntity extends ColaboradorEntity {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@Builder
+@Table(name = "frota")
+public class FrotaEntity extends CollaboratorEntity {
+
     private LocalTime regulacaoMedica;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "colaborador_id")
-    private ColaboradorEntity colaborador;
+    public FrotaEntity(String nome, String cpf, String idCallRote, int pontuacao, String role, LocalTime regulacaoMedica) {
+        super(nome, cpf, idCallRote, pontuacao, role);
+        this.regulacaoMedica = regulacaoMedica;
+    }
+
 }

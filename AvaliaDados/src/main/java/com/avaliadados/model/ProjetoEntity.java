@@ -19,7 +19,7 @@ public class ProjetoEntity {
     private String name;
     private String month;
 
-    private List<ColaboradorEntity> collaborators;
+    private List<CollaboratorEntity> collaborators;
 
     private Instant createdAt;
     private Instant updatedAt;

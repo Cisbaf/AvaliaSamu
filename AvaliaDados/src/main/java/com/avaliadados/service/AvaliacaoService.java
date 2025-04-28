@@ -1,12 +1,11 @@
 package com.avaliadados.service;
 
-import com.avaliadados.model.ColaboradorEntity;
+import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.FrotaEntity;
 import com.avaliadados.model.TarmEntity;
-import com.avaliadados.repository.ColaboradorRepository;
+import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.FrotaRepository;
 import com.avaliadados.repository.TarmRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Service;
@@ -24,7 +23,7 @@ import java.util.Map;
 public class AvaliacaoService {
     private final TarmRepository tarmRepository;
     private final FrotaRepository frotaRepository;
-    private final ColaboradorRepository colaboradorRepository;
+    private final CollaboratorRepository colaboradorRepository;
 
     public void processarPlanilha(MultipartFile arquivo) throws IOException {
         List<TarmEntity> tammList = new ArrayList<>();
@@ -97,34 +96,23 @@ public class AvaliacaoService {
             }
         }
     }
-    public List<String> findAll(){
+
+    public List<String> findAll() {
         List<String> allList = new ArrayList<>();
 
         List<TarmEntity> tarmList = tarmRepository.findAll();
         for (TarmEntity tarm : tarmList) {
-            allList.add("Tarm nome: " +  tarm.getNome() +  ", tempo: " +  tarm.getTempoRegulaco());
+            allList.add("Tarm nome: " + tarm.getNome() + ", tempo: " + tarm.getTempoRegulaco());
         }
         List<FrotaEntity> frotaList = frotaRepository.findAll();
         for (FrotaEntity fnota : frotaList) {
-            allList.add("Frota nome: " +  fnota.getNome() +  ", tempo: " +  fnota.getRegulacaoMedica());
+            allList.add("Frota nome: " + fnota.getNome() + ", tempo: " + fnota.getRegulacaoMedica());
         }
 
         return allList;
     }
-    public List<ColaboradorEntity> findByName(String nome){
-       return colaboradorRepository.findByNomeApproximate(nome);
-    }
-    @Transactional
-    public ColaboradorEntity cadastrarOuAtualizar(ColaboradorEntity dto) {
-        return colaboradorRepository
-                .findByNomeApproximate(dto.getNome())
-                .stream().map(existing -> {
-                    existing.setNome(dto.getNome());
-                    existing.setPontuacao(dto.getPontuacao());
-                    existing.setRole(dto.getRole());
-                    return colaboradorRepository.save(existing);
-                })
-                .findAny().orElseGet(() -> colaboradorRepository.save(dto));
-    }
 
+    public List<CollaboratorEntity> findByName(String nome) {
+        return colaboradorRepository.findByNomeApproximate(nome);
+    }
 }

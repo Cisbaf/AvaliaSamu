@@ -1,6 +1,6 @@
 package com.avaliadados.controller;
 
-import com.avaliadados.model.ColaboradorEntity;
+import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.service.AvaliacaoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,15 +29,18 @@ public class AvaliacaoController {
             return ResponseEntity.badRequest().body("Erro ao processar planilha: " + e.getMessage());
         }
     }
+
     @GetMapping
     @CrossOrigin(origins = "*", allowedHeaders = "*")
 
     public ResponseEntity<List<String>> findAll() {
         return ResponseEntity.ok(service.findAll());
     }
+
     @GetMapping("/{nome}")
     @CrossOrigin(origins = "*", allowedHeaders = "*")
-    public ResponseEntity<List<ColaboradorEntity>> findByNome(@PathVariable String nome) {
+    public ResponseEntity<List<CollaboratorEntity>> findByNome(@PathVariable String nome) {
         return ResponseEntity.ok(service.findByName(nome));
     }
+
 }
