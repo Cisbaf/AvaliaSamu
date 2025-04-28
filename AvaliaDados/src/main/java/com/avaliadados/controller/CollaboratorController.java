@@ -1,11 +1,8 @@
 package com.avaliadados.controller;
 
 import com.avaliadados.model.CollaboratorEntity;
+import com.avaliadados.model.DTO.CollaboratorRequest;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
-import com.avaliadados.model.DTO.FrotaEntityDto;
-import com.avaliadados.model.DTO.TarmEntityDto;
-import com.avaliadados.model.FrotaEntity;
-import com.avaliadados.model.TarmEntity;
 import com.avaliadados.service.CollaboratorsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,17 +13,16 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/collaborator")
-public class ColaboratorController {
+public class CollaboratorController {
     private final CollaboratorsService service;
 
-    @PostMapping("/tarm/save")
-    public TarmEntity saveTarm(@RequestBody TarmEntityDto dto) {
-        return ResponseEntity.ok(service.createTarm(dto)).getBody();
-    }
-
-    @PostMapping("/frota/save")
-    public FrotaEntity saveFrota(@RequestBody FrotaEntityDto dto) {
-        return ResponseEntity.ok(service.createFrota(dto)).getBody();
+    @PostMapping
+    public ResponseEntity<Object> createCollaborator(@RequestBody CollaboratorRequest request) {
+        return switch (request.role().toUpperCase()) {
+            case "TARM" -> ResponseEntity.ok(service.createTarm(request));
+            case "FROTA" -> ResponseEntity.ok(service.createFrota(request));
+            default -> throw new IllegalArgumentException("Função inválida");
+        };
     }
 
     @GetMapping("/id/{id}")

@@ -3,7 +3,7 @@ package com.avaliadados.model.DTO;
 import java.io.Serializable;
 
 /**
- * DTO for {@link ColaboradorRequest}
+ * DTO for {@link CollaboratorRequest}
  */
 public record CollaboratorsResponse(
         String nome,

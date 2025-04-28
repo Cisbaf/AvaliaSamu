@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 import java.io.Serializable;
+import java.time.LocalTime;
 
 /**
  * DTO for {@link com.avaliadados.model.CollaboratorEntity}
@@ -19,6 +20,9 @@ public record CollaboratorRequest(
         String idCallRote,
         int pontuacao,
         @NotBlank
-        String role)
+        String role,
+        LocalTime tempoRegulaco,
+        LocalTime regulacaoMedica
+)
         implements Serializable {
 }
