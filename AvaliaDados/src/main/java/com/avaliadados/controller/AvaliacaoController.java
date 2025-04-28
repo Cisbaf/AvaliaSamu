@@ -18,7 +18,6 @@ public class AvaliacaoController {
     private final AvaliacaoService service;
 
     @PostMapping("/processar")
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
     public ResponseEntity<String> processarPlanilha(@RequestParam MultipartFile arquivo) {
         try {
             service.processarPlanilha(arquivo);

@@ -31,13 +31,11 @@ public class CollaboratorController {
     }
 
     @GetMapping
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
     public ResponseEntity<List<String>> findAll() {
         return ResponseEntity.ok(service.findAll());
     }
 
     @GetMapping("/name/{nome}")
-    @CrossOrigin(origins = "*", allowedHeaders = "*")
     public ResponseEntity<List<CollaboratorEntity>> findByName(@PathVariable String nome) {
         return ResponseEntity.ok(service.findByName(nome));
     }
