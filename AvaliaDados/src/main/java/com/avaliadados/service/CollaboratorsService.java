@@ -5,7 +5,6 @@ import com.avaliadados.model.DTO.FrotaEntityDto;
 import com.avaliadados.model.DTO.TarmEntityDto;
 import com.avaliadados.model.FrotaEntity;
 import com.avaliadados.model.TarmEntity;
-import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.FrotaRepository;
 import com.avaliadados.repository.TarmRepository;
 import lombok.RequiredArgsConstructor;

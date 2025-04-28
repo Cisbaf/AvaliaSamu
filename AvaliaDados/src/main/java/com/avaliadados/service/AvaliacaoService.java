@@ -7,6 +7,7 @@ import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.FrotaRepository;
 import com.avaliadados.repository.TarmRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AvaliacaoService {
     private final TarmRepository tarmRepository;
@@ -26,8 +28,8 @@ public class AvaliacaoService {
     private final CollaboratorRepository colaboradorRepository;
 
     public void processarPlanilha(MultipartFile arquivo) throws IOException {
-        List<TarmEntity> tammList = new ArrayList<>();
-        List<FrotaEntity> fnotaList = new ArrayList<>();
+        List<TarmEntity> tarmParaAtualizar = new ArrayList<>();
+        List<FrotaEntity> frotaParaAtualizar = new ArrayList<>();
 
         try (Workbook workbook = WorkbookFactory.create(arquivo.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
@@ -45,32 +47,28 @@ public class AvaliacaoService {
                 if (row == null) continue;
 
                 String nome = getCellStringValue(row, colunas.get("COLABORADOR"));
-                if (nome == null || nome.trim().isEmpty()) continue;  // Skip empty names
+                if (nome == null || nome.trim().isEmpty()) continue;
 
-                // Check if collaborator exists before processing
-                if (!colaboradorRepository.existsByNome(nome)) {
-                    // Process TARM entity
-                    TarmEntity tamm = new TarmEntity();
-                    tamm.setNome(nome);
-                    tamm.setTempoRegulaco(convertToLocalTime(row.getCell(colunas.get("TEMPO REGULAÇÃO TARM"))));
-                    if (tammList.stream().noneMatch(t -> t.getNome().equals(nome))) {  // Check if already in list
-                        tammList.add(tamm);
-                    }
+                // Atualizar TARM existente
+                tarmRepository.findByNome(nome).ifPresent(tarm -> {
+                    LocalTime tempoRegulacao = convertToLocalTime(row.getCell(colunas.get("TEMPO REGULAÇÃO TARM")));
+                    tarm.setTempoRegulaco(tempoRegulacao);
+                    tarmParaAtualizar.add(tarm);
+                });
 
-                    // Process Frota entity
-                    FrotaEntity fnota = new FrotaEntity();
-                    fnota.setNome(nome);
-                    fnota.setRegulacaoMedica(convertToLocalTime(row.getCell(colunas.get("OP. FROTA REGULAÇÃO MÉDICA"))));
-                    if (fnotaList.stream().noneMatch(f -> f.getNome().equals(nome))) {  // Check if already in list
-                        fnotaList.add(fnota);
-                    }
-                }
+                // Atualizar Frota existente
+                frotaRepository.findByNome(nome).ifPresent(frota -> {
+                    LocalTime regulacaoMedica = convertToLocalTime(row.getCell(colunas.get("OP. FROTA REGULAÇÃO MÉDICA")));
+                    frota.setRegulacaoMedica(regulacaoMedica);
+                    frotaParaAtualizar.add(frota);
+                });
             }
         }
 
-        // Salvar no banco
-        tarmRepository.saveAll(tammList);
-        frotaRepository.saveAll(fnotaList);
+        // Salvar atualizações
+        var pessoa1 =tarmRepository.saveAll(tarmParaAtualizar);
+        var pessoa2 = frotaRepository.saveAll(frotaParaAtualizar);
+        log.info("{} {}", pessoa2.toString(), pessoa1.toString());
     }
 
     private String getCellStringValue(Row row, Integer colIndex) {
