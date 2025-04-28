@@ -8,7 +8,7 @@ import java.io.Serializable;
 /**
  * DTO for {@link com.avaliadados.model.CollaboratorEntity}
  */
-public record ColaboradorRequest(
+public record CollaboratorRequest(
         @NotBlank(message = "Campo nome é obrigatorio")
         String nome,
         @Pattern(message = "CPF fornecido não existe",
