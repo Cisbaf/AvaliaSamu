@@ -25,10 +25,8 @@ export function Header() {
 
     try {
       await addCollaboratorToProject(selectedProject, {
-        name: data.nome,
-        function: data.role,
-        points: 0,
-        isGlobal: false // Indica que é específico do projeto
+        collaboratorId: data.nome,
+        role: data.role,
       });
       setModalOpen(false);
     } catch (error) {

@@ -27,12 +27,12 @@ export const dataService = {
   projects: {
     getAll: async (): Promise<Project[]> => {
       const data = await client.get<Project[]>('projects') || [];
-      return data.filter(p => p && p._id);
+      return data.filter(p => p && p.id);
     },
 
     save: async (project: Project) => {
       const projects = await client.get<Project[]>('projects') || [];
-      const index = projects.findIndex(p => p._id === project._id);
+      const index = projects.findIndex(p => p.id === project.id);
       
       if (index >= 0) {
         projects[index] = project;
@@ -49,7 +49,7 @@ export const dataService = {
 
     delete: async (projectId: string) => {
       const projects = await client.get<Project[]>('projects') || [];
-      const filtered = projects.filter(p => p._id !== projectId);
+      const filtered = projects.filter(p => p.id !== projectId);
       await client.set('projects', filtered);
     }
   },
@@ -59,18 +59,20 @@ export const dataService = {
       const data = await client.get<GlobalCollaborator[]>('globalCollaborators') || [];
       
       return data.map(c => ({
-        _id: c._id || crypto.randomUUID(),
+        id: typeof c.id === 'number' ? c.id : parseInt(crypto.randomUUID(), 10),
         name: c.name || 'Nome não definido',
         function: c.function || 'Função não definida',
         points: Number(c.points) || 0,
         isGlobal: true,
         createdAt: c.createdAt ? new Date(c.createdAt) : new Date(),
-        updatedAt: c.updatedAt ? new Date(c.updatedAt) : new Date()
+        updatedAt: c.updatedAt ? new Date(c.updatedAt) : new Date(),
+        cpf: c.cpf || 'CPF não definido',
+        idCallRote: c.idCallRote || 'ID não definido'
       }));
     },
     
     saveGlobal: async (collaborators: GlobalCollaborator[]) => {
-      const validData = collaborators.filter(c => c._id && c.name);
+      const validData = collaborators.filter(c => c.id && c.name);
       await client.set('globalCollaborators', validData);
     }
   }

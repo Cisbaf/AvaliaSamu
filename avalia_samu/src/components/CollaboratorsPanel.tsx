@@ -19,6 +19,8 @@ import { Collaborator } from '@/types/project';
 import { useState, useEffect } from 'react';
 import CollaboratorModal from './AddCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
+import { useMemo, useCallback } from 'react';
+
 
 export default function CollaboratorsPanel() {
   const {
@@ -33,9 +35,11 @@ export default function CollaboratorsPanel() {
   const [filterRole, setFilterRole] = useState('all');
   const [roles, setRoles] = useState<string[]>([]);
   const [editingCollaborator, setEditingCollaborator] = useState<{
-    _id: string;
+    id: string;
     name: string;
     function: string;
+    cpf?: string;
+    idCallRote?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -43,32 +47,56 @@ export default function CollaboratorsPanel() {
     setRoles(uniqueRoles);
   }, [globalCollaborators]);
 
-  const filteredCollaborators = globalCollaborators
-    .filter(c => {
-      // Verificação completa do objeto
-      if (!c || typeof c !== 'object' || !c._id) {
-        console.error('Colaborador inválido:', c);
-        return false;
-      }
+  const filteredCollaborators = useMemo(() =>
+    globalCollaborators
+      .filter(c => !!c.id && !!c.name && !!c.function)
+      .filter(c => {
+        const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesRole = filterRole === 'all' || c.function === filterRole;
+        return matchesSearch && matchesRole;
+      }),
+    [globalCollaborators, searchTerm, filterRole]
+  );
 
-      const matchesSearch = c.name?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRole = filterRole === 'all' || c.function === filterRole;
-      return matchesSearch && matchesRole;
-    });
-  const handleSaveEdit = async (data: Collaborator) => {
-    if (editingCollaborator && data.id) {
-      await updateGlobalCollaborator(data.id.toString(), {
-        name: data.nome,
-        function: data.role
-      });
-      setEditingCollaborator(null);
-    }
-  };
+  const memoizedRoles = useMemo(() =>
+    [...new Set(globalCollaborators.map(c => c.function))],
+    [globalCollaborators]
+  );
 
-  const handleDelete = async (collaboratorId: string) => {
+
+  const handleDelete = useCallback(async (collaboratorId: string) => {
     await deleteGlobalCollaborator(collaboratorId);
-  };
+  }, [deleteGlobalCollaborator]);
 
+
+  const handleSaveEdit = useCallback(async (data: Collaborator) => {
+    if (!editingCollaborator) return;
+
+    try {
+      await updateGlobalCollaborator(
+        editingCollaborator.id,
+        {
+          id: editingCollaborator.id,
+          nome: data.nome,
+          role: data.role,
+          pontuacao: data.pontuacao || 0,
+        }
+      );
+      setEditingCollaborator(null);
+    } catch (error) {
+      console.error('Failed to update collaborator:', error);
+    }
+  }, [editingCollaborator, updateGlobalCollaborator]);
+
+  const modalInitialData = useMemo(() =>
+    editingCollaborator ? {
+      id: undefined,
+      nome: editingCollaborator.name,
+      cpf: '',
+      idCallRote: '',
+      role: editingCollaborator.function,
+    } : undefined,
+    [editingCollaborator]);
 
   return (
     <div className={styles.panel}>
@@ -89,7 +117,7 @@ export default function CollaboratorsPanel() {
           className={styles.roleSelect}
         >
           <MenuItem value="all">Todas as funções</MenuItem>
-          {roles.map(role => (
+          {memoizedRoles.map(role => (
             <MenuItem key={role} value={role}>{role}</MenuItem>
           ))}
         </Select>
@@ -109,23 +137,29 @@ export default function CollaboratorsPanel() {
           <TableBody>
             {filteredCollaborators.map((collab) => {
               // Verificação de segurança para IDs inválidos
-              if (!collab._id || !collab.name || !collab.function) {
+              if (!collab.id || !collab.name || !collab.function) {
                 console.error('Colaborador inválido:', collab);
                 return null;
               }
 
               return (
-                <TableRow key={collab._id}
+                <TableRow key={collab.id}
                   sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                 >
                   <TableCell>{collab.name}</TableCell>
                   <TableCell>{collab.function}</TableCell>
                   <TableCell>{collab.points}</TableCell>
                   <TableCell>
-                    <IconButton onClick={() => setEditingCollaborator(collab)}>
+                    <IconButton onClick={() => setEditingCollaborator({
+                      id: collab.id.toString(),
+                      name: collab.name,
+                      cpf: collab.cpf || '', // Garanta que todos os campos estão presentes
+                      idCallRote: collab.idCallRote || '',
+                      function: collab.function,
+                    })}>
                       <Edit color="primary" />
                     </IconButton>
-                    <IconButton onClick={() => handleDelete(collab._id)}>
+                    <IconButton onClick={() => handleDelete(collab.id.toString())}>
                       <Delete color="error" />
                     </IconButton>
                   </TableCell>
@@ -144,20 +178,8 @@ export default function CollaboratorsPanel() {
           open={!!editingCollaborator}
           onClose={() => setEditingCollaborator(null)}
           onSave={handleSaveEdit}
-          onSuccess={() => {
-            console.log('Collaborator successfully updated');
-          }}
-          initialData={
-            editingCollaborator
-              ? {
-                id: undefined,
-                nome: editingCollaborator.name,
-                cpf: '',
-                idCallRote: '',
-                role: editingCollaborator.function,
-              }
-              : undefined
-          }
+          onSuccess={() => console.log('Collaborator updated successfully')}
+          initialData={modalInitialData}
         />
       </div>
     </div>

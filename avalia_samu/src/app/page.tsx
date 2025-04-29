@@ -63,9 +63,9 @@ export default function HomePage() {
       {projects.length > 0 ? (
         <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
           {projects.map((project) => (
-            <ListItem key={project._id} disablePadding>
+            <ListItem key={project.id} disablePadding>
               <ListItemButton
-                onClick={() => handleProjectSelect(project._id!)}
+                onClick={() => handleProjectSelect(project.id!)}
                 sx={{
                   py: 2,
                   borderBottom: '1px solid',
@@ -82,7 +82,7 @@ export default function HomePage() {
                 <IconButton
                   size="small"
                   color="error"
-                  onClick={(e) => handleDelete(project._id!, e)}
+                  onClick={(e) => handleDelete(project.id!, e)}
                   sx={{
                     position: 'absolute',
                     right: 16,

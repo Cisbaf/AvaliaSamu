@@ -123,7 +123,7 @@ export default function CollaboratorsPage() {
                 onSuccess={() => {
                     console.log('Operation successful');
                 }}
-                initialData={selectedCollaborator}
+                initialData={selectedCollaborator ? { ...selectedCollaborator, id: selectedCollaborator.id ? parseInt(selectedCollaborator.id, 10) : undefined } : undefined}
             />
         </div>
     );

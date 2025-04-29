@@ -3,81 +3,96 @@
 import { Typography, Select, MenuItem, TextField, Input, Button } from '@mui/material';
 import { useProjects } from '../context/ProjectContext';
 import styles from './styles/ParametersPanel.module.css';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Project } from '@/types/project';
+
+// Configuração de parâmetros para cada função
+const roleParametersConfig: Record<string, string[]> = {
+  Colaborador: ['pausaGeral'],
+  Tarma: ['pausa1', 'pausa2'],
+  Frota: ['pausa3', 'pausa4'],
+  Médico: ['pausa5'],
+};
 
 export default function ParametersPanel() {
   const {
     projects,
     selectedProject,
-    actions: { updateProject }
+    actions: { updateProject },
+    globalCollaborators
   } = useProjects();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  const [project, setProject] = useState<Project>();
+  const [selectedRole, setSelectedRole] = useState('Colaborador');
+  const [formValues, setFormValues] = useState<Record<string, number>>({});
 
-  // Encontra o projeto selecionado usando o _id
-  const project = projects.find(p => p._id === selectedProject);
+  const roles = useMemo(() => [
+    'Colaborador',
+    ...Array.from(new Set(globalCollaborators.map(c => c.function)))
+  ], [globalCollaborators]);
 
-  // Tipo importado do contexto
-  type Parameters = typeof parameters;
-  const parameters = project?.parameters || {
-    pausa1: 0,
-    pausa2: 0,
-    pausa3: 0,
-    pausa4: 0
-  };
 
-  const handleChangeParameter = (name: keyof Parameters, value: string) => {
-    if (!selectedProject || !project) return;
 
+  useEffect(() => {
+    const project = selectedProject
+      ? projects.find(p => p.id === selectedProject)
+      : undefined;
+    setProject(project);
+    console.log("Chamada")
+  }, [])
+
+  // Inicializa valores do formulário quando o projeto ou função muda
+  useEffect(() => {
+    if (project && selectedRole) {
+      const roleParams = typeof project.parameters?.[selectedRole] === 'object' && !Array.isArray(project.parameters?.[selectedRole])
+        ? (project.parameters?.[selectedRole] as Record<string, number>)
+        : {};
+      const initialValues: Record<string, number> = {};
+      roleParametersConfig[selectedRole]?.forEach(param => {
+        initialValues[param] = roleParams[param] || 0;
+      });
+      setFormValues(initialValues);
+    }
+  }, [project, selectedRole]);
+
+  const handleInputChange = (param: string, value: string) => {
     const newValue = Number(value);
     if (isNaN(newValue)) return;
+    setFormValues(prev => ({ ...prev, [param]: newValue }));
+  };
 
-    // Atualiza usando a nova ação do contexto
-    updateProject(selectedProject, {
-      ...project,
-      parameters: {
-        ...parameters,
-        [name]: newValue
-      }
-    });
+  const handleSubmit = () => {
+    if (!project || !selectedProject || !selectedRole) return;
+
+    const newParameters = {
+      ...project.parameters,
+      ...Object.fromEntries(
+        Object.entries(formValues).map(([key, value]) => [`${selectedRole}.${key}`, value])
+      )
+    };
+
+    updateProject(selectedProject, { parameters: newParameters });
   };
 
   const handleFileUpload = async () => {
-    if (!selectedFile) {
-      alert('Selecione um arquivo primeiro!');
+    if (!selectedFile || !selectedProject) {
+      alert('Selecione um arquivo e um projeto primeiro!');
       return;
     }
-
-    const formData = new FormData();
-    formData.append('arquivo', selectedFile);
-
-    setLoading(true);
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/processar`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Erro no upload');
-      }
-
-      alert('Arquivo processado com sucesso!');
-      setSelectedFile(null);
-    } catch (error) {
-      alert(error instanceof Error ? error.message : 'Erro ao enviar arquivo');
-    } finally {
-      setLoading(false);
+    if (!project) {
+      return (
+        <div className={styles.panel}>
+          <Typography variant="h6">Selecione um projeto para configurar os parâmetros</Typography>
+        </div>
+      );
     }
-  };
+  }
 
   return (
     <div className={styles.panel}>
-      <Typography variant="h4" className={styles.title}>
-        Parâmetros
-      </Typography>
+      <Typography variant="h4" className={styles.title}>Parâmetros</Typography>
 
       <div className={styles.uploadSection}>
         <Input
@@ -96,9 +111,7 @@ export default function ParametersPanel() {
 
         {selectedFile && (
           <>
-            <Typography variant="caption" sx={{ ml: 2 }}>
-              {selectedFile.name}
-            </Typography>
+            <Typography variant="caption" sx={{ ml: 2 }}>{selectedFile.name}</Typography>
             <Button
               variant="contained"
               color="success"
@@ -111,29 +124,46 @@ export default function ParametersPanel() {
           </>
         )}
       </div>
+      <div className={styles.inputContainer}>
+        <Typography variant="subtitle1">Função:</Typography>
+        <Select
+          value={selectedRole}
+          onChange={(e) => setSelectedRole(e.target.value)}
+          fullWidth
+          size="small"
+        >
+          {roles.map((role) => (
+            <MenuItem key={role} value={role}>
+              {role}
+            </MenuItem>
+          ))}
+        </Select>
+      </div>
 
-      <Typography variant="subtitle1" className={styles.subtitle}>
-        Configurações de Pausa
-      </Typography>
+      {roleParametersConfig[selectedRole]?.map((param) => (
+        <div key={param} className={styles.inputContainer}>
+          <TextField
+            size="small"
+            variant="filled"
+            label={`Parâmetro ${param.toUpperCase()}`}
+            color="warning"
+            fullWidth
+            value={formValues[param] ?? ''}
+            onChange={(e) => handleInputChange(param, e.target.value)}
+            className={styles.inputField}
+            type="number"
+          />
+        </div>
+      ))}
 
-      {([1, 2, 3, 4] as const).map((num) => {
-        const paramName = `pausa${num}` as keyof Parameters;
-        return (
-          <div key={paramName} className={styles.inputContainer}>
-            <TextField
-              size="small"
-              variant="filled"
-              label={`Tempo de Pausa ${num}`}
-              color="warning"
-              fullWidth
-              value={parameters[paramName]}
-              onChange={(e) => handleChangeParameter(paramName, e.target.value)}
-              className={styles.inputField}
-              type="number"
-            />
-          </div>
-        );
-      })}
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={handleSubmit}
+        sx={{ mt: 3 }}
+      >
+        Salvar Parâmetros
+      </Button>
     </div>
-  );
+  )
 }
