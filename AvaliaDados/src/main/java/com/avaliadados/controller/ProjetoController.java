@@ -1,10 +1,13 @@
 package com.avaliadados.controller;
 
+import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.service.ProjetosService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/projetos")
@@ -25,10 +28,18 @@ public class ProjetoController {
         return projetoService.getAllProjetos();
     }
 
+    @PutMapping("/{id}")
+    public ProjetoEntity atualizarProjeto(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> updates
+    ) {
+        return projetoService.updateProjeto(id, updates);
+    }
+
     @GetMapping("/{projectId}/collaborators")
-    public List<?> listarColaboradores(@PathVariable String projectId) {
+    public ResponseEntity<List<ProjectCollaborator>> listarColaboradores(@PathVariable String projectId) {
         return projetoService.getProjeto(projectId)
-                .map(ProjetoEntity::getCollaborators)
+                .map(proj -> ResponseEntity.ok(proj.getCollaborators()))
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
     }
 

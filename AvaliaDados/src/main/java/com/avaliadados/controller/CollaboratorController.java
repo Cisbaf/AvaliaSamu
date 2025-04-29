@@ -12,7 +12,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/collaborator")
+@RequestMapping("/api/collaborator")
 public class CollaboratorController {
     private final CollaboratorsService service;
 

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -47,6 +48,17 @@ public class ProjetosService {
                 });
         projeto.setUpdatedAt(Instant.now());
         return projetoRepo.save(projeto);
+    }
+
+    public ProjetoEntity updateProjeto(String id, Map<String, Object> updates) {
+        var p = projetoRepo.findById(id)
+                .orElseThrow();
+        if (updates.containsKey("parameters")) {
+            Map<String, Double> params = (Map<String, Double>) updates.get("parameters");
+            p.setParameters(params);
+        }
+        p.setUpdatedAt(Instant.now());
+        return projetoRepo.save(p);
     }
 
     public ProjetoEntity removeCollaborator(String projectId, Long collaboratorId) {
