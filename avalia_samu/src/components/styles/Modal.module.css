@@ -1,17 +1,103 @@
 /* styles/Modal.module.css */
 .modalContent {
-    padding-top: 16px;
-    min-width: 400px;
+  padding: 24px;
+  min-width: 500px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.errorMessage {
+  background-color: #fee;
+  color: #c00;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+  border: 1px solid #fcc;
+  font-size: 0.9rem;
+}
+
+.roleSelect {
+  grid-column: span 2;
+  margin-top: 0.5rem;
+}
+
+.roleSelect .MuiSelect-select {
+  padding: 12px 14px;
+}
+
+.modalActions {
+  padding: 1.5rem 24px;
+  border-top: 1px solid #eee;
+  gap: 1rem;
+}
+
+.modalActions button {
+  text-transform: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+@media (max-width: 600px) {
+  .modalContent {
+    min-width: unset;
+    width: 100%;
+    padding: 16px;
   }
-  
-  .modalInput {
-    margin-bottom: 16px !important;
+
+  .formGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
-  
-  @media (max-width: 480px) {
-    .modalContent {
-      min-width: unset;
-      width: 90vw;
-      padding: 16px;
-    }
+
+  .roleSelect {
+    grid-column: span 1;
   }
+}
+
+/* Customizações para os TextFields */
+.MuiFormLabel-root {
+  transform: translate(14px, 12px) scale(1);
+}
+
+.MuiFormLabel-root.Mui-focused {
+  transform: translate(14px, -9px) scale(0.75);
+}
+
+.MuiOutlinedInput-input {
+  padding: 12px 14px;
+}
+
+.MuiOutlinedInput-root {
+  border-radius: 8px;
+}
+
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-width: 1px;
+}
+
+/* Animação de loading no botão */
+@keyframes button-loading-spinner {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.button-loading {
+  position: relative;
+}
+
+.button-loading .MuiCircularProgress-root {
+  position: absolute;
+  left: 50%;
+  margin-left: -12px;
+}

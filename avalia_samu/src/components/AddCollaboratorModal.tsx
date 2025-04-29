@@ -131,7 +131,7 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
                             className={styles.roleSelect}
                         >
                             <MenuItem value="" disabled>Selecione a função</MenuItem>
-                            <MenuItem value="TARM">TARM</MenuItem>
+                            <MenuItem value="TARM">Tarm</MenuItem>
                             <MenuItem value="FROTA">Frota</MenuItem>
                             <MenuItem value="MEDICO">Médico</MenuItem>
                             <MenuItem value="MEDICO_SUPERVISOR">Médico Supervisor</MenuItem>
@@ -148,6 +148,7 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
 
                     <Button
                         onClick={handleSubmit}
+                        className={loading ? styles.loadingButton : ''}
                         variant="contained"
                         color="primary"
                         disabled={loading || !formData.nome || !formData.cpf || !formData.role}

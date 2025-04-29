@@ -150,8 +150,8 @@ export default function CollaboratorsPanel() {
               ? {
                 id: undefined,
                 nome: editingCollaborator.name,
-                cpf: '', // Provide a default or fetch the actual value
-                idCallRote: '', // Provide a default or fetch the actual value
+                cpf: '',
+                idCallRote: '',
                 role: editingCollaborator.function,
               }
               : undefined
