@@ -1,5 +1,6 @@
 package com.avaliadados.model;
 
+import com.avaliadados.model.DTO.ProjectCollaborator;
 import jakarta.persistence.Id;
 import lombok.*;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -19,10 +20,8 @@ public class ProjetoEntity {
     private String name;
     private String month;
 
-    private List<CollaboratorEntity> collaborators;
+    private List<ProjectCollaborator> collaborators;
 
     private Instant createdAt;
     private Instant updatedAt;
-
-
 }

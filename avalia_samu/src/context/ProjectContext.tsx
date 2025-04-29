@@ -1,35 +1,33 @@
 // context/ProjectContext.tsx
 'use client';
 import { createContext, useContext, useState, useEffect } from 'react';
-import { dataService } from './dataService';
+import axios from 'axios';
 import { Project, GlobalCollaborator, ProjectCollaborator } from '../types/project';
 
+axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL;
+
 interface ProjectContextActions {
-  createProject: (project: Omit<Project, '_id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
-  updateProject: (projectId: string, updates: Partial<Project>) => Promise<void>;
+  fetchProjects: () => Promise<void>;
+  createProject: (data: Omit<Project, 'collaborators' | '_id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateProject: (projectId: string, updates: Partial<Omit<Project, 'collaborators'>>) => Promise<void>;
   deleteProject: (projectId: string) => Promise<void>;
   selectProject: (projectId: string | null) => void;
 
-  createGlobalCollaborator: (collaborator: Omit<GlobalCollaborator, '_id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  fetchGlobalCollaborators: () => Promise<void>;
+  createGlobalCollaborator: (collab: Omit<GlobalCollaborator, '_id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateGlobalCollaborator: (collaboratorId: string, updates: Partial<GlobalCollaborator>) => Promise<void>;
-
-  addCollaboratorToProject: (
-    projectId: string,
-    collaborator: Omit<ProjectCollaborator, '_id' | 'createdAt' | 'updatedAt'> | { globalCollaboratorId: string }
-  ) => Promise<void>;
-
   deleteGlobalCollaborator: (collaboratorId: string) => Promise<void>;
+
+  fetchProjectCollaborators: (projectId: string) => Promise<void>;
+  addCollaboratorToProject: (projectId: string, data: { collaboratorId: string; role: string; }) => Promise<void>;
+  updateProjectCollaborator: (projectId: string, collaboratorId: string, updates: Partial<ProjectCollaborator>) => Promise<void>;
   deleteCollaboratorFromProject: (projectId: string, collaboratorId: string) => Promise<void>;
-  updateProjectCollaborator: (
-    projectId: string,
-    collaboratorId: string,
-    updates: Partial<ProjectCollaborator>
-  ) => Promise<void>;
 }
 
 interface ProjectContextType {
   projects: Project[];
   globalCollaborators: GlobalCollaborator[];
+  projectCollaborators: Record<string, ProjectCollaborator[]>;
   selectedProject: string | null;
   actions: ProjectContextActions;
 }
@@ -39,213 +37,118 @@ const ProjectContext = createContext<ProjectContextType>({} as ProjectContextTyp
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [globalCollaborators, setGlobalCollaborators] = useState<GlobalCollaborator[]>([]);
+  const [projectCollaborators, setProjectCollaborators] = useState<Record<string, ProjectCollaborator[]>>({});
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
 
-  const loadData = async () => {
-    try {
-      const [loadedProjects, loadedCollaborators] = await Promise.all([
-        dataService.projects.getAll(),
-        dataService.collaborators.getGlobal()
-      ]);
-
-      // Filtrar dados corrompidos
-      const validCollaborators = loadedCollaborators.filter(c =>
-        c && c._id && c.name && c.function
-      );
-
-      setProjects(loadedProjects.filter(p => p && p._id));
-      setGlobalCollaborators(validCollaborators);
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    }
+  // --- Projects ---
+  const fetchProjects = async () => {
+    const res = await axios.get<Project[]>('/api/projetos');
+    setProjects(res.data);
   };
 
+  const createProject = async ({ name, month }: Omit<Project, 'collaborators' | '_id' | 'createdAt' | 'updatedAt'>) => {
+    await axios.post('/api/projetos', { name, month });
+    await fetchProjects();
+  };
+
+  const updateProject = async (projectId: string, updates: Partial<Omit<Project, 'collaborators'>>) => {
+    await axios.put(`/api/projetos/${projectId}`, updates);
+    await fetchProjects();
+  };
+
+  const deleteProject = async (projectId: string) => {
+    await axios.delete(`/api/projetos/${projectId}`);
+    setSelectedProject(prev => prev === projectId ? null : prev);
+    await fetchProjects();
+  };
+
+  // --- Global Collaborators ---
+  const fetchGlobalCollaborators = async () => {
+    const res = await axios.get<GlobalCollaborator[]>('/api/collaborators');
+    setGlobalCollaborators(res.data);
+  };
+
+  const createGlobalCollaborator = async (collab: Omit<GlobalCollaborator, '_id' | 'createdAt' | 'updatedAt'>) => {
+    await axios.post('/api/collaborators', collab);
+    await fetchGlobalCollaborators();
+  };
+
+  const updateGlobalCollaborator = async (id: string, updates: Partial<GlobalCollaborator>) => {
+    await axios.put(`/api/collaborators/${id}`, updates);
+    await fetchGlobalCollaborators();
+  };
+
+  const deleteGlobalCollaborator = async (id: string) => {
+    await axios.delete(`/api/collaborators/${id}`);
+    await fetchGlobalCollaborators();
+    // refresh project-specific too
+    if (selectedProject) await fetchProjectCollaborators(selectedProject);
+  };
+
+  // --- Project Collaborators ---
+  const fetchProjectCollaborators = async (projectId: string) => {
+    const res = await axios.get<ProjectCollaborator[]>(`/api/projetos/${projectId}/collaborators`);
+    setProjectCollaborators(prev => ({ ...prev, [projectId]: res.data }));
+  };
+
+  const addCollaboratorToProject = async (projectId: string, data: { collaboratorId: string; role: string }) => {
+    await axios.post(`/api/projetos/${projectId}/collaborators`, null, { params: data });
+    await fetchProjectCollaborators(projectId);
+  };
+
+  const updateProjectCollaborator = async (projectId: string, collaboratorId: string, updates: Partial<ProjectCollaborator>) => {
+    await axios.put(
+      `/api/projetos/${projectId}/collaborators/${collaboratorId}`,
+      null,
+      { params: updates }
+    );
+    await fetchProjectCollaborators(projectId);
+  };
+
+  const deleteCollaboratorFromProject = async (projectId: string, collaboratorId: string) => {
+    await axios.delete(`/api/projetos/${projectId}/collaborators/${collaboratorId}`);
+    await fetchProjectCollaborators(projectId);
+  };
+
+  // on mount
   useEffect(() => {
-    loadData();
+    fetchProjects();
+    fetchGlobalCollaborators();
   }, []);
+
+  // when selectProject changes, fetch its collaborators
+  useEffect(() => {
+    if (selectedProject) fetchProjectCollaborators(selectedProject);
+  }, [selectedProject]);
 
   const value: ProjectContextType = {
     projects,
     globalCollaborators,
+    projectCollaborators,
     selectedProject,
     actions: {
-      createProject: async (newProject) => {
-        const project: Project = {
-          ...newProject,
-          _id: Date.now().toString(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          collaborators: []
-        };
-
-        await dataService.projects.save(project);
-        await loadData();
-      },
-
-      updateProject: async (projectId, updates) => {
-        const project = projects.find(p => p._id === projectId);
-        if (!project) return;
-
-        const updatedProject = {
-          ...project,
-          ...updates,
-          updatedAt: new Date()
-        };
-
-        await dataService.projects.save(updatedProject);
-        await loadData();
-      },
-
-      deleteProject: async (projectId) => {
-        await dataService.projects.delete(projectId);
-        await loadData();
-        if (selectedProject === projectId) setSelectedProject(null);
-      },
-
+      fetchProjects,
+      createProject,
+      updateProject,
+      deleteProject,
       selectProject: setSelectedProject,
 
-      createGlobalCollaborator: async (collaborator) => {
-        try {
-          const newCollaborator: GlobalCollaborator = {
-            ...collaborator,
-            _id: crypto.randomUUID(),
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            isGlobal: true
-          };
+      fetchGlobalCollaborators,
+      createGlobalCollaborator,
+      updateGlobalCollaborator,
+      deleteGlobalCollaborator,
 
-          if (!newCollaborator._id || !newCollaborator.name) {
-            throw new Error('Dados inválidos para novo colaborador');
-          }
-
-          // Correção: Salvar toda a lista de uma vez
-          const updatedCollaborators = [...globalCollaborators, newCollaborator];
-          await dataService.collaborators.saveGlobal(updatedCollaborators);
-
-          // Atualizar estado local imediatamente
-          setGlobalCollaborators(updatedCollaborators);
-
-        } catch (error) {
-          console.error('Erro ao criar colaborador:', error);
-          throw error;
-        }
-      },
-      updateGlobalCollaborator: async (collaboratorId, updates) => {
-        const updatedCollaborators = globalCollaborators.map(c =>
-          c._id === collaboratorId
-            ? { ...c, ...updates, updatedAt: new Date() }
-            : c
-        );
-
-        await dataService.collaborators.saveGlobal(updatedCollaborators);
-
-        setGlobalCollaborators(updatedCollaborators);
-
-      },
-
-      deleteGlobalCollaborator: async (collaboratorId: string) => {
-        try {
-          const updatedCollaborators = globalCollaborators.filter(c => c._id !== collaboratorId);
-          await dataService.collaborators.saveGlobal(updatedCollaborators);
-          setGlobalCollaborators(updatedCollaborators);
-
-          const updatedProjects = projects.map(project => ({
-            ...project,
-            collaborators: project.collaborators.filter(c => c.originalCollaboratorId !== collaboratorId),
-            updatedAt: new Date()
-          }));
-
-          await dataService.projects.saveAll(updatedProjects);
-          setProjects(updatedProjects);
-
-        } catch (error) {
-          console.error('Erro ao excluir colaborador global:', error);
-          throw error;
-        }
-      },
-
-
-      addCollaboratorToProject: async (projectId, collaborator) => {
-        try {
-          const project = projects.find(p => p._id === projectId);
-          if (!project) throw new Error('Projeto não encontrado');
-
-          let newCollaborator: ProjectCollaborator;
-
-          if ('globalCollaboratorId' in collaborator) {
-            const globalCollaborator = globalCollaborators.find(c => c._id === collaborator.globalCollaboratorId);
-            if (!globalCollaborator) throw new Error('Colaborador global não encontrado');
-
-            newCollaborator = {
-              ...globalCollaborator,
-              originalCollaboratorId: globalCollaborator._id,
-              isGlobal: false,
-              _id: crypto.randomUUID(), // Usar UUID aqui
-              createdAt: new Date(),
-              updatedAt: new Date()
-            };
-          } else {
-            newCollaborator = {
-              ...collaborator,
-              isGlobal: false,
-              _id: crypto.randomUUID(), // Usar UUID aqui
-              createdAt: new Date(),
-              updatedAt: new Date()
-            };
-          }
-
-          const updatedProject = {
-            ...project,
-            collaborators: [...project.collaborators, newCollaborator],
-            updatedAt: new Date()
-          };
-
-          // Atualização otimizada
-          const newProjects = projects.map(p => p._id === projectId ? updatedProject : p);
-          await dataService.projects.save(updatedProject);
-          setProjects(newProjects);
-
-        } catch (error) {
-          console.error('Erro ao adicionar colaborador:', error);
-          throw error;
-        }
-      },
-      updateProjectCollaborator: async (projectId, collaboratorId, updates) => {
-        const project = projects.find(p => p._id === projectId);
-        if (!project) return;
-
-        const updatedProject = {
-          ...project,
-          collaborators: project.collaborators.map(c =>
-            c._id === collaboratorId ? { ...c, ...updates, updatedAt: new Date() } : c
-          ),
-          updatedAt: new Date()
-        };
-
-        await dataService.projects.save(updatedProject);
-        await loadData();
-      },
-
-      deleteCollaboratorFromProject: async (projectId, collaboratorId) => {
-        const project = projects.find(p => p._id === projectId);
-        if (!project) return;
-
-        const updatedProject = {
-          ...project,
-          collaborators: project.collaborators.filter(c => c._id !== collaboratorId),
-          updatedAt: new Date()
-        };
-
-        await dataService.projects.save(updatedProject);
-        await loadData();
-      }
+      fetchProjectCollaborators,
+      addCollaboratorToProject,
+      updateProjectCollaborator,
+      deleteCollaboratorFromProject,
     }
   };
 
   return (
-    <ProjectContext.Provider value={value} >
+    <ProjectContext.Provider value={value}>
       {children}
-    </ProjectContext.Provider >
+    </ProjectContext.Provider>
   );
 }
 

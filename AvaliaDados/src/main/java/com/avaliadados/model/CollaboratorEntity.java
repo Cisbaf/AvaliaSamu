@@ -14,7 +14,7 @@ import lombok.*;
 public class CollaboratorEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
-    private long id;
+    private Long id;
     private String nome;
     private String cpf;
     private String idCallRote;
