@@ -60,5 +60,27 @@ public class CollaboratorsMapper {
         };
     }
 
+    protected CollaboratorEntity createNewEntityByRole(CollaboratorRequest request) {
+        return switch (request.role().toUpperCase()) {
+            case "TARM" -> new TarmEntity(
+                    request.nome(),
+                    request.cpf(),
+                    request.idCallRote(),
+                    request.pontuacao(),
+                    request.role(),
+                    request.tempoRegulaco()
+            );
+            case "FROTA" -> new FrotaEntity(
+                    request.nome(),
+                    request.cpf(),
+                    request.idCallRote(),
+                    request.pontuacao(),
+                    request.role(),
+                    request.regulacaoMedica()
+            );
+            default -> throw new IllegalArgumentException("Role inválido: " + request.role());
+        };
+    }
+
 
 }

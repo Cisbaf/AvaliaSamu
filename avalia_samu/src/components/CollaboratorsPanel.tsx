@@ -101,6 +101,7 @@ export default function CollaboratorsPanel() {
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>Nome</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Função</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Pontuação</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Ações</TableCell>
             </TableRow>
           </TableHead>
@@ -119,6 +120,7 @@ export default function CollaboratorsPanel() {
                 >
                   <TableCell>{collab.name}</TableCell>
                   <TableCell>{collab.function}</TableCell>
+                  <TableCell>{collab.points}</TableCell>
                   <TableCell>
                     <IconButton onClick={() => setEditingCollaborator(collab)}>
                       <Edit color="primary" />

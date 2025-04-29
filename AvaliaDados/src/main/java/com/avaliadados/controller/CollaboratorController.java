@@ -26,7 +26,7 @@ public class CollaboratorController {
     }
     @PutMapping("/{id}")
     public ResponseEntity<Object> updateCollaborator(@RequestBody CollaboratorRequest request, @PathVariable Long id) {
-        return ResponseEntity.ok(service.updateColaborador(request, id));
+        return ResponseEntity.ok(service.updateCollaborator(request, id));
     }
 
     @GetMapping("/id/{id}")
