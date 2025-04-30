@@ -21,16 +21,16 @@ export default function HomePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const {
     projects,
-    actions: { deleteProject, selectProject }
+    setSelectedProject,
+    actions: { deleteProject, }
   } = useProjects();
 
-  // Correção para hidratação do Next.js
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 
   const handleProjectSelect = (projectId: string) => {
-    selectProject(projectId);
+    setSelectedProject(projectId);
     router.push(`/dashboard/${projectId}`);
   };
 

@@ -153,7 +153,7 @@ export default function CollaboratorsPanel() {
                     <IconButton onClick={() => setEditingCollaborator({
                       id: collab.id.toString(),
                       name: collab.name,
-                      cpf: collab.cpf || '', // Garanta que todos os campos estão presentes
+                      cpf: collab.cpf || '',
                       idCallRote: collab.idCallRote || '',
                       function: collab.function,
                     })}>

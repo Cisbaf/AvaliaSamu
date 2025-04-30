@@ -6,7 +6,6 @@ import styles from './styles/ParametersPanel.module.css';
 import { useEffect, useMemo, useState } from 'react';
 import { Project } from '@/types/project';
 
-// Configuração de parâmetros para cada função
 const roleParametersConfig: Record<string, string[]> = {
   Colaborador: ['pausaGeral'],
   Tarma: ['pausa1', 'pausa2'],
@@ -43,7 +42,6 @@ export default function ParametersPanel() {
     console.log("Chamada")
   }, [])
 
-  // Inicializa valores do formulário quando o projeto ou função muda
   useEffect(() => {
     if (project && selectedRole) {
       const roleParams = typeof project.parameters?.[selectedRole] === 'object' && !Array.isArray(project.parameters?.[selectedRole])

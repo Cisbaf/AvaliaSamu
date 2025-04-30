@@ -27,7 +27,6 @@ export default function ProjectModal({
 
   const handleSubmit = () => {
     if (projectName && month) {
-      // Verificar se o mês já existe
       const exists = projects.some(p => p.name.toLowerCase() === projectName.toLowerCase());
       if (exists) {
         alert('Já existe um projeto com esse nome!');
@@ -37,8 +36,6 @@ export default function ProjectModal({
       createProject({
         name: projectName,
         month: month,
-        parameters: { pausa1: 0, pausa2: 0, pausa3: 0, pausa4: 0 },
-        collaborators: []
       });
       onClose();
       setProjectName('');

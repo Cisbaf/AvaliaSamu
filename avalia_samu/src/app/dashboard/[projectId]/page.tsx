@@ -8,15 +8,14 @@ import ParametersPanel from '@/components/ParameterPanel';
 import { useParams } from 'next/navigation';
 
 export default function DashboardPage() {
-  const { projectId } = useParams();           // vem da rota
-  const { projects, actions } = useProjects();
-
-  // informa ao context qual projeto deve carregar
+  const { projectId } = useParams();
+  const { projects, setSelectedProject } = useProjects();
   useEffect(() => {
-    if (typeof projectId === 'string') actions.selectProject(projectId);
-  }, [projectId, actions]);
+    if (typeof projectId === 'string') {
+      setSelectedProject(projectId);
+    }
+  }, [projectId, setSelectedProject]);
 
-  // agora projet.id é a string correta
   const project = projects.find(p => p.id === projectId);
 
   if (!project) {
