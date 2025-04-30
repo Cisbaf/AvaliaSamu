@@ -92,7 +92,7 @@ export default function CollaboratorsPage() {
                                     <TableCell>
                                         {collaborator.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}
                                     </TableCell>
-                                    <TableCell>{collaborator.funcao}</TableCell>
+                                    <TableCell>{collaborator.role}</TableCell>
                                     <TableCell>{collaborator.pontuacao}</TableCell>
                                     <TableCell>
                                         <Button

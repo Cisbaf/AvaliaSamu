@@ -11,7 +11,7 @@ export interface Collaborator {
   id: string;
   nome: string;
   cpf: string;
-  funcao: string;
+  role: string;
   pontuacao: number;
   idCallRote: string;
   tempoRegulaco?: string;

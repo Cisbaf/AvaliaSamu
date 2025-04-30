@@ -71,7 +71,7 @@ export default function CollaboratorsPanel() {
     try {
       await updateGlobalCollaborator(editingCollaborator.id, {
         nome: data.nome,
-        funcao: data.funcao,
+        role: data.role,
         pontuacao: data.pontuacao,
         cpf: data.cpf,
         idCallRote: data.idCallRote,
@@ -88,7 +88,7 @@ export default function CollaboratorsPanel() {
       nome: editingCollaborator.name,
       cpf: editingCollaborator.cpf || '',
       idCallRote: editingCollaborator.idCallRote || '',
-      funcao: editingCollaborator.funcao,
+      role: editingCollaborator.funcao,
     } : undefined,
     [editingCollaborator]);
 

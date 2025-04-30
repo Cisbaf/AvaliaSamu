@@ -18,18 +18,17 @@ import styles from "./styles/Modal.module.css";
 import api from '@/lib/api';
 import { Collaborator } from "@/types/project"
 
-
 interface CollaboratorModalProps {
     open: boolean;
-    onSave: (data: Collaborator) => Promise<void>; onClose: () => void;
+    onSave: (data: Collaborator) => Promise<void>;
+    onClose: () => void;
     onSuccess: () => void;
     initialData?: {
         id?: string;
         nome: string;
         cpf: string;
         idCallRote: string;
-        funcao: string;
-
+        role: string;
     };
 }
 
@@ -39,8 +38,8 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
         cpf: '',
         idCallRote: '',
         role: '',
-
     });
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -50,8 +49,7 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
                 nome: initialData.nome,
                 cpf: initialData.cpf,
                 idCallRote: initialData.idCallRote,
-                role: initialData.funcao,
-
+                role: initialData.role,
             });
         }
     }, [initialData]);
@@ -63,7 +61,7 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
         try {
             const payload = {
                 ...formData,
-                cpf: formData.cpf.replace(/\D/g, ''), // Remove non-numeric characters
+                cpf: formData.cpf.replace(/\D/g, ''),
             };
 
             const response = initialData?.id
@@ -84,13 +82,21 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-                <DialogTitle>
+            <Dialog
+                open={open}
+                onClose={onClose}
+                maxWidth="md"
+                fullWidth
+                role="dialog"
+                aria-labelledby="dialog-title"
+                aria-modal="true"
+            >
+                <DialogTitle id="dialog-title">
                     {initialData ? 'Editar Colaborador' : 'Novo Colaborador'}
                 </DialogTitle>
 
                 <DialogContent className={styles.modalContent}>
-                    {error && <div className={styles.errorMessage}>{error}</div>}
+                    {error && <div className={styles.errorMessage} role="alert">{error}</div>}
 
                     <div className={styles.formGrid}>
                         <TextField
@@ -100,6 +106,7 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
                             fullWidth
                             margin="normal"
                             required
+                            inputProps={{ 'aria-required': 'true' }}
                         />
 
                         <TextField
@@ -108,7 +115,10 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
                             onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
                             fullWidth
                             margin="normal"
-                            inputProps={{ pattern: '[0-9]{11}' }}
+                            inputProps={{
+                                pattern: '[0-9]{11}',
+                                'aria-label': 'CPF do colaborador'
+                            }}
                             required
                         />
 
@@ -118,9 +128,8 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
                             onChange={(e) => setFormData({ ...formData, idCallRote: e.target.value })}
                             fullWidth
                             margin="normal"
+                            inputProps={{ 'aria-label': 'ID Call Rote' }}
                         />
-
-
 
                         <Select
                             value={formData.role}
@@ -129,6 +138,10 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
                             displayEmpty
                             required
                             className={styles.roleSelect}
+                            inputProps={{
+                                'aria-label': 'Selecione a função',
+                                'aria-required': 'true'
+                            }}
                         >
                             <MenuItem value="" disabled>Selecione a função</MenuItem>
                             <MenuItem value="TARM">Tarm</MenuItem>
@@ -136,13 +149,15 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
                             <MenuItem value="MEDICO">Médico</MenuItem>
                             <MenuItem value="MEDICO_SUPERVISOR">Médico Supervisor</MenuItem>
                         </Select>
-
-
                     </div>
                 </DialogContent>
 
                 <DialogActions className={styles.modalActions}>
-                    <Button onClick={onClose} disabled={loading}>
+                    <Button
+                        onClick={onClose}
+                        disabled={loading}
+                        aria-label="Cancelar"
+                    >
                         Cancelar
                     </Button>
 
@@ -152,9 +167,10 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
                         variant="contained"
                         color="primary"
                         disabled={loading || !formData.nome || !formData.cpf || !formData.role}
+                        aria-label={initialData ? 'Salvar alterações' : 'Cadastrar'}
                     >
                         {loading ? (
-                            <CircularProgress size={24} color="inherit" />
+                            <CircularProgress size={24} color="inherit" aria-label="Processando" />
                         ) : initialData ? (
                             'Salvar Alterações'
                         ) : (
