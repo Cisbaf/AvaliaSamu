@@ -26,12 +26,12 @@ public class CollaboratorController {
         };
     }
     @PutMapping("/{id}")
-    public ResponseEntity<Object> updateCollaborator(@RequestBody CollaboratorRequest request, @PathVariable Long id) {
+    public ResponseEntity<Object> updateCollaborator(@RequestBody CollaboratorRequest request, @PathVariable String id) {
         return ResponseEntity.ok(service.updateCollaborator(request, id));
     }
 
     @GetMapping("/id/{id}")
-    public CollaboratorsResponse findById(@PathVariable Long id) {
+    public CollaboratorsResponse findById(@PathVariable String id) {
         return ResponseEntity.ok(service.findByid(id)).getBody();
     }
 
@@ -45,7 +45,7 @@ public class CollaboratorController {
         return ResponseEntity.ok(service.findByName(nome));
     }
     @DeleteMapping("{id}")
-    public ResponseEntity<Void> deleteById(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteById(@PathVariable String id) {
         service.deleteById(id);
         return ResponseEntity.noContent().build();
     }

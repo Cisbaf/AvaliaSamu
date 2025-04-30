@@ -3,6 +3,7 @@ package com.avaliadados.controller;
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.service.ProjetosService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,21 +12,18 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/projetos")
+@RequiredArgsConstructor
 public class ProjetoController {
 
     private final ProjetosService projetoService;
 
-    public ProjetoController(ProjetosService projetoService) {
-        this.projetoService = projetoService;
-    }
-
     @PostMapping
     public ProjetoEntity criarProjeto(@RequestBody ProjetoEntity projeto) {
-        return projetoService.createProjeto(projeto);
+        return projetoService.createProjetoWithCollaborators(projeto);
     }
     @GetMapping
     public List<ProjetoEntity> listarTodos() {
-        return projetoService.getAllProjetos();
+        return projetoService.getAllProjeto();
     }
 
     @PutMapping("/{id}")
@@ -46,7 +44,7 @@ public class ProjetoController {
     @PostMapping("/{projectId}/collaborators")
     public ProjetoEntity addColaborador(
             @PathVariable String projectId,
-            @RequestParam Long collaboratorId,
+            @RequestParam String collaboratorId,
             @RequestParam String role
     ) {
         return projetoService.addCollaborator(projectId, collaboratorId, role);
@@ -55,7 +53,7 @@ public class ProjetoController {
     @PutMapping("/{projectId}/collaborators/{collaboratorId}")
     public ProjetoEntity updateColaborador(
             @PathVariable String projectId,
-            @PathVariable Long collaboratorId,
+            @PathVariable String collaboratorId,
             @RequestParam String role
     ) {
         return projetoService.updateCollaboratorRole(projectId, collaboratorId, role);
@@ -64,7 +62,7 @@ public class ProjetoController {
     @DeleteMapping("/{projectId}/collaborators/{collaboratorId}")
     public ProjetoEntity removeColaborador(
             @PathVariable String projectId,
-            @PathVariable Long collaboratorId
+            @PathVariable String collaboratorId
     ) {
         return projetoService.removeCollaborator(projectId, collaboratorId);
     }

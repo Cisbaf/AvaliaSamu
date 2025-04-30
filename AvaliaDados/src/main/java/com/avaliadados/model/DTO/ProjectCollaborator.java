@@ -10,8 +10,9 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ProjectCollaborator extends CollaboratorEntity {
-    private Long collaboratorId;
+public class ProjectCollaborator {
+    private String collaboratorId;
+    private String role;
     private Integer points;
     private Instant addedAt;
     private Instant updatedAt;

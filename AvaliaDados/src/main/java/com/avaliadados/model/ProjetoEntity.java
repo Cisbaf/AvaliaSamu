@@ -25,7 +25,6 @@ public class ProjetoEntity {
     private List<ProjectCollaborator> collaborators;
     private Map<String, Double> parameters = new HashMap<>();
 
-
     private Instant createdAt;
     private Instant updatedAt;
 }

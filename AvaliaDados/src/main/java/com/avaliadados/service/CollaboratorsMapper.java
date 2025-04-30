@@ -51,7 +51,7 @@ public class CollaboratorsMapper {
         );
     }
 
-    public CollaboratorEntity buscarPorId(Long id) {
+    public CollaboratorEntity buscarPorId(String id) {
         var collaborator = collaboratorRepository.findById(id);
         return switch (collaborator.get().getRole().toUpperCase()) {
             case "FROTA" -> frotaRepository.findById(id).orElseThrow();

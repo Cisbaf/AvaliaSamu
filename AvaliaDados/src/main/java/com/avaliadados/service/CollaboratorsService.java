@@ -36,7 +36,7 @@ public class CollaboratorsService {
     }
 
     @Transactional
-    public CollaboratorsResponse updateCollaborator(CollaboratorRequest request, Long id) {
+    public CollaboratorsResponse updateCollaborator(CollaboratorRequest request, String id) {
         CollaboratorEntity existing = collaboratorRepository.findById(id)
                 .orElseThrow();
 
@@ -57,7 +57,7 @@ public class CollaboratorsService {
         return mapper.toCollaboratorsResponse(savedEntity);
     }
 
-    public CollaboratorsResponse findByid(Long id) {
+    public CollaboratorsResponse findByid(String id) {
         var collaborator = mapper.buscarPorId(id);
         return mapper.toCollaboratorsResponse(collaborator);
     }
@@ -70,7 +70,7 @@ public class CollaboratorsService {
         return collaboratorRepository.findByNomeApproximate(nome);
     }
 
-    public void deleteById(Long id) {
+    public void deleteById(String id) {
         collaboratorRepository.deleteById(id);
     }
 
