@@ -1,23 +1,14 @@
+// types/project.ts
 export interface BaseCollaborator {
   id: string;
   nome: string;
   role: string;
+  cpf: string;
+  idCallRote?: string;
   pontuacao: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
-
-export interface Collaborator {
-  id: string;
-  nome: string;
-  cpf: string;
-  role: string;
-  pontuacao: number;
-  idCallRote: string;
-  tempoRegulaco?: string;
-  regulacaoMedica?: string;
-}
-
 
 export interface GlobalCollaborator extends BaseCollaborator {
   cpf: string;
@@ -28,16 +19,21 @@ export interface GlobalCollaborator extends BaseCollaborator {
 export interface ProjectCollaborator extends BaseCollaborator {
   isGlobal: false;
   originalCollaboratorId?: string;
+  projectId: string;
 }
 
-export type AnyCollaborator = GlobalCollaborator | ProjectCollaborator;
+export type Collaborator = GlobalCollaborator | ProjectCollaborator;
 
 export interface Project {
   id?: string;
   name: string;
   month: string;
   parameters?: Record<string, number>;
-  collaborators: Collaborator[];
+  collaborators: {
+    originalCollaboratorId: string;
+    role: string;
+    parameters: Record<string, number>;
+  }[];
   createdAt: string;
   updatedAt: string;
 }

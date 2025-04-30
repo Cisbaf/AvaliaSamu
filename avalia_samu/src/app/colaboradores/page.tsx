@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
     Button,
     Table,
@@ -11,12 +11,18 @@ import {
     TableRow,
     Paper,
     CircularProgress,
-    Alert
+    Alert,
+    TextField,
+    Select,
+    MenuItem
 } from '@mui/material';
+import styles from '@/components/styles/CollaboratorsPanel.module.css';
+
 import EditIcon from '@mui/icons-material/Edit';
 import CollaboratorModal from '@/components/AddCollaboratorModal';
 import api from '@/lib/api';
 import { Collaborator } from "@/types/project"
+import { useProjects } from '@/context/ProjectContext';
 
 export default function CollaboratorsPage() {
     const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -24,6 +30,22 @@ export default function CollaboratorsPage() {
     const [selectedCollaborator, setSelectedCollaborator] = useState<Collaborator | undefined>();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterRole, setFilterRole] = useState('all');
+
+    const {
+        globalCollaborators,
+        actions: {
+
+        }
+    } = useProjects();
+
+
+    const memoizedRoles = useMemo(() =>
+        [...new Set(globalCollaborators.map(c => c.role))],
+        [globalCollaborators]
+    );
+
 
     const loadCollaborators = async () => {
         try {
@@ -75,6 +97,29 @@ export default function CollaboratorsPage() {
 
             {!loading && !error && (
                 <TableContainer component={Paper}>
+                    <div className={styles.filters} >
+                        <TextField
+                            placeholder="Pesquisar por nome"
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+
+                        <Select
+                            value={filterRole}
+                            className={styles.roleSelect}
+                            onChange={(e) => setFilterRole(e.target.value)}
+                            size="small"
+
+                        >
+                            <MenuItem value="all">Todas as funções</MenuItem>
+                            {memoizedRoles.map(role => (
+                                <MenuItem key={role} value={role}>{role}</MenuItem>
+                            ))}
+                        </Select>
+                    </div>
                     <Table>
                         <TableHead>
                             <TableRow>
@@ -114,6 +159,7 @@ export default function CollaboratorsPage() {
 
             <CollaboratorModal
                 open={modalOpen}
+                loading={loading}
                 onClose={() => {
                     setModalOpen(false);
                     setSelectedCollaborator(undefined);
@@ -123,7 +169,11 @@ export default function CollaboratorsPage() {
                 onSuccess={() => {
                     console.log('Operation successful');
                 }}
-                initialData={selectedCollaborator ? { ...selectedCollaborator, id: selectedCollaborator.id ? selectedCollaborator.id : undefined } : undefined}
+                initialData={selectedCollaborator ? {
+                    ...selectedCollaborator,
+                    id: selectedCollaborator.id ? selectedCollaborator.id : undefined,
+                    idCallRote: selectedCollaborator.idCallRote || ''
+                } : undefined}
             />
         </div>
     );

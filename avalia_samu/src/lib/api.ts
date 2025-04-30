@@ -1,59 +1,71 @@
 import { GlobalCollaborator, Project, ProjectCollaborator } from '@/types/project';
 import axios from 'axios';
 
+// Configura uma instância do Axios com o baseURL correto
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL + '/api',
 });
-axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL;
 
 // Projetos
-export const fetchProjectsApi = () => axios.get<Project[]>('/api/projetos');
+export const fetchProjectsApi = () =>
+  api.get<Project[]>('/projetos');
+
 export const createProjectApi = (data: { name: string; month: string }) =>
-  axios.post('/api/projetos', data);
+  api.post<Project>('/projetos', data);
+
 export const updateProjectApi = (id: string, updates: any) =>
-  axios.put(`/api/projetos/${id}`, updates);
+  api.put<Project>(`/projetos/${id}`, updates);
+
 export const deleteProjectApi = (id: string) =>
-  axios.delete(`/api/projetos/${id}`);
+  api.delete<void>(`/projetos/${id}`);
 
 // Colaboradores globais
-export const fetchGlobalCollaboratorsApi = () => axios.get<GlobalCollaborator[]>('/api/collaborator');
+export const fetchGlobalCollaboratorsApi = () =>
+  api.get<GlobalCollaborator[]>('/collaborator');
 
-export const createGlobalCollaboratorApi = (data: any) =>
-  axios.post('/api/collaborator', data);
-export const updateGlobalCollaboratorApi = (id: string, data: any) =>
-  axios.put(`/api/collaborator/${id}`, data);
+export const createGlobalCollaboratorApi = (data: Omit<GlobalCollaborator, 'id'>) =>
+  api.post<GlobalCollaborator>('/collaborator', data);
+
+export const updateGlobalCollaboratorApi = (id: string, data: Partial<GlobalCollaborator>) =>
+  api.put<GlobalCollaborator>(`/collaborator/${id}`, data);
+
 export const deleteGlobalCollaboratorApi = (id: string) =>
-  axios.delete(`/api/collaborator/${id}`);
+  api.delete<void>(`/collaborator/${id}`);
 
 // Colaboradores de projeto
 export const fetchProjectCollaboratorsApi = (projectId: string) =>
-  axios.get<ProjectCollaborator[]>(`/api/projetos/${projectId}/collaborators`);
+  api.get<ProjectCollaborator[]>(`/projetos/${projectId}/collaborators`);
+
+
+
 export const addCollaboratorToProjectApi = (
   projectId: string,
-  params: any
+  collaboratorId: string | number,
+  role: string
 ) =>
-  axios.post(
-    `/api/projetos/${projectId}/collaborators`,
+  api.post<ProjectCollaborator[]>(
+    `/projetos/${projectId}/collaborators`,
     null,
-    { params }
+    { params: { collaboratorId, role } }
   );
+
 export const updateProjectCollaboratorApi = (
   projectId: string,
-  collabId: string,
-  params: any
+  collabId: string | number,
+  role: string
 ) =>
-  axios.put(
-    `/api/projetos/${projectId}/collaborators/${collabId}`,
+  api.put<ProjectCollaborator[]>(
+    `/projetos/${projectId}/collaborators/${collabId}`,
     null,
-    { params }
+    { params: { role } }
   );
+
 export const deleteProjectCollaboratorApi = (
   projectId: string,
-  collabId: string
+  collabId: string | number
 ) =>
-  axios.delete(
-    `/api/projetos/${projectId}/collaborators/${collabId}`
+  api.delete<void>(
+    `/projetos/${projectId}/collaborators/${collabId}`
   );
 
 export default api;
-

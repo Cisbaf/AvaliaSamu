@@ -14,6 +14,8 @@ export function Header() {
   const [modalOpen, setModalOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const [loading, setLoading] = useState(false);
+
   const {
     selectedProject,
     actions: { addCollaboratorToProject }
@@ -28,6 +30,7 @@ export function Header() {
         collaboratorId: data.nome,
         role: data.role,
       });
+      setLoading(true);
       setModalOpen(false);
     } catch (error) {
       console.error('Erro ao adicionar colaborador:', error);
@@ -67,8 +70,7 @@ export function Header() {
         onSave={handleSave}
         onSuccess={() => {
           console.log('Collaborator added successfully');
-        }}
-      />
+        }} loading={loading} />
     </header>
   );
 }

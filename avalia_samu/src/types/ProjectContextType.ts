@@ -10,7 +10,7 @@ export interface ProjectContextType {
         updateProject: (id: string, updates: any) => Promise<void>;
         deleteProject: (id: string) => Promise<void>;
 
-        createGlobalCollaborator: (collab: Omit<Collaborator, 'id'>) => Promise<void>;
+        createGlobalCollaborator: (collab: Omit<GlobalCollaborator, "id">) => Promise<void>;
         updateGlobalCollaborator: (id: string, updates: Partial<Collaborator>) => Promise<void>;
         deleteGlobalCollaborator: (id: string) => Promise<void>;
 

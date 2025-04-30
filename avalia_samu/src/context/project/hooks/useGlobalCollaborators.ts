@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
-import {
+import api, {
     fetchGlobalCollaboratorsApi,
     createGlobalCollaboratorApi,
     updateGlobalCollaboratorApi,
     deleteGlobalCollaboratorApi
 } from '@/lib/api';
-import { GlobalCollaborator } from '@/types/project';
+import { Collaborator, GlobalCollaborator } from '@/types/project';
 
 export function useGlobalCollaborators() {
     const [globalCollaborators, setGlobalCollaborators] = useState<GlobalCollaborator[]>([]);
@@ -38,15 +38,12 @@ export function useGlobalCollaborators() {
         }
     }, [fetchGlobalCollaborators]);
 
-    const updateGlobalCollaborator = useCallback(async (id: string, updates: Partial<GlobalCollaborator>) => {
-        try {
-            await updateGlobalCollaboratorApi(id, updates);
-            await fetchGlobalCollaborators();
-        } catch (error) {
-            console.error('Erro ao atualizar colaborador:', error);
-            throw error;
-        }
-    }, [fetchGlobalCollaborators]);
+    const updateGlobalCollaborator = useCallback(async (id: string, data: Collaborator) => {
+        await api.put(`/collaborators/${id}`, data);
+        setGlobalCollaborators(prev =>
+            prev.map(c => c.id === id ? { ...c, ...data, isGlobal: true } : c)
+        );
+    }, []);
 
     const deleteGlobalCollaborator = useCallback(async (id: string) => {
         try {

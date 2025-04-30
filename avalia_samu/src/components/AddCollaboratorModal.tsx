@@ -30,6 +30,8 @@ interface CollaboratorModalProps {
         idCallRote: string;
         role: string;
     };
+    loading: boolean;
+
 }
 
 export default function CollaboratorModal({ open, onClose, initialData, onSuccess }: CollaboratorModalProps) {
