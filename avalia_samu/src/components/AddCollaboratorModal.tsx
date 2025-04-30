@@ -24,11 +24,11 @@ interface CollaboratorModalProps {
     onSave: (data: Collaborator) => Promise<void>; onClose: () => void;
     onSuccess: () => void;
     initialData?: {
-        id?: number;
+        id?: string;
         nome: string;
         cpf: string;
         idCallRote: string;
-        role: string;
+        funcao: string;
 
     };
 }
@@ -50,7 +50,7 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
                 nome: initialData.nome,
                 cpf: initialData.cpf,
                 idCallRote: initialData.idCallRote,
-                role: initialData.role,
+                role: initialData.funcao,
 
             });
         }

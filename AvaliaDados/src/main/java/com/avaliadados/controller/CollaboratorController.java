@@ -5,6 +5,7 @@ import com.avaliadados.model.DTO.CollaboratorRequest;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.service.CollaboratorsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,5 +43,10 @@ public class CollaboratorController {
     @GetMapping("/name/{nome}")
     public ResponseEntity<List<CollaboratorEntity>> findByName(@PathVariable String nome) {
         return ResponseEntity.ok(service.findByName(nome));
+    }
+    @DeleteMapping("{id}")
+    public ResponseEntity<Void> deleteById(@PathVariable Long id) {
+        service.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }

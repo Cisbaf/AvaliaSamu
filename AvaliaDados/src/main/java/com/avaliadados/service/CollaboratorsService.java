@@ -37,23 +37,18 @@ public class CollaboratorsService {
 
     @Transactional
     public CollaboratorsResponse updateCollaborator(CollaboratorRequest request, Long id) {
-        // Busca a entidade existente
         CollaboratorEntity existing = collaboratorRepository.findById(id)
                 .orElseThrow();
 
-        // Se o role não mudou
         if (existing.getRole().equals(request.role())) {
             updateExistingEntity(existing, request);
             return mapper.toCollaboratorsResponse(collaboratorRepository.save(existing));
         }
 
-        // Cria nova entidade com novo ID
         CollaboratorEntity newEntity = mapper.createNewEntityByRole(request);
 
-        // Copia campos comuns (exceto ID e campos versionados)
         copyCommonFields(existing, newEntity);
 
-        // Salva e remove em operações separadas
         collaboratorRepository.delete(existing);
         collaboratorRepository.flush(); // Força a sincronização com o banco
 
@@ -61,16 +56,6 @@ public class CollaboratorsService {
 
         return mapper.toCollaboratorsResponse(savedEntity);
     }
-    private void copyCommonFields(CollaboratorEntity source, CollaboratorEntity target) {
-        target.setNome(source.getNome());
-        target.setCpf(source.getCpf());
-        target.setIdCallRote(source.getIdCallRote());
-        target.setPontuacao(source.getPontuacao());
-        // Não copiar ID ou campos de versionamento
-    }
-
-
-
 
     public CollaboratorsResponse findByid(Long id) {
         var collaborator = mapper.buscarPorId(id);
@@ -83,6 +68,10 @@ public class CollaboratorsService {
 
     public List<CollaboratorEntity> findByName(String nome) {
         return collaboratorRepository.findByNomeApproximate(nome);
+    }
+
+    public void deleteById(Long id) {
+        collaboratorRepository.deleteById(id);
     }
 
 
@@ -98,6 +87,12 @@ public class CollaboratorsService {
         if (entity instanceof FrotaEntity frota) {
             frota.setRegulacaoMedica(request.regulacaoMedica());
         }
+    }
+    private void copyCommonFields(CollaboratorEntity source, CollaboratorEntity target) {
+        target.setNome(source.getNome());
+        target.setCpf(source.getCpf());
+        target.setIdCallRote(source.getIdCallRote());
+        target.setPontuacao(source.getPontuacao());
     }
 
 }

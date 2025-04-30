@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { Edit, Delete } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
-import { Collaborator } from '@/types/project';
+import { Collaborator, GlobalCollaborator } from '@/types/project';
 import { useState, useEffect } from 'react';
 import CollaboratorModal from './AddCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
@@ -31,35 +31,31 @@ export default function CollaboratorsPanel() {
     }
   } = useProjects();
 
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [roles, setRoles] = useState<string[]>([]);
   const [editingCollaborator, setEditingCollaborator] = useState<{
     id: string;
     name: string;
-    function: string;
+    funcao: string;
     cpf?: string;
     idCallRote?: string;
   } | null>(null);
 
   useEffect(() => {
-    const uniqueRoles = Array.from(new Set(globalCollaborators.map(c => c.function)));
+    const uniqueRoles = Array.from(new Set(globalCollaborators.map(c => c.role)));
     setRoles(uniqueRoles);
   }, [globalCollaborators]);
 
-  const filteredCollaborators = useMemo(() =>
-    globalCollaborators
-      .filter(c => !!c.id && !!c.name && !!c.function)
-      .filter(c => {
-        const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesRole = filterRole === 'all' || c.function === filterRole;
-        return matchesSearch && matchesRole;
-      }),
-    [globalCollaborators, searchTerm, filterRole]
+  const filteredCollaborators = useMemo(() => {
+    return globalCollaborators;
+  },
+    [globalCollaborators]
   );
 
   const memoizedRoles = useMemo(() =>
-    [...new Set(globalCollaborators.map(c => c.function))],
+    [...new Set(globalCollaborators.map(c => c.role))],
     [globalCollaborators]
   );
 
@@ -73,28 +69,26 @@ export default function CollaboratorsPanel() {
     if (!editingCollaborator) return;
 
     try {
-      await updateGlobalCollaborator(
-        editingCollaborator.id,
-        {
-          id: editingCollaborator.id,
-          nome: data.nome,
-          role: data.role,
-          pontuacao: data.pontuacao || 0,
-        }
-      );
+      await updateGlobalCollaborator(editingCollaborator.id, {
+        nome: data.nome,
+        funcao: data.funcao,
+        pontuacao: data.pontuacao,
+        cpf: data.cpf,
+        idCallRote: data.idCallRote,
+      });
       setEditingCollaborator(null);
     } catch (error) {
-      console.error('Failed to update collaborator:', error);
+      console.error('Falha ao atualizar colaborador:', error);
     }
   }, [editingCollaborator, updateGlobalCollaborator]);
 
   const modalInitialData = useMemo(() =>
     editingCollaborator ? {
-      id: undefined,
+      id: editingCollaborator.id,
       nome: editingCollaborator.name,
-      cpf: '',
-      idCallRote: '',
-      role: editingCollaborator.function,
+      cpf: editingCollaborator.cpf || '',
+      idCallRote: editingCollaborator.idCallRote || '',
+      funcao: editingCollaborator.funcao,
     } : undefined,
     [editingCollaborator]);
 
@@ -136,8 +130,7 @@ export default function CollaboratorsPanel() {
 
           <TableBody>
             {filteredCollaborators.map((collab) => {
-              // Verificação de segurança para IDs inválidos
-              if (!collab.id || !collab.name || !collab.function) {
+              if (!collab.id || !collab.nome || !collab.role) {
                 console.error('Colaborador inválido:', collab);
                 return null;
               }
@@ -146,16 +139,16 @@ export default function CollaboratorsPanel() {
                 <TableRow key={collab.id}
                   sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                 >
-                  <TableCell>{collab.name}</TableCell>
-                  <TableCell>{collab.function}</TableCell>
-                  <TableCell>{collab.points}</TableCell>
+                  <TableCell>{collab.nome}</TableCell>
+                  <TableCell>{collab.role}</TableCell>
+                  <TableCell>{collab.pontuacao}</TableCell>
                   <TableCell>
                     <IconButton onClick={() => setEditingCollaborator({
                       id: collab.id.toString(),
-                      name: collab.name,
+                      name: collab.nome,
                       cpf: collab.cpf || '',
                       idCallRote: collab.idCallRote || '',
-                      function: collab.function,
+                      funcao: collab.role,
                     })}>
                       <Edit color="primary" />
                     </IconButton>

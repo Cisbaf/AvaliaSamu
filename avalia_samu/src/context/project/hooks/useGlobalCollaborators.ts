@@ -5,40 +5,58 @@ import {
     updateGlobalCollaboratorApi,
     deleteGlobalCollaboratorApi
 } from '@/lib/api';
-import { GlobalCollaborator, Collaborator } from '@/types/project';
+import { GlobalCollaborator } from '@/types/project';
 
 export function useGlobalCollaborators() {
-    const [globalCollaborators, setGlobalCollaborators] =
-        useState<GlobalCollaborator[]>([]);
+    const [globalCollaborators, setGlobalCollaborators] = useState<GlobalCollaborator[]>([]);
 
     const fetchGlobalCollaborators = useCallback(async () => {
-        const { data } = await fetchGlobalCollaboratorsApi();
-        setGlobalCollaborators(data);
+        try {
+            const { data } = await fetchGlobalCollaboratorsApi();
+            setGlobalCollaborators(data.map((c: any) => ({
+                id: c.id,
+                nome: c.nome,
+                role: c.role || c.funcao || 'Função não definida',
+                pontuacao: c.pontuacao || 0,
+                cpf: c.cpf,
+                idCallRote: c.idCallRote,
+                isGlobal: true
+            })));
+        } catch (error) {
+            console.error('Erro ao buscar colaboradores:', error);
+        }
     }, []);
 
-    const createGlobalCollaborator = useCallback(
-        async (collab: Omit<Collaborator, 'id'>) => {
+
+    const createGlobalCollaborator = useCallback(async (collab: Omit<GlobalCollaborator, 'id'>) => {
+        try {
             await createGlobalCollaboratorApi(collab);
             await fetchGlobalCollaborators();
-        },
-        [fetchGlobalCollaborators]
-    );
+        } catch (error) {
+            console.error('Erro ao criar colaborador:', error);
+            throw error;
+        }
+    }, [fetchGlobalCollaborators]);
 
-    const updateGlobalCollaborator = useCallback(
-        async (id: string, updates: Partial<Collaborator>) => {
+    const updateGlobalCollaborator = useCallback(async (id: string, updates: Partial<GlobalCollaborator>) => {
+        try {
             await updateGlobalCollaboratorApi(id, updates);
             await fetchGlobalCollaborators();
-        },
-        [fetchGlobalCollaborators]
-    );
+        } catch (error) {
+            console.error('Erro ao atualizar colaborador:', error);
+            throw error;
+        }
+    }, [fetchGlobalCollaborators]);
 
-    const deleteGlobalCollaborator = useCallback(
-        async (id: string) => {
+    const deleteGlobalCollaborator = useCallback(async (id: string) => {
+        try {
             await deleteGlobalCollaboratorApi(id);
             await fetchGlobalCollaborators();
-        },
-        [fetchGlobalCollaborators]
-    );
+        } catch (error) {
+            console.error('Erro ao excluir colaborador:', error);
+            throw error;
+        }
+    }, [fetchGlobalCollaborators]);
 
     useEffect(() => {
         fetchGlobalCollaborators();

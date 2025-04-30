@@ -29,7 +29,7 @@ export default function ParametersPanel() {
 
   const roles = useMemo(() => [
     'Colaborador',
-    ...Array.from(new Set(globalCollaborators.map(c => c.function)))
+    ...Array.from(new Set(globalCollaborators.map(c => c.role)))
   ], [globalCollaborators]);
 
 
@@ -39,7 +39,6 @@ export default function ParametersPanel() {
       ? projects.find(p => p.id === selectedProject)
       : undefined;
     setProject(project);
-    console.log("Chamada")
   }, [])
 
   useEffect(() => {

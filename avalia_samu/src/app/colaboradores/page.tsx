@@ -92,7 +92,7 @@ export default function CollaboratorsPage() {
                                     <TableCell>
                                         {collaborator.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}
                                     </TableCell>
-                                    <TableCell>{collaborator.role}</TableCell>
+                                    <TableCell>{collaborator.funcao}</TableCell>
                                     <TableCell>{collaborator.pontuacao}</TableCell>
                                     <TableCell>
                                         <Button
@@ -123,7 +123,7 @@ export default function CollaboratorsPage() {
                 onSuccess={() => {
                     console.log('Operation successful');
                 }}
-                initialData={selectedCollaborator ? { ...selectedCollaborator, id: selectedCollaborator.id ? parseInt(selectedCollaborator.id, 10) : undefined } : undefined}
+                initialData={selectedCollaborator ? { ...selectedCollaborator, id: selectedCollaborator.id ? selectedCollaborator.id : undefined } : undefined}
             />
         </div>
     );

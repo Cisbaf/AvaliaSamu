@@ -1,20 +1,17 @@
-
-// types/project.ts
 export interface BaseCollaborator {
-  id: number; // Compatível com MongoDB
-  name: string;
-  function: string;
-  points: number;
+  id: string;
+  nome: string;
+  role: string;
+  pontuacao: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
-
 
 export interface Collaborator {
   id: string;
   nome: string;
   cpf: string;
-  role: string;
+  funcao: string;
   pontuacao: number;
   idCallRote: string;
   tempoRegulaco?: string;
@@ -30,7 +27,7 @@ export interface GlobalCollaborator extends BaseCollaborator {
 
 export interface ProjectCollaborator extends BaseCollaborator {
   isGlobal: false;
-  originalCollaboratorId?: string; // Referência ao colaborador global
+  originalCollaboratorId?: string;
 }
 
 export type AnyCollaborator = GlobalCollaborator | ProjectCollaborator;
