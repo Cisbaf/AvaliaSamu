@@ -16,12 +16,12 @@ public class ProjectCollabController {
     private final ProjetosService projetoService;
 
     @GetMapping("/{projectId}/collaborators")
-    public ResponseEntity<List<CollaboratorsResponse>> listarColaboradores(@PathVariable String projectId) {
+    public ResponseEntity<List<CollaboratorsResponse>> getCollaborators(@PathVariable String projectId) {
         return ResponseEntity.ok(projetoService.getAllProjectCollaborators(projectId));
     }
 
     @PostMapping("/{projectId}/collaborators")
-    public ResponseEntity<ProjetoEntity> addColaborador(
+    public ResponseEntity<ProjetoEntity> addCollaborator(
             @PathVariable String projectId,
             @RequestParam String collaboratorId,
             @RequestParam String role
@@ -30,7 +30,7 @@ public class ProjectCollabController {
     }
 
     @PutMapping("/{projectId}/collaborators/{collaboratorId}")
-    public ResponseEntity<ProjetoEntity> updateColaborador(
+    public ResponseEntity<ProjetoEntity> updateCollaborator(
             @PathVariable String projectId,
             @PathVariable String collaboratorId,
             @RequestParam String role
@@ -40,7 +40,7 @@ public class ProjectCollabController {
     }
 
     @DeleteMapping("/{projectId}/collaborators/{collaboratorId}")
-    public ResponseEntity<ProjetoEntity> removeColaborador(
+    public ResponseEntity<ProjetoEntity> removeCollaborator(
             @PathVariable String projectId,
             @PathVariable String collaboratorId
     ) {
