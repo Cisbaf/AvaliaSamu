@@ -30,9 +30,9 @@ export interface Project {
   month: string;
   parameters?: Record<string, number>;
   collaborators: {
-    originalCollaboratorId: string;
+    collaboratorId: string;
     role: string;
-    parameters: Record<string, number>;
+    pointuacao: number;
   }[];
   createdAt: string;
   updatedAt: string;

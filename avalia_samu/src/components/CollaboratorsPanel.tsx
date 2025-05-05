@@ -60,27 +60,30 @@ export default function CollaboratorsPanel() {
       fetchProjectCollaborators(selectedProject);
     }
   }, [selectedProject, fetchProjectCollaborators]);
+  useEffect(() => {
+    if (selectedProject) {
+      fetchProjectCollaborators(selectedProject).then(() => {
+        console.log('Após fetchProjectCollaborators:', projectCollaborators[selectedProject]);
+      });
+    }
+  }, [selectedProject, fetchProjectCollaborators]);
 
   useEffect(() => {
-    setRoles(Array.from(new Set(globalCollaborators.map(c => c.role))));
-  }, [globalCollaborators]);
+    const rolesInProject = projectCollaborators[selectedProject || '']?.map(c => c.role) || [];
+    setRoles(Array.from(new Set(rolesInProject)));
+  }, [projectCollaborators, selectedProject]);
 
   const combined = useMemo(() => {
-    const collabs = projectCollaborators[selectedProject || ''] || [];
-    return globalCollaborators.map(gc => {
-      const override = collabs.find(pc => pc.originalCollaboratorId === gc.id);
-      return override
-        ? { ...gc, ...override }
-        : { ...gc, projectId: selectedProject! };
-    });
-  }, [globalCollaborators, projectCollaborators, selectedProject]);
-
+    return projectCollaborators[selectedProject || ''] || [];
+  }, [projectCollaborators, selectedProject]);
 
 
   const filtered = useMemo(() => {
     return combined.filter(c => {
-      const matchesName = c.nome.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRole = filterRole === 'all' || c.role === filterRole;
+      const nomeValido = typeof c.nome === 'string';
+      const roleValido = typeof c.role === 'string';
+      const matchesName = nomeValido && c.nome.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRole = filterRole === 'all' || (roleValido && c.role === filterRole);
       return matchesName && matchesRole;
     });
   }, [combined, searchTerm, filterRole]);
@@ -95,31 +98,21 @@ export default function CollaboratorsPanel() {
     setLoading(true);
 
     try {
-      // Se é uma edição de colaborador global
-      if (editingCollaborator.originalId) {
-        // Atualiza o colaborador global
-        await updateGlobalCollaborator(editingCollaborator.originalId, data);
-      }
-
       // Sempre atualiza/cria no projeto
       const existingProjectCollab = projectCollaborators[selectedProject]?.find(
         pc => pc.id === editingCollaborator.id
       );
 
       if (existingProjectCollab) {
+        // Atualiza o colaborador no projeto
         await updateProjectCollaborator(
           selectedProject,
           editingCollaborator.id,
           data
         );
       } else {
-        await addCollaboratorToProject(
-          selectedProject,
-          {
-            ...data,
-            originalCollaboratorId: editingCollaborator.id
-          }
-        );
+        // Adiciona o colaborador ao projeto
+        await addCollaboratorToProject(selectedProject, data);
       }
 
       await fetchProjectCollaborators(selectedProject);
@@ -130,8 +123,7 @@ export default function CollaboratorsPanel() {
       setLoading(false);
     }
   }, [editingCollaborator, selectedProject, projectCollaborators,
-    addCollaboratorToProject, updateProjectCollaborator, fetchProjectCollaborators,
-    updateGlobalCollaborator]);
+    addCollaboratorToProject, updateProjectCollaborator, fetchProjectCollaborators]);
 
   const modalInitialData = editingCollaborator && {
     id: editingCollaborator.id,

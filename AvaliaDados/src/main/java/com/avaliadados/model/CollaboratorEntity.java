@@ -13,7 +13,7 @@ import lombok.*;
 @Inheritance(strategy = InheritanceType.JOINED)
 public class CollaboratorEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
     private String nome;
     private String cpf;

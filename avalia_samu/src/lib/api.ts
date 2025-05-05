@@ -40,7 +40,7 @@ export const fetchProjectCollaboratorsApi = (projectId: string) =>
 
 export const addCollaboratorToProjectApi = (
   projectId: string,
-  collaboratorId: string | number,
+  collaboratorId: string,
   role: string
 ) =>
   api.post<ProjectCollaborator[]>(

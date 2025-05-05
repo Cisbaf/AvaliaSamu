@@ -6,7 +6,7 @@ export interface ProjectContextType {
     selectedProject: string | null;
     setSelectedProject: (id: string | null) => void;
     actions: {
-        createProject: (data: { name: string; month: string }) => Promise<void>;
+        createProject: (data: { name: string; month: string; }) => Promise<Project>;
         updateProject: (id: string, updates: any) => Promise<void>;
         deleteProject: (id: string) => Promise<void>;
 

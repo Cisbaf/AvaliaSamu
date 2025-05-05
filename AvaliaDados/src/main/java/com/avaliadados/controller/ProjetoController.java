@@ -1,5 +1,6 @@
 package com.avaliadados.controller;
 
+import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.service.ProjetosService;
@@ -35,10 +36,8 @@ public class ProjetoController {
     }
 
     @GetMapping("/{projectId}/collaborators")
-    public ResponseEntity<List<ProjectCollaborator>> listarColaboradores(@PathVariable String projectId) {
-        return projetoService.getProjeto(projectId)
-                .map(proj -> ResponseEntity.ok(proj.getCollaborators()))
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+    public ResponseEntity<List<CollaboratorsResponse>> listarColaboradores(@PathVariable String projectId) {
+        return ResponseEntity.ok(projetoService.getAllProjectCollaborators(projectId));
     }
 
     @PostMapping("/{projectId}/collaborators")
@@ -47,6 +46,7 @@ public class ProjetoController {
             @RequestParam String collaboratorId,
             @RequestParam String role
     ) {
+        System.out.println("Colab id;" + collaboratorId);
         return projetoService.addCollaborator(projectId, collaboratorId, role);
     }
 

@@ -32,11 +32,8 @@ export function useProjectActions() {
                 globalCollaborators.map(collab =>
                     addCollaboratorToProjectApi(
                         newProject.id ?? '',
-                        collab.role,
-                        JSON.stringify({
-                            originalCollaboratorId: collab.id,
-                            parameters: {}
-                        })
+                        collab.id,
+                        collab.role // Passing the role as the third argument
                     )
                 )
             );

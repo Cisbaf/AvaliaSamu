@@ -5,6 +5,7 @@ import { useProjectActions } from './hooks/useProjectActions';
 import { useGlobalCollaborators } from './hooks/useGlobalCollaborators';
 import { useProjectCollaborators } from './hooks/useProjectCollaborators';
 import { ProjectContextType } from '@/types/ProjectContextType';
+import { Collaborator } from '@/types/project';
 
 const ProjectContext = createContext<ProjectContextType | null>(null);
 
@@ -24,6 +25,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ...projectState.actions,
             ...globalState.actions,
             ...projectCollabState.actions,
+            updateGlobalCollaborator: (id, updates) => {
+                if (!updates.cpf) {
+                    throw new Error('CPF is required');
+                }
+                return globalState.actions.updateGlobalCollaborator(id, updates as Collaborator);
+            },
         },
     };
 

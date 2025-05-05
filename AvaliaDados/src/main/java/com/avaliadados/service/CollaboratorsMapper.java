@@ -43,6 +43,7 @@ public class CollaboratorsMapper {
 
     protected CollaboratorsResponse toCollaboratorsResponse(CollaboratorEntity entity) {
         return new CollaboratorsResponse(
+                entity.getId(),
                 entity.getNome(),
                 entity.getCpf(),
                 entity.getIdCallRote(),
@@ -81,6 +82,5 @@ public class CollaboratorsMapper {
             default -> throw new IllegalArgumentException("Role inválido: " + request.role());
         };
     }
-
 
 }

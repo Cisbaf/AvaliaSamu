@@ -1,6 +1,7 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
+import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.repository.CollaboratorRepository;
@@ -9,9 +10,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -19,11 +21,17 @@ public class ProjetosService {
 
     private final ProjetoRepository projetoRepo;
     private final CollaboratorRepository collaboratorRepo;
+    private final CollaboratorsService collaboratorsService;
 
 
-
-    public Optional<ProjetoEntity> getProjeto(String projectId) {
-        return projetoRepo.findById(projectId);
+    public List<CollaboratorsResponse> getAllProjectCollaborators(String projectId) {
+        return projetoRepo.findById(projectId)
+                .map(proj -> proj.getCollaborators().stream()
+                        .map(ProjectCollaborator::getCollaboratorId)
+                        .distinct()
+                        .map(collaboratorsService::findByid)
+                        .collect(Collectors.toList())
+                ).orElse(Collections.emptyList());
     }
 
     public ProjetoEntity addCollaborator(String projectId, String collaboratorId, String role) {
@@ -36,8 +44,7 @@ public class ProjetosService {
         ProjectCollaborator pc = new ProjectCollaborator();
         pc.setCollaboratorId(collaboratorId);
         pc.setRole(role);
-        pc.setAddedAt(Instant.now());
-        pc.setUpdatedAt(Instant.now());
+
 
         projeto.getCollaborators().add(pc);
         return projetoRepo.save(projeto);
@@ -50,10 +57,7 @@ public class ProjetosService {
         projeto.getCollaborators().stream()
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
-                .ifPresent(pc -> {
-                    pc.setRole(newRole);
-                    pc.setUpdatedAt(Instant.now());
-                });
+                .ifPresent(pc -> pc.setRole(newRole));
 
         return projetoRepo.save(projeto);
     }
@@ -77,10 +81,6 @@ public class ProjetosService {
         return projetoRepo.save(projeto);
     }
 
-    public ProjetoEntity createProjeto(ProjetoEntity projeto) {
-        return  projetoRepo.save(projeto);
-    }
-
     public List<ProjetoEntity> getAllProjeto() {
         return projetoRepo.findAll();
     }
@@ -98,8 +98,6 @@ public class ProjetosService {
                         .collaboratorId(g.getId())
                         .role(g.getRole())
                         .points(0)
-                        .addedAt(Instant.now())
-                        .updatedAt(Instant.now())
                         .build()
         ).toList();
 

@@ -36,11 +36,11 @@ export function useProjectCollaborators() {
     // 2) add + refetch
     const addCollaboratorToProject = useCallback(
         async (projectId: string, { id, role }: { id: string; role: string }) => {
-            await addCollaboratorToProjectApi(projectId, Number(id), role)
-            await fetchProjectCollaborators(projectId)
+            await addCollaboratorToProjectApi(projectId, id, role);
+            await fetchProjectCollaborators(projectId);
         },
         [fetchProjectCollaborators]
-    )
+    );
 
     // 3) update + refetch
     const updateProjectCollaborator = useCallback(async (projectId: string, collaboratorId: string, data: Collaborator) => {
