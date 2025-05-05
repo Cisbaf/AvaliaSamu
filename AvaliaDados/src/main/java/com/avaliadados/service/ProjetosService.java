@@ -105,5 +105,8 @@ public class ProjetosService {
         novoProjeto.setCollaborators(projectCollabs);
         return projetoRepo.save(novoProjeto);
     }
+    public void deleteProject (String projectId) {
+        projetoRepo.deleteById(projectId);
+    }
 
 }
