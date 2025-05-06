@@ -38,8 +38,8 @@ export function useGlobalCollaborators() {
         }
     }, [fetchGlobalCollaborators]);
 
-    const updateGlobalCollaborator = useCallback(async (id: string, data: Collaborator) => {
-        await api.put(`/collaborators/${id}`, data);
+    const updateGlobalCollaborator = useCallback(async (id: string, data: GlobalCollaborator) => {
+        await updateGlobalCollaboratorApi(id, data);
         setGlobalCollaborators(prev =>
             prev.map(c => c.id === id ? { ...c, ...data, isGlobal: true } : c)
         );

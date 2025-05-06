@@ -15,7 +15,6 @@ import {
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import styles from "./styles/Modal.module.css";
-import api from '@/lib/api';
 import { Collaborator } from "@/types/project"
 
 interface CollaboratorModalProps {
@@ -34,7 +33,7 @@ interface CollaboratorModalProps {
 
 }
 
-export default function CollaboratorModal({ open, onClose, initialData, onSuccess }: CollaboratorModalProps) {
+export default function CollaboratorModal({ open, onSave, onClose, onSuccess, initialData }: CollaboratorModalProps) {
     const [formData, setFormData] = useState({
         nome: '',
         cpf: '',
@@ -56,27 +55,41 @@ export default function CollaboratorModal({ open, onClose, initialData, onSucces
         }
     }, [initialData]);
 
+    const setBlank = () => {
+        setFormData({
+            nome: '',
+            cpf: '',
+            idCallRote: '',
+            role: '',
+        });
+    }
+    const isEdit = Boolean(initialData?.id);
+
+
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
 
         try {
-            const payload = {
-                ...formData,
+            const dataToSave: Collaborator = {
+                nome: formData.nome,
                 cpf: formData.cpf.replace(/\D/g, ''),
+                idCallRote: formData.idCallRote,
+                role: formData.role,
+                pontuacao: 0,
+                isGlobal: true,
+                ...(isEdit && { id: initialData?.id })
             };
 
-            const response = initialData?.id
-                ? await api.put(`/collaborator/${initialData.id}`, payload)
-                : await api.post('/collaborator', payload);
+            console.log('Data to save:', dataToSave);
 
-            if (response.status === 200) {
-                onSuccess();
-                onClose();
-            }
+            await onSave(dataToSave);
+            onSuccess();
+            setBlank();
+            onClose();
         } catch (err) {
             setError('Erro ao salvar colaborador. Verifique os dados e tente novamente.');
-            console.error('API Error:', err);
+            console.error('onSave Error:', err);
         } finally {
             setLoading(false);
         }

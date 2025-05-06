@@ -1,66 +1,42 @@
-// hooks/useProjectCollaborators.ts
 import { useState, useCallback } from 'react'
-import api, {
+import {
     fetchProjectCollaboratorsApi,
+    deleteProjectCollaboratorApi,
     addCollaboratorToProjectApi,
-    updateProjectCollaboratorApi,
-    deleteProjectCollaboratorApi
+    updateProjectCollaboratorApi
 } from '@/lib/api'
-import { Collaborator, ProjectCollaborator } from '@/types/project'
+import { ProjectCollaborator } from '@/types/project'
 
 export function useProjectCollaborators() {
-    // mapeia projectId -> lista de collaborators
-    const [projectCollaborators, setProjectCollaborators] = useState<
-        Record<string, ProjectCollaborator[]>
-    >({})
+    const [projectCollaborators, setProjectCollaborators] = useState<Record<string, ProjectCollaborator[]>>({});
 
-    // 1) fetch e guarda diretamente em projectCollaborators[projectId]
-    const fetchProjectCollaborators = useCallback(
-        async (projectId: string) => {
-            console.log('[Hook] fetchProjectCollaborators START', projectId);
-            try {
-                const res = await fetchProjectCollaboratorsApi(projectId);
-                console.log('[Hook] API retornou:', res.data);
-                setProjectCollaborators(prev => ({
-                    ...prev,
-                    [projectId]: res.data
-                }));
-                console.log('[Hook] State atualizado para key:', projectId);
-            } catch (err) {
-                console.error('[Hook] Erro ao buscar colaboradores:', err);
-            }
-        },
-        []
-    );
 
-    // 2) add + refetch
-    const addCollaboratorToProject = useCallback(
-        async (projectId: string, { id, role }: { id: string; role: string }) => {
-            await addCollaboratorToProjectApi(projectId, id, role);
-            await fetchProjectCollaborators(projectId);
-        },
-        [fetchProjectCollaborators]
-    );
-
-    // 3) update + refetch
-    const updateProjectCollaborator = useCallback(async (projectId: string, collaboratorId: string, data: Collaborator) => {
-        await api.put(`/projects/${projectId}/collaborators/${collaboratorId}`, data);
-        setProjectCollaborators(prev => ({
-            ...prev,
-            [projectId]: prev[projectId]?.map(pc =>
-                pc.id === collaboratorId ? { ...pc, ...data } as ProjectCollaborator : pc
-            ) || []
-        }));
+    const fetchProjectCollaborators = useCallback(async (projectId: string) => {
+        try {
+            const res = await fetchProjectCollaboratorsApi(projectId);
+            setProjectCollaborators(prev => ({
+                ...prev,
+                [projectId]: res.data
+            }));
+        } catch (err) {
+            console.error('Erro ao buscar colaboradores do projeto:', err);
+        }
     }, []);
 
-    // 4) delete + refetch
-    const deleteCollaboratorFromProject = useCallback(
-        async (projectId: string, collabId: string) => {
-            await deleteProjectCollaboratorApi(projectId, collabId)
-            await fetchProjectCollaborators(projectId)
-        },
-        [fetchProjectCollaborators]
-    )
+    const addCollaboratorToProject = useCallback(async (projectId: string, { id, role }: { id: string; role: string }) => {
+        await addCollaboratorToProjectApi(projectId, id, role);
+        await fetchProjectCollaborators(projectId);
+    }, [fetchProjectCollaborators]);
+
+    const updateProjectCollaborator = useCallback(async (projectId: string, collabId: string, { role }: { role: string }) => {
+        await updateProjectCollaboratorApi(projectId, collabId, role);
+        await fetchProjectCollaborators(projectId);
+    }, [fetchProjectCollaborators]);
+
+    const deleteCollaboratorFromProject = useCallback(async (projectId: string, collabId: string) => {
+        await deleteProjectCollaboratorApi(projectId, collabId);
+        await fetchProjectCollaborators(projectId);
+    }, [fetchProjectCollaborators]);
 
     return {
         projectCollaborators,

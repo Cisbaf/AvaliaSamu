@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-    Button,
     Table,
     TableBody,
     TableCell,
@@ -14,15 +13,21 @@ import {
     Alert,
     TextField,
     Select,
-    MenuItem
+    MenuItem,
+    IconButton,
+    Button,
+    SvgIcon
 } from '@mui/material';
 import styles from '@/components/styles/CollaboratorsPanel.module.css';
 
 import EditIcon from '@mui/icons-material/Edit';
 import CollaboratorModal from '@/components/AddCollaboratorModal';
-import api from '@/lib/api';
+import api, { deleteGlobalCollaboratorApi } from '@/lib/api';
 import { Collaborator } from "@/types/project"
 import { useProjects } from '@/context/ProjectContext';
+import { Delete } from '@mui/icons-material';
+import AddIcon from '@mui/icons-material/Add';
+
 
 export default function CollaboratorsPage() {
     const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
@@ -67,14 +72,15 @@ export default function CollaboratorsPage() {
     const handleSave = async (data: Collaborator) => {
         try {
             setError(null);
-
+            setLoading(true);
             if (selectedCollaborator) {
                 await api.put(`/collaborator/${data.id}`, data);
+
             } else {
                 await api.post('/collaborator', data);
+
             }
 
-            await loadCollaborators();
             setModalOpen(false);
         } catch (error) {
             setError(selectedCollaborator
@@ -82,6 +88,11 @@ export default function CollaboratorsPage() {
                 : 'Falha ao criar novo colaborador');
         }
     };
+
+    const handleDelete = useCallback(async (id: string) => {
+        await deleteGlobalCollaboratorApi(id);
+        await loadCollaborators();
+    }, [deleteGlobalCollaboratorApi]);
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
@@ -106,19 +117,24 @@ export default function CollaboratorsPage() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                        <Button
+                            variant="contained"
+                            onClick={() => setModalOpen(true)}
+                            className={styles.addButton}><AddIcon /></Button>
 
                         <Select
                             value={filterRole}
                             className={styles.roleSelect}
                             onChange={(e) => setFilterRole(e.target.value)}
                             size="small"
-
+                            style={{ marginRight: '15px' }}
                         >
                             <MenuItem value="all">Todas as funções</MenuItem>
                             {memoizedRoles.map(role => (
                                 <MenuItem key={role} value={role}>{role}</MenuItem>
                             ))}
                         </Select>
+
                     </div>
                     <Table>
                         <TableHead>
@@ -140,15 +156,17 @@ export default function CollaboratorsPage() {
                                     <TableCell>{collaborator.role}</TableCell>
                                     <TableCell>{collaborator.pontuacao}</TableCell>
                                     <TableCell>
-                                        <Button
-                                            startIcon={<EditIcon />}
+                                        <IconButton
                                             onClick={() => {
                                                 setSelectedCollaborator(collaborator);
                                                 setModalOpen(true);
                                             }}
                                         >
-                                            Editar
-                                        </Button>
+                                            <EditIcon color="primary" />
+                                        </IconButton>
+                                        <IconButton onClick={() => handleDelete(collaborator.id!)}>
+                                            <Delete color="error" />
+                                        </IconButton>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -156,6 +174,7 @@ export default function CollaboratorsPage() {
                     </Table>
                 </TableContainer>
             )}
+
 
             <CollaboratorModal
                 open={modalOpen}
@@ -169,6 +188,7 @@ export default function CollaboratorsPage() {
                 onSuccess={() => {
                     console.log('Operation successful');
                 }}
+
                 initialData={selectedCollaborator ? {
                     ...selectedCollaborator,
                     id: selectedCollaborator.id ? selectedCollaborator.id : undefined,

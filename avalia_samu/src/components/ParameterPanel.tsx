@@ -88,7 +88,7 @@ export default function ParametersPanel() {
   }
 
   return (
-    <div className={styles.panel}>
+    <div className={styles.panel} style={{ textAlign: 'center', alignItems: 'center' }}>
       <Typography variant="h4" className={styles.title}>Parâmetros</Typography>
 
       <div className={styles.uploadSection}>
@@ -101,7 +101,7 @@ export default function ParametersPanel() {
         />
 
         <label htmlFor="file-upload">
-          <Button variant="contained" component="span" color="primary">
+          <Button variant="text" component="span" color="success" style={{ fontSize: '16px' }}>
             Selecionar Arquivo
           </Button>
         </label>
@@ -110,11 +110,12 @@ export default function ParametersPanel() {
           <>
             <Typography variant="caption" sx={{ ml: 2 }}>{selectedFile.name}</Typography>
             <Button
-              variant="contained"
+              variant="outlined"
               color="success"
               onClick={handleFileUpload}
               disabled={loading}
               sx={{ ml: 2 }}
+
             >
               {loading ? 'Enviando...' : 'Enviar Planilha'}
             </Button>
@@ -155,9 +156,11 @@ export default function ParametersPanel() {
 
       <Button
         variant="contained"
-        color="primary"
+        color="success"
         onClick={handleSubmit}
         sx={{ mt: 3 }}
+        style={{ borderRadius: '20px' }}
+
       >
         Salvar Parâmetros
       </Button>

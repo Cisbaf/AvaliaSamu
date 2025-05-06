@@ -1,58 +1,59 @@
 /* styles/ParametersPanel.module.css */
 .panel {
-    padding: 24px;
-    height: 100vh;
-    background: radial-gradient(circle, #fae3c8 60%, #f8d9b6 100%);
-    box-shadow: 10px 10px 10px rgba(0,0,0,0.1);
-    margin-right: 20px;
-  }
-  
-  .title {
-    font-weight: bold !important;
-    margin-bottom: 32px !important;
-  }
-  
-  .subtitle {
-    font-weight: 500 !important;
-  }
-  
-  .select {
-    margin-bottom: 32px !important;
-    margin-top: 8px !important;
-  }
-  
-  .select > div {
-    padding: 12px 14px !important;
-    font-weight: bold !important;
-    background-color: white !important;
-  }
-  
-  .inputContainer {
+  padding: 24px;
+  height: 100vh;
+  background: #f8efdb 60%;
+  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
+  margin-right: 20px;
+}
+
+.title {
+  font-weight: bold !important;
+  margin-bottom: 32px !important;
+}
+
+.subtitle {
+  font-weight: 500 !important;
+}
+
+.select {
+  margin-bottom: 32px !important;
+  margin-top: 8px !important;
+}
+
+.select>div {
+  padding: 12px 14px !important;
+  font-weight: bold !important;
+  background-color: white !important;
+}
+
+.inputContainer {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.inputField div {
+  border-radius: 8px !important;
+  background-color: white !important;
+}
+
+.uploadSection {
+  margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .panel {
+    margin-right: 0;
+    height: auto;
     padding: 16px;
-    margin-bottom: 16px;
   }
-  
-  .inputField div {
-    border-radius: 8px !important;
-    background-color: white !important;
+
+  .inputContainer {
+    padding: 8px;
   }
-  .uploadSection {
-    margin-top: 2rem;
-    display: flex;
-    align-items: center;
-    padding: 1rem;
-    border: 1px dashed #ccc;
-    border-radius: 4px;
-  }
-  
-  @media (max-width: 768px) {
-    .panel {
-      margin-right: 0;
-      height: auto;
-      padding: 16px;
-    }
-    
-    .inputContainer {
-      padding: 8px;
-    }
-  }
+}

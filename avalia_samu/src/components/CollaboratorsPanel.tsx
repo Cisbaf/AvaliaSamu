@@ -12,26 +12,28 @@ import {
   TextField,
   Select,
   MenuItem,
-  IconButton
+  IconButton,
+  Button
 } from '@mui/material';
-import { Edit, Delete } from '@mui/icons-material';
+import { Edit, Delete, Add } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
-import { Collaborator } from '@/types/project';
+import { Collaborator, GlobalCollaborator } from '@/types/project'; // Importe GlobalCollaborator também
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import CollaboratorModal from './AddCollaboratorModal';
+import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 
 export default function CollaboratorsPanel() {
   const {
     selectedProject,
-    globalCollaborators,
     projectCollaborators,
+    globalCollaborators, // Agora estamos usando o estado do contexto
     actions: {
-      updateGlobalCollaborator,
       addCollaboratorToProject,
       updateProjectCollaborator,
       deleteCollaboratorFromProject,
-      fetchProjectCollaborators
+      fetchProjectCollaborators,
+
     }
   } = useProjects();
 
@@ -49,6 +51,7 @@ export default function CollaboratorsPanel() {
     idCallRote?: string;
     pontuacao?: number;
   } | null>(null);
+  const [isAddExistingModalOpen, setIsAddExistingModalOpen] = useState(false);
 
   useEffect(() => {
     const collabs = projectCollaborators[selectedProject || ''];
@@ -60,6 +63,7 @@ export default function CollaboratorsPanel() {
       fetchProjectCollaborators(selectedProject);
     }
   }, [selectedProject, fetchProjectCollaborators]);
+
   useEffect(() => {
     if (selectedProject) {
       fetchProjectCollaborators(selectedProject).then(() => {
@@ -67,6 +71,11 @@ export default function CollaboratorsPanel() {
       });
     }
   }, [selectedProject, fetchProjectCollaborators]);
+
+  useEffect(() => {
+    globalCollaborators && globalCollaborators.length > 0 && setRoles(
+      Array.from(new Set(globalCollaborators.map(c => c.role))));
+  }, [globalCollaborators]);
 
   useEffect(() => {
     const rolesInProject = projectCollaborators[selectedProject || '']?.map(c => c.role) || [];
@@ -98,20 +107,17 @@ export default function CollaboratorsPanel() {
     setLoading(true);
 
     try {
-      // Sempre atualiza/cria no projeto
       const existingProjectCollab = projectCollaborators[selectedProject]?.find(
         pc => pc.id === editingCollaborator.id
       );
 
       if (existingProjectCollab) {
-        // Atualiza o colaborador no projeto
         await updateProjectCollaborator(
           selectedProject,
           editingCollaborator.id,
-          data
+          data.role // Enviando apenas a role para atualização, conforme sua API
         );
       } else {
-        // Adiciona o colaborador ao projeto
         await addCollaboratorToProject(selectedProject, data);
       }
 
@@ -125,6 +131,29 @@ export default function CollaboratorsPanel() {
   }, [editingCollaborator, selectedProject, projectCollaborators,
     addCollaboratorToProject, updateProjectCollaborator, fetchProjectCollaborators]);
 
+  const handleOpenAddExistingModal = useCallback(() => {
+    setIsAddExistingModalOpen(true);
+  }, []);
+
+  const handleCloseAddExistingModal = useCallback(() => {
+    setIsAddExistingModalOpen(false);
+  }, []);
+
+  const handleAddExistingCollaboratorToProject = useCallback(async (collaboratorId: string, role: string) => { // Adicionando o parâmetro 'role' aqui
+    if (!selectedProject) return;
+    setLoading(true);
+    try {
+      await addCollaboratorToProject(selectedProject, { id: collaboratorId, role });
+      await fetchProjectCollaborators(selectedProject);
+      handleCloseAddExistingModal();
+    } catch (error) {
+      console.error('Erro ao adicionar colaborador existente:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProject, addCollaboratorToProject, fetchProjectCollaborators, handleCloseAddExistingModal]);
+
+
   const modalInitialData = editingCollaborator && {
     id: editingCollaborator.id,
     nome: editingCollaborator.nome,
@@ -133,6 +162,15 @@ export default function CollaboratorsPanel() {
     role: editingCollaborator.role,
     pontuacao: editingCollaborator.pontuacao ?? 0
   };
+
+  // Filtra os colaboradores globais que não estão no projeto
+  const availableCollaborators = useMemo(() => {
+    if (!globalCollaborators || !selectedProject || !projectCollaborators[selectedProject]) {
+      return [];
+    }
+    const projectCollabIds = projectCollaborators[selectedProject].map(pc => pc.id); // Usando collaboratorId
+    return globalCollaborators.filter(ac => !projectCollabIds.includes(ac.id));
+  }, [globalCollaborators, selectedProject, projectCollaborators]);
 
   return (
     <div className={styles.panel}>
@@ -157,6 +195,17 @@ export default function CollaboratorsPanel() {
         </Select>
       </div>
 
+      <Button
+        variant="contained"
+        color="warning"
+        onClick={handleOpenAddExistingModal}
+        className={styles.addExistingButton}
+        startIcon={<Add />}
+        style={{ marginBottom: '16px', borderRadius: '20px' }}
+      >
+        Adicionar Existente
+      </Button>
+
       <TableContainer component={Paper} className={styles.tableContainer}>
         <Table>
           <TableHead>
@@ -175,7 +224,7 @@ export default function CollaboratorsPanel() {
                 <TableCell>{collab.pontuacao}</TableCell>
                 <TableCell>
                   <IconButton onClick={() => setEditingCollaborator({
-                    id: collab.id,
+                    id: collab.id!,
                     projectId: selectedProject || '',
                     originalId: (collab as any).originalCollaboratorId,
                     nome: collab.nome,
@@ -186,7 +235,7 @@ export default function CollaboratorsPanel() {
                   })}>
                     <Edit color="primary" />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(collab.id)}>
+                  <IconButton onClick={() => handleDelete(collab.id!)}>
                     <Delete color="error" />
                   </IconButton>
                 </TableCell>
@@ -206,6 +255,14 @@ export default function CollaboratorsPanel() {
         onSave={handleSaveEdit}
         onSuccess={() => console.log('Colaborador atualizado com sucesso')}
         initialData={modalInitialData || undefined}
+        loading={loading}
+      />
+
+      <AddExistingCollaboratorModal
+        open={isAddExistingModalOpen}
+        onClose={handleCloseAddExistingModal}
+        collaborators={availableCollaborators}
+        onAdd={handleAddExistingCollaboratorToProject}
         loading={loading}
       />
     </div>

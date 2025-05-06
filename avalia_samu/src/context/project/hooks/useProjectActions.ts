@@ -1,12 +1,11 @@
-// hooks/useProjectActions.ts
 import { useState, useCallback, useEffect } from 'react';
 import {
     fetchProjectsApi,
     createProjectApi,
     updateProjectApi,
     deleteProjectApi,
-    fetchGlobalCollaboratorsApi, // Adicione esta importação
-    addCollaboratorToProjectApi // Adicione esta importação
+    fetchGlobalCollaboratorsApi,
+    addCollaboratorToProjectApi
 } from '@/lib/api';
 import { Project } from '@/types/project';
 
@@ -21,25 +20,22 @@ export function useProjectActions() {
 
     const createProject = useCallback(
         async (data: { name: string; month: string }) => {
-            // 1. Cria o projeto básico
             const { data: newProject } = await createProjectApi(data);
 
-            // 2. Busca todos colaboradores globais
-            const { data: globalCollaborators } = await fetchGlobalCollaboratorsApi();
+            const { data: globals } = await fetchGlobalCollaboratorsApi();
 
-            // 3. Adiciona todos ao novo projeto
             await Promise.all(
-                globalCollaborators.map(collab =>
+                globals.map(g =>
                     addCollaboratorToProjectApi(
-                        newProject.id ?? '',
-                        collab.id,
-                        collab.role // Passing the role as the third argument
+                        newProject.id!,
+                        g.id!,
+                        g.role
                     )
                 )
             );
 
-            // 4. Atualiza a lista de projetos
             await fetchProjects();
+
             return newProject;
         },
         [fetchProjects]

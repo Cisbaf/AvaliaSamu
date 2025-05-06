@@ -1,24 +1,18 @@
-// types/project.ts
 export interface BaseCollaborator {
-  id: string;
+  id?: string;
   nome: string;
-  role: string;
   cpf: string;
-  idCallRote?: string;
+  idCallRote: string;
+  role: string;
   pontuacao: number;
-  createdAt?: Date;
-  updatedAt?: Date;
 }
 
 export interface GlobalCollaborator extends BaseCollaborator {
-  cpf: string;
-  idCallRote: string;
   isGlobal: true;
 }
 
 export interface ProjectCollaborator extends BaseCollaborator {
   isGlobal: false;
-  originalCollaboratorId?: string;
   projectId: string;
 }
 

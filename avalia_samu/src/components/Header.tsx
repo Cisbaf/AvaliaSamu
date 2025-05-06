@@ -17,23 +17,25 @@ export function Header() {
   const [loading, setLoading] = useState(false);
 
   const {
-    selectedProject,
-    actions: { addCollaboratorToProject }
+
+    actions: { createGlobalCollaborator },
   } = useProjects();
 
 
   const handleSave = async (data: Collaborator) => {
-    if (!selectedProject) return;
-
     try {
-      await addCollaboratorToProject(selectedProject, {
-        collaboratorId: data.nome,
+      await createGlobalCollaborator({
+        nome: data.nome,
         role: data.role,
+        cpf: data.cpf,
+        pontuacao: data.pontuacao ?? 0,
+        idCallRote: data.idCallRote ?? '',
+        isGlobal: true,
       });
       setLoading(true);
       setModalOpen(false);
     } catch (error) {
-      console.error('Erro ao adicionar colaborador:', error);
+      console.error('Erro ao criar colaborador:', error);
     }
   };
 
@@ -46,23 +48,26 @@ export function Header() {
       <div className={styles.buttonsContainer}>
         {pathname !== '/colaboradores' && (
           <Button
-            variant="contained"
+            variant="outlined"
             onClick={() => router.push('/colaboradores')}
-            className={styles.collaboratorButton}
+            style={{ borderRadius: '20px', border: "3px solid" }}
+
           >
             Gerenciar Colaboradores
           </Button>)
 
         }
+        {pathname !== '/colaboradores' && (
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setModalOpen(true)}
+            style={{ borderRadius: '20px', border: "3px solid" }}
 
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setModalOpen(true)}
-          className={styles.addButton}
-        >
-          Novo Colaborador
-        </Button>
+          >
+            Novo Colaborador
+          </Button>
+        )}
       </div>
       <CollaboratorModal
         open={modalOpen}
