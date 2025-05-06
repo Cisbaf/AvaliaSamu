@@ -4,6 +4,7 @@ import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorRequest;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.service.CollaboratorsService;
+import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,20 +20,25 @@ public class CollaboratorController {
 
     @PostMapping
     public ResponseEntity<Object> createCollaborator(@RequestBody CollaboratorRequest request) {
-        return switch (request.role().toUpperCase()) {
-            case "TARM" -> ResponseEntity.ok(service.createTarm(request));
-            case "FROTA" -> ResponseEntity.ok(service.createFrota(request));
-            default -> throw new IllegalArgumentException("Função inválida");
-        };
+        return  ResponseEntity.ok(service.createCollaborator(request));
+
     }
     @PutMapping("/{id}")
-    public ResponseEntity<Object> updateCollaborator(@RequestBody CollaboratorRequest request, @PathVariable String id) {
-        return ResponseEntity.ok(service.updateCollaborator(request, id));
+    public ResponseEntity<?> updateCollaborator(@RequestBody CollaboratorRequest request,@PathVariable String id) {
+        try {
+            return ResponseEntity.ok(service.updateCollaborator(request, id));
+        } catch (OptimisticLockException ex) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("Erro de concorrência: O registro foi modificado por outra operação");
+        } catch (NumberFormatException ex) {
+            return ResponseEntity.badRequest()
+                    .body("ETag inválido");
+        }
     }
 
     @GetMapping("/id/{id}")
-    public CollaboratorsResponse findById(@PathVariable String id) {
-        return ResponseEntity.ok(service.findByid(id)).getBody();
+    public ResponseEntity<CollaboratorsResponse> findById(@PathVariable String id) {
+        return ResponseEntity.ok(service.findById(id));
     }
 
     @GetMapping

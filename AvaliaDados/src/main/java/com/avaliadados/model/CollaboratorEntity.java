@@ -11,6 +11,7 @@ import lombok.*;
 @Table(name = "colaborador")
 @ToString
 @Inheritance(strategy = InheritanceType.JOINED)
+@DiscriminatorColumn(name = "role")
 public class CollaboratorEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -19,14 +20,18 @@ public class CollaboratorEntity {
     private String cpf;
     private String idCallRote;
     private int pontuacao;
+    @Column(insertable=false, updatable=false)
     private String role;
+    @Version
+    private Long version;
 
 
-    public CollaboratorEntity(String nome, String cpf, String idCallRote, int pontuacao, String role) {
+    public CollaboratorEntity(String nome, String cpf, String idCallRote, int pontuacao, String role, Long version) {
         this.nome = nome;
         this.cpf = cpf;
         this.idCallRote = idCallRote;
         this.pontuacao = pontuacao;
         this.role = role;
+        this.version = version;
     }
 }
