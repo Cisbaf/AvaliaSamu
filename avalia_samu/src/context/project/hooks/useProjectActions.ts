@@ -1,13 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
-import {
-    fetchProjectsApi,
-    createProjectApi,
-    updateProjectApi,
-    deleteProjectApi,
-    fetchGlobalCollaboratorsApi,
-    addCollaboratorToProjectApi
-} from '@/lib/api';
-import { Project } from '@/types/project';
+import { addCollaboratorToProjectApi, createProjectApi, deleteProjectApi, fetchGlobalCollaboratorsApi, fetchProjectsApi, updateProjectApi } from "@/lib/api";
+import { Project } from "@/types/project";
+import { useCallback, useEffect, useState } from "react";
 
 export function useProjectActions() {
     const [projects, setProjects] = useState<Project[]>([]);
@@ -19,7 +12,7 @@ export function useProjectActions() {
     }, []);
 
     const createProject = useCallback(
-        async (data: { name: string; month: string }) => {
+        async (data: { name: string; month: string; parameters: Record<string, number> }) => {
             const { data: newProject } = await createProjectApi(data);
 
             const { data: globals } = await fetchGlobalCollaboratorsApi();
@@ -42,7 +35,7 @@ export function useProjectActions() {
     );
 
     const updateProject = useCallback(
-        async (id: string, updates: any) => {
+        async (id: string, updates: { name?: string; month?: string; parameters?: Record<string, number> }) => {
             await updateProjectApi(id, updates);
             await fetchProjects();
         },

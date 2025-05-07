@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Table,
     TableBody,
@@ -58,8 +58,8 @@ export default function CollaboratorsPage() {
             const response = await api.get('/collaborator');
             setCollaborators(response.data as Collaborator[]);
             setError(null);
-        } catch (error) {
-            setError('Falha ao carregar colaboradores');
+        } catch (error: any) {
+            setError(error.response?.data?.message || 'Falha ao carregar colaboradores');
         } finally {
             setLoading(false);
         }
@@ -80,19 +80,35 @@ export default function CollaboratorsPage() {
                 await api.post('/collaborator', data);
 
             }
-
+            await loadCollaborators(); // Reload collaborators after save
             setModalOpen(false);
-        } catch (error) {
-            setError(selectedCollaborator
+            setSelectedCollaborator(undefined); // Reset selected collaborator
+        } catch (error: any) {
+            setError(error.response?.data?.message || (selectedCollaborator
                 ? 'Falha ao atualizar colaborador'
-                : 'Falha ao criar novo colaborador');
+                : 'Falha ao criar novo colaborador'));
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleDelete = useCallback(async (id: string) => {
-        await deleteGlobalCollaboratorApi(id);
-        await loadCollaborators();
-    }, [deleteGlobalCollaboratorApi]);
+        try {
+            await deleteGlobalCollaboratorApi(id);
+            await loadCollaborators();
+        } catch (error: any) {
+            setError(error.response?.data?.message || 'Failed to delete collaborator');
+        }
+
+    }, [deleteGlobalCollaboratorApi, loadCollaborators]);
+
+    const filteredCollaborators = useMemo(() => {
+        return collaborators.filter(collaborator => {
+            const nameMatch = collaborator.nome;
+            const roleMatch = filterRole === 'all' || collaborator.role === filterRole;
+            return nameMatch && roleMatch;
+        });
+    }, [collaborators, searchTerm, filterRole]);
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
@@ -119,7 +135,10 @@ export default function CollaboratorsPage() {
                         />
                         <Button
                             variant="contained"
-                            onClick={() => setModalOpen(true)}
+                            onClick={() => {
+                                setSelectedCollaborator(undefined); // Ensure new collaborator form
+                                setModalOpen(true)
+                            }}
                             className={styles.addButton}><AddIcon /></Button>
 
                         <Select
@@ -147,7 +166,7 @@ export default function CollaboratorsPage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {collaborators.map((collaborator) => (
+                            {filteredCollaborators.map((collaborator) => (
                                 <TableRow key={collaborator.id}>
                                     <TableCell>{collaborator.nome}</TableCell>
                                     <TableCell>
@@ -178,23 +197,17 @@ export default function CollaboratorsPage() {
 
             <CollaboratorModal
                 open={modalOpen}
-                loading={loading}
                 onClose={() => {
                     setModalOpen(false);
                     setSelectedCollaborator(undefined);
-                    loadCollaborators();
                 }}
-                onSave={handleSave}
                 onSuccess={() => {
+                    loadCollaborators();
                     console.log('Operation successful');
                 }}
-
-                initialData={selectedCollaborator ? {
-                    ...selectedCollaborator,
-                    id: selectedCollaborator.id ? selectedCollaborator.id : undefined,
-                    idCallRote: selectedCollaborator.idCallRote || ''
-                } : undefined}
+                initialData={selectedCollaborator}
             />
         </div>
     );
 }
+

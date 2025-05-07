@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -17,20 +17,19 @@ import {
 } from '@mui/material';
 import { Edit, Delete, Add } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
-import { Collaborator, GlobalCollaborator } from '@/types/project'; // Importe GlobalCollaborator também
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Collaborator, GlobalCollaborator } from '@/types/project';
 import CollaboratorModal from './AddCollaboratorModal';
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 
 export default function CollaboratorsPanel() {
   const {
+    projects,
     selectedProject,
     projectCollaborators,
-    globalCollaborators, // Agora estamos usando o estado do contexto
+    globalCollaborators,
     actions: {
       addCollaboratorToProject,
-      updateProjectCollaborator,
       deleteCollaboratorFromProject,
       fetchProjectCollaborators,
 
@@ -64,13 +63,6 @@ export default function CollaboratorsPanel() {
     }
   }, [selectedProject, fetchProjectCollaborators]);
 
-  useEffect(() => {
-    if (selectedProject) {
-      fetchProjectCollaborators(selectedProject).then(() => {
-        console.log('Após fetchProjectCollaborators:', projectCollaborators[selectedProject]);
-      });
-    }
-  }, [selectedProject, fetchProjectCollaborators]);
 
   useEffect(() => {
     globalCollaborators && globalCollaborators.length > 0 && setRoles(
@@ -82,10 +74,19 @@ export default function CollaboratorsPanel() {
     setRoles(Array.from(new Set(rolesInProject)));
   }, [projectCollaborators, selectedProject]);
 
-  const combined = useMemo(() => {
-    return projectCollaborators[selectedProject || ''] || [];
-  }, [projectCollaborators, selectedProject]);
+  const selectedProjectData = useMemo(() => {
+    return selectedProject ? projects.find(p => p.id === selectedProject) : null;
+  }, [projects, selectedProject]);
 
+
+
+  const combined = useMemo(() => {
+    const projectCollabs = projectCollaborators[selectedProject || ''] || [];
+    return projectCollabs.map(pc => {
+      const globalCollab = globalCollaborators?.find(gc => gc.id === pc.id);
+      return { ...pc, ...globalCollab };
+    });
+  }, [projectCollaborators, selectedProject, globalCollaborators]);
 
   const filtered = useMemo(() => {
     return combined.filter(c => {
@@ -97,39 +98,22 @@ export default function CollaboratorsPanel() {
     });
   }, [combined, searchTerm, filterRole]);
 
+  const collaboratorsWithCalculatedPoints = useMemo(() => {
+    if (!selectedProjectData) return [];
+
+    const parameters = selectedProjectData.parameters || {};
+    return filtered.map(c => ({
+      ...c,
+      pontuacao: parameters[c.role] ?? 0
+    }));
+  }, [filtered, selectedProjectData]);
+
   const handleDelete = useCallback(async (id: string) => {
     if (!selectedProject) return;
     await deleteCollaboratorFromProject(selectedProject, id);
   }, [deleteCollaboratorFromProject, selectedProject]);
 
-  const handleSaveEdit = useCallback(async (data: Collaborator) => {
-    if (!editingCollaborator || !selectedProject) return;
-    setLoading(true);
 
-    try {
-      const existingProjectCollab = projectCollaborators[selectedProject]?.find(
-        pc => pc.id === editingCollaborator.id
-      );
-
-      if (existingProjectCollab) {
-        await updateProjectCollaborator(
-          selectedProject,
-          editingCollaborator.id,
-          data.role // Enviando apenas a role para atualização, conforme sua API
-        );
-      } else {
-        await addCollaboratorToProject(selectedProject, data);
-      }
-
-      await fetchProjectCollaborators(selectedProject);
-      setEditingCollaborator(null);
-    } catch (err) {
-      console.error('Erro ao salvar edição:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [editingCollaborator, selectedProject, projectCollaborators,
-    addCollaboratorToProject, updateProjectCollaborator, fetchProjectCollaborators]);
 
   const handleOpenAddExistingModal = useCallback(() => {
     setIsAddExistingModalOpen(true);
@@ -165,11 +149,10 @@ export default function CollaboratorsPanel() {
 
   // Filtra os colaboradores globais que não estão no projeto
   const availableCollaborators = useMemo(() => {
-    if (!globalCollaborators || !selectedProject || !projectCollaborators[selectedProject]) {
-      return [];
-    }
-    const projectCollabIds = projectCollaborators[selectedProject].map(pc => pc.id); // Usando collaboratorId
-    return globalCollaborators.filter(ac => !projectCollabIds.includes(ac.id));
+    if (!globalCollaborators || !selectedProject) return [];
+
+    const projectCollabIds = (projectCollaborators[selectedProject] || []).map(pc => pc.id);
+    return globalCollaborators.filter(ac => !projectCollabIds.includes(ac.id));;
   }, [globalCollaborators, selectedProject, projectCollaborators]);
 
   return (
@@ -252,10 +235,10 @@ export default function CollaboratorsPanel() {
       <CollaboratorModal
         open={!!editingCollaborator}
         onClose={() => setEditingCollaborator(null)}
-        onSave={handleSaveEdit}
-        onSuccess={() => console.log('Colaborador atualizado com sucesso')}
+        onSuccess={() => {
+          console.log('Colaborador atualizado com sucesso');
+        }}
         initialData={modalInitialData || undefined}
-        loading={loading}
       />
 
       <AddExistingCollaboratorModal
@@ -268,3 +251,4 @@ export default function CollaboratorsPanel() {
     </div>
   );
 }
+

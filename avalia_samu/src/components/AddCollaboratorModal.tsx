@@ -2,24 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    TextField,
-    MenuItem,
-    Select,
-    CircularProgress
+    Dialog, DialogTitle, DialogContent, DialogActions,
+    Button, TextField, MenuItem, Select, CircularProgress
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import styles from "./styles/Modal.module.css";
-import { Collaborator } from "@/types/project"
+import styles from './styles/Modal.module.css';
+import { GlobalCollaborator } from '@/types/project';
+import {
+    createGlobalCollaboratorApi,
+    updateGlobalCollaboratorApi,
+    addCollaboratorToProjectApi
+} from '@/lib/api';
+import { MedicoRole, ShiftHours } from '@/types/project';
 
 interface CollaboratorModalProps {
     open: boolean;
-    onSave: (data: Collaborator) => Promise<void>;
     onClose: () => void;
     onSuccess: () => void;
     initialData?: {
@@ -28,19 +26,32 @@ interface CollaboratorModalProps {
         cpf: string;
         idCallRote: string;
         role: string;
+        medicoRole?: MedicoRole;
+        shiftHours?: ShiftHours;
     };
-    loading: boolean;
-
+    projectId?: string;
 }
 
-export default function CollaboratorModal({ open, onSave, onClose, onSuccess, initialData }: CollaboratorModalProps) {
-    const [formData, setFormData] = useState({
+type FormData = {
+    nome: string;
+    cpf: string;
+    idCallRote: string;
+    role: string;
+    medicoRole: MedicoRole | '';
+    shiftHours: ShiftHours | '';
+};
+
+export default function CollaboratorModal({
+    open, onClose, onSuccess, initialData, projectId
+}: CollaboratorModalProps) {
+    const [formData, setFormData] = useState<FormData>({
         nome: '',
         cpf: '',
         idCallRote: '',
         role: '',
+        medicoRole: '',
+        shiftHours: '',
     });
-
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -51,45 +62,62 @@ export default function CollaboratorModal({ open, onSave, onClose, onSuccess, in
                 cpf: initialData.cpf,
                 idCallRote: initialData.idCallRote,
                 role: initialData.role,
+                medicoRole: initialData.medicoRole ?? '',
+                shiftHours: initialData.shiftHours ?? '',
+            });
+        } else {
+            setFormData({
+                nome: '',
+                cpf: '',
+                idCallRote: '',
+                role: '',
+                medicoRole: '',
+                shiftHours: '',
             });
         }
     }, [initialData]);
 
-    const setBlank = () => {
-        setFormData({
-            nome: '',
-            cpf: '',
-            idCallRote: '',
-            role: '',
-        });
-    }
     const isEdit = Boolean(initialData?.id);
-
 
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
-
         try {
-            const dataToSave: Collaborator = {
+            const payload: Omit<GlobalCollaborator, 'id'> = {
                 nome: formData.nome,
                 cpf: formData.cpf.replace(/\D/g, ''),
                 idCallRote: formData.idCallRote,
                 role: formData.role,
                 pontuacao: 0,
                 isGlobal: true,
-                ...(isEdit && { id: initialData?.id })
+                // só envio esses campos quando for médico
+                ...(formData.role.startsWith('MEDICO') && {
+                    medicoRole: formData.medicoRole,
+                    shiftHours: formData.shiftHours,
+                }),
             };
 
-            console.log('Data to save:', dataToSave);
+            let saved: GlobalCollaborator;
+            if (isEdit) {
+                await updateGlobalCollaboratorApi(initialData!.id!, payload);
+                saved = { ...initialData!, ...payload, id: initialData!.id! };
+            } else {
+                saved = await createGlobalCollaboratorApi(payload);
+            }
 
-            await onSave(dataToSave);
+            if (projectId) {
+                await addCollaboratorToProjectApi(
+                    projectId,
+                    saved.id!,
+                    saved.role
+                );
+            }
+
             onSuccess();
-            setBlank();
             onClose();
-        } catch (err) {
-            setError('Erro ao salvar colaborador. Verifique os dados e tente novamente.');
-            console.error('onSave Error:', err);
+        } catch (err: any) {
+            setError(err.response?.data?.message || 'Erro ao salvar colaborador');
+            console.error(err);
         } finally {
             setLoading(false);
         }
@@ -97,66 +125,43 @@ export default function CollaboratorModal({ open, onSave, onClose, onSuccess, in
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <Dialog
-                open={open}
-                onClose={onClose}
-                maxWidth="md"
-                fullWidth
-                role="dialog"
-                aria-labelledby="dialog-title"
-                aria-modal="true"
-            >
-                <DialogTitle id="dialog-title">
-                    {initialData ? 'Editar Colaborador' : 'Novo Colaborador'}
+            <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+                <DialogTitle>
+                    {isEdit ? 'Editar Colaborador' : 'Novo Colaborador'}
                 </DialogTitle>
-
                 <DialogContent className={styles.modalContent}>
-                    {error && <div className={styles.errorMessage} role="alert">{error}</div>}
-
+                    {error && <div className={styles.errorMessage}>{error}</div>}
                     <div className={styles.formGrid}>
                         <TextField
                             label="Nome completo"
                             value={formData.nome}
-                            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                            fullWidth
-                            margin="normal"
-                            required
-                            inputProps={{ 'aria-required': 'true' }}
+                            onChange={e => setFormData(f => ({ ...f, nome: e.target.value }))}
+                            fullWidth required
                         />
-
                         <TextField
                             label="CPF"
                             value={formData.cpf}
-                            onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                            fullWidth
-                            margin="normal"
-                            inputProps={{
-                                pattern: '[0-9]{11}',
-                                'aria-label': 'CPF do colaborador'
-                            }}
-                            required
+                            onChange={e => setFormData(f => ({ ...f, cpf: e.target.value }))}
+                            fullWidth required
                         />
-
                         <TextField
                             label="ID Call Rote"
                             value={formData.idCallRote}
-                            onChange={(e) => setFormData({ ...formData, idCallRote: e.target.value })}
-                            fullWidth
-                            margin="normal"
-                            inputProps={{ 'aria-label': 'ID Call Rote' }}
+                            onChange={e => setFormData(f => ({ ...f, idCallRote: e.target.value }))}
+                            fullWidth required
                         />
-
                         <Select
                             value={formData.role}
-                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                            fullWidth
-                            displayEmpty
-                            required
-                            className={styles.roleSelect}
-                            inputProps={{
-                                'aria-label': 'Selecione a função',
-                                'aria-required': 'true'
-                            }}
+                            onChange={e => setFormData(f => ({
+                                ...f,
+                                role: e.target.value,
+                                // quando mudar de role não-médico, limpar valores de médico
+                                ...(!e.target.value.startsWith('MEDICO')
+                                    ? { medicoRole: '', shiftHours: '' }
+                                    : {}
+                                )
+                            }))}
+                            displayEmpty fullWidth required
                         >
                             <MenuItem value="" disabled>Selecione a função</MenuItem>
                             <MenuItem value="TARM">Tarm</MenuItem>
@@ -164,33 +169,48 @@ export default function CollaboratorModal({ open, onSave, onClose, onSuccess, in
                             <MenuItem value="MEDICO">Médico</MenuItem>
                             <MenuItem value="MEDICO_SUPERVISOR">Médico Supervisor</MenuItem>
                         </Select>
+                        {formData.role.startsWith('MEDICO') && (
+                            <>
+                                <Select
+                                    value={formData.medicoRole}
+                                    onChange={e => setFormData(f => ({ ...f, medicoRole: e.target.value as MedicoRole }))}
+                                    displayEmpty fullWidth required
+                                >
+                                    <MenuItem value="" disabled>Selecione o papel médico</MenuItem>
+                                    {Object.values(MedicoRole).map(mr => (
+                                        <MenuItem key={mr} value={mr}>{mr}</MenuItem>
+                                    ))}
+                                </Select>
+                                <Select
+                                    value={formData.shiftHours}
+                                    onChange={e => setFormData(f => ({ ...f, shiftHours: e.target.value as ShiftHours }))}
+                                    displayEmpty fullWidth required
+                                >
+                                    <MenuItem value="" disabled>Selecione o turno</MenuItem>
+                                    {Object.values(ShiftHours).map(sh => (
+                                        <MenuItem key={sh} value={sh}>{sh}</MenuItem>
+                                    ))}
+                                </Select>
+                            </>
+                        )}
                     </div>
                 </DialogContent>
-
                 <DialogActions className={styles.modalActions}>
-                    <Button
-                        onClick={onClose}
-                        disabled={loading}
-                        aria-label="Cancelar"
-                    >
-                        Cancelar
-                    </Button>
-
+                    <Button onClick={onClose} disabled={loading}>Cancelar</Button>
                     <Button
                         onClick={handleSubmit}
-                        className={loading ? styles.loadingButton : ''}
                         variant="contained"
-                        color="primary"
-                        disabled={loading || !formData.nome || !formData.cpf || !formData.role}
-                        aria-label={initialData ? 'Salvar alterações' : 'Cadastrar'}
+                        disabled={
+                            loading ||
+                            !formData.nome ||
+                            !formData.cpf ||
+                            !formData.idCallRote ||
+                            !formData.role ||
+                            (formData.role.startsWith('MEDICO') &&
+                                (!formData.medicoRole || !formData.shiftHours))
+                        }
                     >
-                        {loading ? (
-                            <CircularProgress size={24} color="inherit" aria-label="Processando" />
-                        ) : initialData ? (
-                            'Salvar Alterações'
-                        ) : (
-                            'Cadastrar'
-                        )}
+                        {loading ? <CircularProgress size={24} /> : isEdit ? 'Salvar' : 'Cadastrar'}
                     </Button>
                 </DialogActions>
             </Dialog>

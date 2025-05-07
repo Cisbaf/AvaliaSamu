@@ -6,6 +6,15 @@ export interface BaseCollaborator {
   role: string;
   pontuacao: number;
 }
+export enum MedicoRole {
+  REGULADOR = 'REGULADOR',
+  LIDER = "LIDER",
+}
+export enum ShiftHours {
+  H12 = 'H12',
+  H24 = 'H24',
+}
+
 
 export interface GlobalCollaborator extends BaseCollaborator {
   isGlobal: true;
@@ -22,11 +31,11 @@ export interface Project {
   id?: string;
   name: string;
   month: string;
-  parameters?: Record<string, number>;
+  parameters: Record<string, number>; // Agora obrigatório
   collaborators: {
     collaboratorId: string;
     role: string;
-    pointuacao: number;
+    pontuacao: number;
   }[];
   createdAt: string;
   updatedAt: string;

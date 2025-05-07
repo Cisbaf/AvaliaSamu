@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { GlobalCollaborator } from '@/types/project';
+import { useGlobalCollaborators } from '@/context/project/hooks/useGlobalCollaborators';
 
 interface AddExistingCollaboratorModalProps {
     open: boolean;
@@ -33,7 +34,10 @@ export default function AddExistingCollaboratorModal({
     onAdd,
     loading
 }: AddExistingCollaboratorModalProps) {
-    const [selectedRole,] = useState<string>('default');
+    console.log('Colaboradores disponíveis:', collaborators);
+
+
+
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>Adicionar Colaborador Existente</DialogTitle>

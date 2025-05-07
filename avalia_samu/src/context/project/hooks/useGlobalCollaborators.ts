@@ -62,6 +62,7 @@ export function useGlobalCollaborators() {
     return {
         globalCollaborators,
         actions: {
+            fetchGlobalCollaborators,
             createGlobalCollaborator,
             updateGlobalCollaborator,
             deleteGlobalCollaborator
