@@ -7,14 +7,9 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString
-
-public class ProjectCollaborator {
+public class ProjectCollabRequest {
     private String collaboratorId;
-    private String nome;
     private String role;
-    private Long durationSeconds;
-    private Integer quantity;
-    private Integer points;
-
+    private Long durationSeconds;   // ou null
+    private Integer quantity;       // ou null
 }

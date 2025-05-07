@@ -1,95 +1,138 @@
 'use client';
 
-import { Typography, Select, MenuItem, TextField, Input, Button } from '@mui/material';
-import { useProjects } from '../context/ProjectContext';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Typography,
+  Select,
+  MenuItem,
+  TextField,
+  Input,
+  Button
+} from '@mui/material';
+import { useProjects } from '@/context/ProjectContext';
 import styles from './styles/ParametersPanel.module.css';
-import { useEffect, useMemo, useState } from 'react';
+import api from '@/lib/api';
 import { Project } from '@/types/project';
 
-const roleParametersConfig: Record<string, string[]> = {
-  Colaborador: ['pausaGeral'],
-  Tarma: ['pausa1', 'pausa2'],
-  Frota: ['pausa3', 'pausa4'],
-  Médico: ['pausa5'],
+// Configuração dos parâmetros por role conforme planilha
+const roleParametersConfig: Record<string, { key: string; label: string }[]> = {
+  TARM: [
+    { key: 'removidos', label: 'Quantidade de Removidos' },
+    { key: 'tempoRegulacao', label: 'Tempo de Regulação (segundos)' },
+    { key: 'pausasMensal', label: 'Pausas Mensais (segundos)' },
+  ],
+  FROTA: [
+    { key: 'tempoSaidaVTR', label: 'Tempo de Saída VTR (segundos)' },
+    { key: 'tempoRegulacaoFrota', label: 'Tempo de Regulação Frota (segundos)' },
+    { key: 'pausasMensal', label: 'Pausas Mensais (segundos)' },
+  ],
+  MEDICO_REGULADOR_12H: [
+    { key: 'tempoRegulacaoMedica', label: 'Tempo de Regulação Médica (segundos)' },
+  ],
+  MEDICO_REGULADOR_24H: [
+    { key: 'tempoRegulacaoMedica', label: 'Tempo de Regulação Médica (segundos)' },
+  ],
+  MEDICO_LIDER_12H: [
+    { key: 'tempoRegulacaoLider', label: 'Tempo de Regulação Líder (segundos)' },
+  ],
+  MEDICO_LIDER_24H: [
+    { key: 'tempoRegulacaoLider', label: 'Tempo de Regulação Líder (segundos)' },
+  ],
 };
 
 export default function ParametersPanel() {
   const {
     projects,
     selectedProject,
-    actions: { updateProject },
-    globalCollaborators
+    actions: { updateProject }
   } = useProjects();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
   const [project, setProject] = useState<Project>();
-  const [selectedRole, setSelectedRole] = useState('Colaborador');
+  const [selectedRole, setSelectedRole] = useState('TARM');
   const [formValues, setFormValues] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(false);
 
-  const roles = useMemo(() => [
-    'Colaborador',
-    ...Array.from(new Set(globalCollaborators.map(c => c.role)))
-  ], [globalCollaborators]);
+  const roles = useMemo(() => Object.keys(roleParametersConfig), []);
 
-
-
+  // carrega projeto atual
   useEffect(() => {
-    const project = selectedProject
-      ? projects.find(p => p.id === selectedProject)
-      : undefined;
-    setProject(project);
-  }, [])
-
-  useEffect(() => {
-    if (project && selectedRole) {
-      const roleParams = typeof project.parameters?.[selectedRole] === 'object' && !Array.isArray(project.parameters?.[selectedRole])
-        ? (project.parameters?.[selectedRole] as Record<string, number>)
-        : {};
-      const initialValues: Record<string, number> = {};
-      roleParametersConfig[selectedRole]?.forEach(param => {
-        initialValues[param] = roleParams[param] || 0;
-      });
-      setFormValues(initialValues);
+    if (selectedProject) {
+      const proj = projects.find(p => p.id === selectedProject);
+      setProject(proj);
     }
+  }, [projects, selectedProject]);
+
+  // inicializa formValues quando muda role ou project
+  useEffect(() => {
+    if (!project) return;
+    const existingParams = project.parameters || {};
+    const initial: Record<string, number> = {};
+    const params = roleParametersConfig[selectedRole] || [];
+    params.forEach(({ key }) => {
+      const flatKey = `${selectedRole}.${key}`;
+      initial[key] = existingParams[flatKey] ?? 0;
+    });
+    setFormValues(initial);
   }, [project, selectedRole]);
 
-  const handleInputChange = (param: string, value: string) => {
-    const newValue = Number(value);
-    if (isNaN(newValue)) return;
-    setFormValues(prev => ({ ...prev, [param]: newValue }));
+  const handleInputChange = (key: string, value: string) => {
+    const num = Number(value);
+    if (isNaN(num)) return;
+    setFormValues(prev => ({ ...prev, [key]: num }));
   };
 
-  const handleSubmit = () => {
-    if (!project || !selectedProject || !selectedRole) return;
-
-    const newParameters = {
-      ...project.parameters,
-      ...Object.fromEntries(
-        Object.entries(formValues).map(([key, value]) => [`${selectedRole}.${key}`, value])
-      )
-    };
-
-    updateProject(selectedProject, { parameters: newParameters });
-  };
 
   const handleFileUpload = async () => {
     if (!selectedFile || !selectedProject) {
       alert('Selecione um arquivo e um projeto primeiro!');
       return;
     }
-    if (!project) {
-      return (
-        <div className={styles.panel}>
-          <Typography variant="h6">Selecione um projeto para configurar os parâmetros</Typography>
-        </div>
-      );
+
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('arquivo', selectedFile); // <- nome do campo deve ser 'arquivo'
+
+      await api.post('/processar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      alert('Planilha enviada e processada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao enviar planilha:', error);
+      alert('Erro ao enviar ou processar a planilha.');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
+
+  const handleSubmit = async () => {
+    if (!project || !selectedProject) return;
+    setLoading(true);
+    try {
+      const flat: Record<string, number> = {};
+      Object.entries(formValues).forEach(([key, value]) => {
+        flat[`${selectedRole}.${key}`] = value;
+      });
+      const newParameters = { ...project.parameters, ...flat };
+
+      await updateProject(selectedProject, { parameters: newParameters });
+    } catch (err) {
+      console.error('Erro ao salvar parâmetros:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className={styles.panel} style={{ textAlign: 'center', alignItems: 'center' }}>
-      <Typography variant="h4" className={styles.title}>Parâmetros</Typography>
+    <div className={styles.panel}>
+      <Typography variant="h4" className={styles.title}>
+        Parâmetros do Projeto
+      </Typography>
 
       <div className={styles.uploadSection}>
         <Input
@@ -101,7 +144,7 @@ export default function ParametersPanel() {
         />
 
         <label htmlFor="file-upload">
-          <Button variant="text" component="span" color="success" style={{ fontSize: '16px' }}>
+          <Button variant="contained" component="span" color="primary">
             Selecionar Arquivo
           </Button>
         </label>
@@ -110,27 +153,28 @@ export default function ParametersPanel() {
           <>
             <Typography variant="caption" sx={{ ml: 2 }}>{selectedFile.name}</Typography>
             <Button
-              variant="outlined"
+              variant="contained"
               color="success"
               onClick={handleFileUpload}
               disabled={loading}
               sx={{ ml: 2 }}
-
             >
               {loading ? 'Enviando...' : 'Enviar Planilha'}
             </Button>
           </>
         )}
       </div>
+
+      {/* Select de Role */}
       <div className={styles.inputContainer}>
-        <Typography variant="subtitle1">Função:</Typography>
+        <Typography>Função:</Typography>
         <Select
-          value={selectedRole}
-          onChange={(e) => setSelectedRole(e.target.value)}
           fullWidth
           size="small"
+          value={selectedRole}
+          onChange={e => setSelectedRole(e.target.value)}
         >
-          {roles.map((role) => (
+          {roles.map(role => (
             <MenuItem key={role} value={role}>
               {role}
             </MenuItem>
@@ -138,32 +182,31 @@ export default function ParametersPanel() {
         </Select>
       </div>
 
-      {roleParametersConfig[selectedRole]?.map((param) => (
-        <div key={param} className={styles.inputContainer}>
+      {/* Campos dinamicamente por roleParametersConfig */}
+      {roleParametersConfig[selectedRole]?.map(({ key, label }) => (
+        <div key={key} className={styles.inputContainer}>
           <TextField
-            size="small"
-            variant="filled"
-            label={`Parâmetro ${param.toUpperCase()}`}
-            color="warning"
-            fullWidth
-            value={formValues[param] ?? ''}
-            onChange={(e) => handleInputChange(param, e.target.value)}
-            className={styles.inputField}
             type="number"
+            size="small"
+            variant="outlined"
+            label={label}
+            fullWidth
+            value={formValues[key] ?? ''}
+            onChange={e => handleInputChange(key, e.target.value)}
           />
         </div>
       ))}
 
+      {/* Botão de salvar */}
       <Button
         variant="contained"
-        color="success"
+        color="primary"
         onClick={handleSubmit}
-        sx={{ mt: 3 }}
-        style={{ borderRadius: '20px' }}
-
+        disabled={loading}
+        sx={{ mt: 2 }}
       >
-        Salvar Parâmetros
+        {loading ? 'Salvando...' : 'Salvar Parâmetros'}
       </Button>
     </div>
-  )
+  );
 }

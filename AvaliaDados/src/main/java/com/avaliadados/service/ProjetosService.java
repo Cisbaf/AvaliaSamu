@@ -26,7 +26,7 @@ public class ProjetosService {
         var p = projetoRepo.findById(id)
                 .orElseThrow();
         if (updates.containsKey("parameters")) {
-            Map<String, Double> params = (Map<String, Double>) updates.get("parameters");
+            Map<String, Integer> params = (Map<String, Integer>) updates.get("parameters");
             p.setParameters(params);
         }
         p.setUpdatedAt(Instant.now());

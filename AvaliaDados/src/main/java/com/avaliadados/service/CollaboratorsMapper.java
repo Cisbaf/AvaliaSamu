@@ -4,6 +4,7 @@ import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorRequest;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.FrotaEntity;
+import com.avaliadados.model.MedicoEntity;
 import com.avaliadados.model.TarmEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class CollaboratorsMapper {
                 entity.getRole()
         );
     }
+
     protected CollaboratorEntity createByRole(CollaboratorRequest request) {
         return switch (request.role().toUpperCase()) {
             case "TARM" -> new TarmEntity(
@@ -30,7 +32,6 @@ public class CollaboratorsMapper {
                     request.idCallRote(),
                     request.pontuacao(),
                     request.role(),
-                    request.tempoRegulaco(),
                     null
             );
             case "FROTA" -> new FrotaEntity(
@@ -39,11 +40,19 @@ public class CollaboratorsMapper {
                     request.idCallRote(),
                     request.pontuacao(),
                     request.role(),
-                    request.regulacaoMedica(),
+                    null
+            );
+            case "MEDICO", "MEDICO_SUPERVISOR" -> new MedicoEntity(
+                    request.nome(),
+                    request.cpf(),
+                    request.idCallRote(),
+                    request.pontuacao(),
+                    request.role(),
+                    request.medicoRole(),
+                    request.shiftHours(),
                     null
             );
             default -> throw new IllegalArgumentException("Role inválido: " + request.role());
         };
     }
-
 }

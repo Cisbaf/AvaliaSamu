@@ -1,14 +1,17 @@
 package com.avaliadados.model;
 
 
-import jakarta.persistence.*;
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
+import jakarta.persistence.PrimaryKeyJoinColumn;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.*;
-
-import java.time.LocalTime;
+import lombok.experimental.SuperBuilder;
 
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @ToString
@@ -19,10 +22,17 @@ import java.time.LocalTime;
 
 public class TarmEntity extends CollaboratorEntity {
 
-    private LocalTime tempoRegulaco;
 
-    public TarmEntity(String nome, String cpf, String idCallRote, int pontuacao, String role, LocalTime tempoRegulaco, Long version) {
+    public TarmEntity(
+            @NotBlank(message = "Campo nome é obrigatorio") String nome,
+            @Pattern(message = "CPF fornecido não existe",
+                    regexp = "([0-9]{2}[.]?[0-9]{3}[.]?[0-9]{3}/?[0-9]{4}-?[0-9]{2})")
+            @NotBlank(message = "Campo CPF é obrigatorio") String cpf,
+            @NotBlank(message = "Campo ID Call Rote é obrigatorio") String idCallRote,
+            int pontuacao,
+            @NotBlank String role,
+            Long version
+    ) {
         super(nome, cpf, idCallRote, pontuacao, role, version);
-        this.tempoRegulaco = tempoRegulaco;
     }
 }

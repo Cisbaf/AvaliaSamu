@@ -3,8 +3,6 @@ package com.avaliadados.service;
 import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorRequest;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
-import com.avaliadados.model.FrotaEntity;
-import com.avaliadados.model.TarmEntity;
 import com.avaliadados.repository.CollaboratorRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -21,9 +19,9 @@ public class CollaboratorsService {
 
     private final CollaboratorRepository collaboratorRepository;
     private final CollaboratorsMapper mapper;
-    private final ProjectCollabService projetosService;
 
 
+    @Transactional
     public CollaboratorsResponse createCollaborator(CollaboratorRequest request) {
         CollaboratorEntity newCollaborator = mapper.createByRole(request);
         CollaboratorEntity saved = collaboratorRepository.save(newCollaborator);
@@ -72,7 +70,6 @@ public class CollaboratorsService {
 
         updateExistingFields(existing, request);
         var newCollab = collaboratorRepository.save(existing);
-        projetosService.syncCollaboratorData(newCollab.getId());
 
         return mapper.toCollaboratorsResponse(newCollab);
     }
@@ -80,7 +77,6 @@ public class CollaboratorsService {
     private CollaboratorsResponse handleRoleChange(CollaboratorEntity oldEntity, CollaboratorRequest request) {
         CollaboratorEntity newEntity = mapper.createByRole(request);
         copyCommonFields(oldEntity, newEntity);
-        copySpecificFields(oldEntity, newEntity);
 
         collaboratorRepository.delete(oldEntity);
         CollaboratorEntity saved = collaboratorRepository.save(newEntity);
@@ -95,14 +91,6 @@ public class CollaboratorsService {
         target.setPontuacao(source.getPontuacao());
     }
 
-    private void copySpecificFields(CollaboratorEntity oldEntity, CollaboratorEntity newEntity) {
-        if (oldEntity instanceof TarmEntity oldTarm && newEntity instanceof TarmEntity newTarm) {
-            newTarm.setTempoRegulaco(oldTarm.getTempoRegulaco());
-        }
-        else if (oldEntity instanceof FrotaEntity oldFrota && newEntity instanceof FrotaEntity newFrota) {
-            newFrota.setRegulacaoMedica(oldFrota.getRegulacaoMedica());
-        }
-    }
 
     private void updateExistingFields(CollaboratorEntity entity, CollaboratorRequest request) {
         entity.setNome(request.nome());
@@ -110,12 +98,6 @@ public class CollaboratorsService {
         entity.setIdCallRote(request.idCallRote());
         entity.setPontuacao(request.pontuacao());
 
-        if (entity instanceof TarmEntity tarm) {
-            tarm.setTempoRegulaco(request.tempoRegulaco());
-        }
-        else if (entity instanceof FrotaEntity frota) {
-            frota.setRegulacaoMedica(request.regulacaoMedica());
-        }
     }
 
 }

@@ -1,3 +1,4 @@
+// src/main/java/com/avaliadados/service/ProjectCollabService.java
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
@@ -6,89 +7,109 @@ import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class ProjectCollabService {
 
     private final ProjetoRepository projetoRepo;
     private final CollaboratorRepository collaboratorRepo;
+    private final ScoringService scoringService;
 
-    public ProjetoEntity addCollaborator(String projectId, String collaboratorId, String role) {
+    @Transactional
+    public ProjetoEntity addCollaborator(
+            String projectId,
+            String collaboratorId,
+            String role,
+            Long durationSeconds,
+            Integer quantity
+    ) {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
 
-        CollaboratorEntity collaborator = collaboratorRepo.findById(collaboratorId)
+        CollaboratorEntity collab = collaboratorRepo.findById(collaboratorId)
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
+
+        // calcula pontos dinamicamente
+        int points;
+        if (durationSeconds != null) {
+            points = scoringService.scoreByRoleDuration(role,
+                    Duration.ofSeconds(durationSeconds));
+        } else if (quantity != null) {
+            points = scoringService.scoreByRoleQuantity(role, quantity);
+        } else {
+            points = 0;
+        }
 
         ProjectCollaborator pc = ProjectCollaborator.builder()
                 .collaboratorId(collaboratorId)
-                .nome(collaborator.getNome())
+                .nome(collab.getNome())
                 .role(role)
-                .points(collaborator.getPontuacao())
+                .durationSeconds(durationSeconds)
+                .quantity(quantity)
+                .points(points)
                 .build();
 
+        // substitui se já existia
         projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(collaboratorId));
         projeto.getCollaborators().add(pc);
-
         return projetoRepo.save(projeto);
     }
 
-
     public List<CollaboratorsResponse> getAllProjectCollaborators(String projectId) {
-        Optional<ProjetoEntity> projetoOpt = projetoRepo.findById(projectId);
-
-        if (projetoOpt.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        ProjetoEntity projeto = projetoOpt.get();
-        List<ProjectCollaborator> collaborators = projeto.getCollaborators();
-        List<CollaboratorsResponse> result = new ArrayList<>();
-
-        for (ProjectCollaborator pc : collaborators) {
-            String collaboratorId = pc.getCollaboratorId();
-            var response = collaboratorRepo.findById(collaboratorId).orElseThrow();
-            var newResponse = transformToProject(response, pc);
-
-            result.add(newResponse);
-        }
-
-        return result;
+        return projetoRepo.findById(projectId)
+                .map(proj -> proj.getCollaborators().stream()
+                        .map(this::toResponse)
+                        .collect(Collectors.toList()))
+                .orElse(List.of());
     }
 
-    private CollaboratorsResponse transformToProject(CollaboratorEntity response, ProjectCollaborator pc) {
+    private CollaboratorsResponse toResponse(ProjectCollaborator pc) {
+        var collab = collaboratorRepo.findById(pc.getCollaboratorId())
+                .orElseThrow();
         return new CollaboratorsResponse(
                 pc.getCollaboratorId(),
                 pc.getNome(),
-                response.getCpf(),
-                response.getIdCallRote(),
+                collab.getCpf(),
+                collab.getIdCallRote(),
                 pc.getPoints(),
                 pc.getRole()
         );
     }
 
-
     @Transactional
-    public ProjetoEntity updateCollaboratorRole(String projectId, String collaboratorId, String newRole) {
+    public ProjetoEntity updateCollaboratorRole(
+            String projectId,
+            String collaboratorId,
+            String newRole,
+            Long durationSeconds,
+            Integer quantity
+    ) {
+        // mesma lógica de recalcular pontos
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
 
         projeto.getCollaborators().stream()
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
-                .ifPresent(projectCollaborator -> projectCollaborator.setRole(newRole));
+                .ifPresent(pc -> {
+                    pc.setRole(newRole);
+                    if (durationSeconds != null) {
+                        pc.setDurationSeconds(durationSeconds);
+                        pc.setPoints(scoringService.scoreByRoleDuration(newRole,
+                                Duration.ofSeconds(durationSeconds)));
+                    } else if (quantity != null) {
+                        pc.setQuantity(quantity);
+                        pc.setPoints(scoringService.scoreByRoleQuantity(newRole, quantity));
+                    }
+                });
 
         return projetoRepo.save(projeto);
     }
@@ -97,24 +118,6 @@ public class ProjectCollabService {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
         projeto.getCollaborators().removeIf(pc -> pc.getCollaboratorId().equals(collaboratorId));
-        projeto.setUpdatedAt(Instant.now());
         projetoRepo.save(projeto);
     }
-
-    public void syncCollaboratorData(String collaboratorId) {
-        CollaboratorEntity collaborator = collaboratorRepo.findById(collaboratorId)
-                .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
-
-        List<ProjetoEntity> projetos = projetoRepo.findByCollaboratorsCollaboratorId(collaboratorId);
-
-        projetos.forEach(projeto -> {
-            projeto.getCollaborators().stream()
-                    .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
-                    .findFirst()
-                    .ifPresent(pc -> pc.setNome(collaborator.getNome()));
-            projetoRepo.save(projeto);
-        });
-    }
-
-
 }

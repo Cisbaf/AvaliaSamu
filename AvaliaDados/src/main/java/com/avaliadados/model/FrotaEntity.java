@@ -1,17 +1,17 @@
 package com.avaliadados.model;
 
 
-import jakarta.persistence.DiscriminatorValue;
-import jakarta.persistence.Entity;
-import jakarta.persistence.PrimaryKeyJoinColumn;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.*;
 
+import java.time.Duration;
 import java.time.LocalTime;
+import java.util.Map;
 
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @ToString
@@ -21,11 +21,16 @@ import java.time.LocalTime;
 @DiscriminatorValue("FROTA")
 public class FrotaEntity extends CollaboratorEntity {
 
-    private LocalTime regulacaoMedica;
-
-    public FrotaEntity(String nome, String cpf, String idCallRote, int pontuacao, String role, LocalTime regulacaoMedica, Long version) {
-        super(nome, cpf, idCallRote, pontuacao, role,version);
-        this.regulacaoMedica = regulacaoMedica;
+    public FrotaEntity(
+            @NotBlank(message = "Campo nome é obrigatorio") String nome,
+            @Pattern(message = "CPF fornecido não existe",
+                    regexp = "([0-9]{2}[.]?[0-9]{3}[.]?[0-9]{3}/?[0-9]{4}-?[0-9]{2})")
+            @NotBlank(message = "Campo CPF é obrigatorio") String cpf,
+            @NotBlank(message = "Campo ID Call Rote é obrigatorio") String idCallRote,
+            int pontuacao,
+            @NotBlank String role,
+            Long version
+    ) {
+        super(nome, cpf, idCallRote, pontuacao, role, version);
     }
-
 }

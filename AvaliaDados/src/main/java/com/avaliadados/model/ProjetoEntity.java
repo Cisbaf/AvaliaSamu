@@ -23,7 +23,7 @@ public class ProjetoEntity {
     private String month;
 
     private List<ProjectCollaborator> collaborators;
-    private Map<String, Double> parameters = new HashMap<>();
+    private Map<String, Integer> parameters = new HashMap<>();
 
     private Instant createdAt;
     private Instant updatedAt;
