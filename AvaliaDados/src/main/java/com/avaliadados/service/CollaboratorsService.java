@@ -3,6 +3,9 @@ package com.avaliadados.service;
 import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorRequest;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
+import com.avaliadados.model.MedicoEntity;
+import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.repository.CollaboratorRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -68,10 +71,26 @@ public class CollaboratorsService {
             return handleRoleChange(existing, request);
         }
 
-        updateExistingFields(existing, request);
-        var newCollab = collaboratorRepository.save(existing);
+        // Atualiza campos específicos de médico
+        if (existing instanceof MedicoEntity medicoEntity) {
+            updateMedicoFields(medicoEntity, request);
+        }
 
-        return mapper.toCollaboratorsResponse(newCollab);
+        updateCommonFields(existing, request);
+        return mapper.toCollaboratorsResponse(collaboratorRepository.save(existing));
+    }
+
+    private void updateMedicoFields(MedicoEntity entity, CollaboratorRequest request) {
+        String[] parts = request.role().split("_");
+        entity.setMedicoRole(MedicoRole.valueOf(parts[1]));
+        entity.setShiftHours(ShiftHours.valueOf(parts[2]));
+    }
+
+    private void updateCommonFields(CollaboratorEntity entity, CollaboratorRequest request) {
+        entity.setNome(request.nome());
+        entity.setCpf(request.cpf());
+        entity.setIdCallRote(request.idCallRote());
+        entity.setPontuacao(request.pontuacao());
     }
 
     private CollaboratorsResponse handleRoleChange(CollaboratorEntity oldEntity, CollaboratorRequest request) {
@@ -89,15 +108,6 @@ public class CollaboratorsService {
         target.setCpf(source.getCpf());
         target.setIdCallRote(source.getIdCallRote());
         target.setPontuacao(source.getPontuacao());
-    }
-
-
-    private void updateExistingFields(CollaboratorEntity entity, CollaboratorRequest request) {
-        entity.setNome(request.nome());
-        entity.setCpf(request.cpf());
-        entity.setIdCallRote(request.idCallRote());
-        entity.setPontuacao(request.pontuacao());
-
     }
 
 }

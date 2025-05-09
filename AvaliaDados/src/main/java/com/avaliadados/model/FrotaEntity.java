@@ -1,14 +1,13 @@
 package com.avaliadados.model;
 
 
-import jakarta.persistence.*;
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
+import jakarta.persistence.PrimaryKeyJoinColumn;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
-
-import java.time.Duration;
-import java.time.LocalTime;
-import java.util.Map;
 
 @Getter
 @Setter

@@ -4,9 +4,13 @@ import lombok.Getter;
 
 @Getter
 public enum ShiftHours {
-    H12(12),
-    H24(24);
+    H12("H12"),
+    H24("H24");
 
-    private final  int hours;
-    ShiftHours(int hours) {this.hours = hours;}
+    private final String code;
+
+    ShiftHours(String code) {
+        this.code = code;
+    }
+
 }

@@ -14,15 +14,14 @@ import styles from './styles/ParametersPanel.module.css';
 import api from '@/lib/api';
 import { Project } from '@/types/project';
 
-// Configuração dos parâmetros por role conforme planilha
 const roleParametersConfig: Record<string, { key: string; label: string }[]> = {
   TARM: [
     { key: 'removidos', label: 'Quantidade de Removidos' },
-    { key: 'tempoRegulacao', label: 'Tempo de Regulação (segundos)' },
+    { key: 'tempoRegulacao', label: 'Tempo de Regulação TARM (segundos)' },
     { key: 'pausasMensal', label: 'Pausas Mensais (segundos)' },
   ],
   FROTA: [
-    { key: 'tempoSaidaVTR', label: 'Tempo de Saída VTR (segundos)' },
+    { key: 'tempoSaidaVTR', label: 'Saída VTR - Empenho (segundos)' },
     { key: 'tempoRegulacaoFrota', label: 'Tempo de Regulação Frota (segundos)' },
     { key: 'pausasMensal', label: 'Pausas Mensais (segundos)' },
   ],
@@ -33,10 +32,10 @@ const roleParametersConfig: Record<string, { key: string; label: string }[]> = {
     { key: 'tempoRegulacaoMedica', label: 'Tempo de Regulação Médica (segundos)' },
   ],
   MEDICO_LIDER_12H: [
-    { key: 'tempoRegulacaoLider', label: 'Tempo de Regulação Líder (segundos)' },
+    { key: 'tempoRegulacaoLider', label: 'Tempo de Regulação Médica Líder (segundos)' },
   ],
   MEDICO_LIDER_24H: [
-    { key: 'tempoRegulacaoLider', label: 'Tempo de Regulação Líder (segundos)' },
+    { key: 'tempoRegulacaoLider', label: 'Tempo de Regulação Médica Líder (segundos)' },
   ],
 };
 
@@ -68,11 +67,12 @@ export default function ParametersPanel() {
     if (!project) return;
     const existingParams = project.parameters || {};
     const initial: Record<string, number> = {};
-    const params = roleParametersConfig[selectedRole] || [];
-    params.forEach(({ key }) => {
-      const flatKey = `${selectedRole}.${key}`;
-      initial[key] = existingParams[flatKey] ?? 0;
+
+    roleParametersConfig[selectedRole]?.forEach(({ key }) => {
+      const paramKey = `${selectedRole}_${key}`;
+      initial[key] = existingParams[paramKey] ?? 0;
     });
+
     setFormValues(initial);
   }, [project, selectedRole]);
 
@@ -93,9 +93,9 @@ export default function ParametersPanel() {
 
     try {
       const formData = new FormData();
-      formData.append('arquivo', selectedFile); // <- nome do campo deve ser 'arquivo'
+      formData.append('arquivo', selectedFile);
 
-      await api.post('/processar', formData, {
+      await api.post("/" + project?.id + '/processar', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -110,17 +110,32 @@ export default function ParametersPanel() {
     }
   };
 
+  const normalizeParams = (params: Record<string, number>) => {
+    return Object.fromEntries(
+      Object.entries(params).map(([key, value]) => [
+        key.replace('.', '_'),
+        value
+      ])
+    );
+  };
+
+
   const handleSubmit = async () => {
     if (!project || !selectedProject) return;
     setLoading(true);
+
     try {
       const flat: Record<string, number> = {};
       Object.entries(formValues).forEach(([key, value]) => {
-        flat[`${selectedRole}.${key}`] = value;
+        flat[`${selectedRole}_${key}`] = value;
       });
-      const newParameters = { ...project.parameters, ...flat };
+
+      const normalizedExisting = normalizeParams(project.parameters || {});
+      const newParameters = { ...normalizedExisting, ...flat };
+
 
       await updateProject(selectedProject, { parameters: newParameters });
+      alert('Parâmetros salvos com sucesso!');
     } catch (err) {
       console.error('Erro ao salvar parâmetros:', err);
     } finally {
@@ -165,7 +180,6 @@ export default function ParametersPanel() {
         )}
       </div>
 
-      {/* Select de Role */}
       <div className={styles.inputContainer}>
         <Typography>Função:</Typography>
         <Select
@@ -182,7 +196,6 @@ export default function ParametersPanel() {
         </Select>
       </div>
 
-      {/* Campos dinamicamente por roleParametersConfig */}
       {roleParametersConfig[selectedRole]?.map(({ key, label }) => (
         <div key={key} className={styles.inputContainer}>
           <TextField
@@ -197,7 +210,6 @@ export default function ParametersPanel() {
         </div>
       ))}
 
-      {/* Botão de salvar */}
       <Button
         variant="contained"
         color="primary"

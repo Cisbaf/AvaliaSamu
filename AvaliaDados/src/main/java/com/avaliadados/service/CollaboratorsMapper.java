@@ -6,6 +6,8 @@ import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.FrotaEntity;
 import com.avaliadados.model.MedicoEntity;
 import com.avaliadados.model.TarmEntity;
+import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.ShiftHours;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +27,24 @@ public class CollaboratorsMapper {
     }
 
     protected CollaboratorEntity createByRole(CollaboratorRequest request) {
+        String role = request.role().toUpperCase();
+
+        if (role.startsWith("MEDICO")) {
+            String[] parts = role.split("_");
+            MedicoRole medicoRole = MedicoRole.valueOf(parts[1]);
+            ShiftHours shiftHours = ShiftHours.valueOf(parts[2]); // Converte "12H" para H12
+
+            return new MedicoEntity(
+                    request.nome(),
+                    request.cpf(),
+                    request.idCallRote(),
+                    request.pontuacao(),
+                    role, // Armazena o role completo
+                    medicoRole,
+                    shiftHours,
+                    0L
+            );
+        } else {
         return switch (request.role().toUpperCase()) {
             case "TARM" -> new TarmEntity(
                     request.nome(),
@@ -54,5 +74,6 @@ public class CollaboratorsMapper {
             );
             default -> throw new IllegalArgumentException("Role inválido: " + request.role());
         };
+    }}
+
     }
-}

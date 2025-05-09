@@ -10,7 +10,12 @@ public class CriterionValue {
     @Id @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    private long threshold;
+    private double threshold;
 
-    private int score;
+    private double score;
+
+    public CriterionValue(int threshold, int score) {
+        this.threshold = threshold;
+        this.score = score;
+    }
 }

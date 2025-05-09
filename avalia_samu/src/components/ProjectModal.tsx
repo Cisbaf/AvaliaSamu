@@ -36,6 +36,16 @@ export default function ProjectModal({
       createProject({
         name: projectName,
         month: month,
+        parameters: {
+          removidos: 0,
+          pontosRemovidos: 0,
+          tempoRegulacao: 0,
+          pausasMensal: 0,
+          tempoSaidaVTR: 0,
+          tempoRegulacaoFrota: 0,
+          tempoRegulacaoMedica: 0,
+          tempoRegulacaoLider: 0
+        },
       });
       onClose();
       setProjectName('');

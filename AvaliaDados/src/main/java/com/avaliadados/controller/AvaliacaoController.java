@@ -17,10 +17,10 @@ public class AvaliacaoController {
 
     private final AvaliacaoService service;
 
-    @PostMapping("/processar")
-    public ResponseEntity<String> processarPlanilha(@RequestParam MultipartFile arquivo) {
+    @PostMapping("/{projectId}/processar")
+    public ResponseEntity<String> processarPlanilha(@RequestParam MultipartFile arquivo, @PathVariable String projectId) {
         try {
-            service.processarPlanilha(arquivo);
+            service.processarPlanilha(arquivo, projectId);
             return ResponseEntity.ok("Planilha processada com sucesso");
         } catch (IOException e) {
             return ResponseEntity.badRequest().body("Erro ao processar planilha: " + e.getMessage());

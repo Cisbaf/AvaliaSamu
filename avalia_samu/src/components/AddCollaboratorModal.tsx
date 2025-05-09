@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
-    Button, TextField, MenuItem, Select, CircularProgress
+    Button, TextField, MenuItem, Select, CircularProgress, InputLabel, FormControl
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -16,30 +16,49 @@ import {
 } from '@/lib/api';
 import { MedicoRole, ShiftHours } from '@/types/project';
 
-interface CollaboratorModalProps {
-    open: boolean;
-    onClose: () => void;
-    onSuccess: () => void;
-    initialData?: {
-        id?: string;
-        nome: string;
-        cpf: string;
-        idCallRote: string;
-        role: string;
-        medicoRole?: MedicoRole;
-        shiftHours?: ShiftHours;
-    };
-    projectId?: string;
-}
-
 type FormData = {
     nome: string;
     cpf: string;
     idCallRote: string;
-    role: string;
+    baseRole: string;
     medicoRole: MedicoRole | '';
     shiftHours: ShiftHours | '';
 };
+
+const parseInitialRole = (roleString: string) => {
+    let baseRole = roleString;
+    let medicoRole: MedicoRole | '' = '';
+    let shiftHours: ShiftHours | '' = '';
+
+    const parts = roleString.split('_');
+    if (parts[0] === 'MEDICO') {
+        baseRole = 'MEDICO';
+        const parsedMedicoRole = parts[1];
+        if (parsedMedicoRole && Object.values(MedicoRole).includes(parsedMedicoRole as MedicoRole)) {
+            medicoRole = parsedMedicoRole as MedicoRole;
+        }
+        const parsedShiftHours = parts[2];
+        if (parsedShiftHours && Object.values(ShiftHours).includes(parsedShiftHours as ShiftHours)) {
+            shiftHours = parsedShiftHours as ShiftHours;
+        }
+    } else if (roleString === 'MEDICO_SUPERVISOR') {
+        baseRole = 'MEDICO_SUPERVISOR';
+    }
+
+    return {
+        baseRole,
+        medicoRole,
+        shiftHours,
+    };
+};
+
+interface CollaboratorModalProps {
+    open: boolean;
+    onClose: () => void;
+    onSuccess: () => void;
+    initialData?: GlobalCollaborator;
+    projectId?: string;
+}
 
 export default function CollaboratorModal({
     open, onClose, onSuccess, initialData, projectId
@@ -48,7 +67,7 @@ export default function CollaboratorModal({
         nome: '',
         cpf: '',
         idCallRote: '',
-        role: '',
+        baseRole: '',
         medicoRole: '',
         shiftHours: '',
     });
@@ -57,20 +76,21 @@ export default function CollaboratorModal({
 
     useEffect(() => {
         if (initialData) {
+            const parsedRoles = parseInitialRole(initialData.role);
             setFormData({
                 nome: initialData.nome,
                 cpf: initialData.cpf,
                 idCallRote: initialData.idCallRote,
-                role: initialData.role,
-                medicoRole: initialData.medicoRole ?? '',
-                shiftHours: initialData.shiftHours ?? '',
+                baseRole: parsedRoles.baseRole,
+                medicoRole: parsedRoles.medicoRole,
+                shiftHours: parsedRoles.shiftHours,
             });
         } else {
             setFormData({
                 nome: '',
                 cpf: '',
                 idCallRote: '',
-                role: '',
+                baseRole: '',
                 medicoRole: '',
                 shiftHours: '',
             });
@@ -79,49 +99,91 @@ export default function CollaboratorModal({
 
     const isEdit = Boolean(initialData?.id);
 
+    const handleBaseRoleChange = (event: any) => {
+        const newBaseRole = event.target.value as string;
+        setFormData(prev => {
+            const updatedFormData = {
+                ...prev,
+                baseRole: newBaseRole,
+            };
+            if (newBaseRole !== 'MEDICO') {
+                updatedFormData.medicoRole = '';
+                updatedFormData.shiftHours = '';
+            }
+            return updatedFormData;
+        });
+    };
+
+    const handleMedicoRoleChange = (event: any) => {
+        setFormData(prev => ({ ...prev, medicoRole: event.target.value as MedicoRole }));
+    };
+
+    const handleShiftHoursChange = (event: any) => {
+        setFormData(prev => ({ ...prev, shiftHours: event.target.value as ShiftHours }));
+    };
+
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
         try {
-            const payload: Omit<GlobalCollaborator, 'id'> = {
+            const finalRole = formData.baseRole === 'MEDICO'
+                ? `MEDICO_${formData.medicoRole}_${formData.shiftHours}`
+                : formData.baseRole;
+
+            type ApiPayload = Omit<GlobalCollaborator, 'id'> & { isGlobal: true };
+
+            const payload: ApiPayload = {
                 nome: formData.nome,
                 cpf: formData.cpf.replace(/\D/g, ''),
                 idCallRote: formData.idCallRote,
-                role: formData.role,
-                pontuacao: 0,
+                role: finalRole,
+                pontuacao: isEdit ? initialData!.pontuacao : 0,
                 isGlobal: true,
-                // só envio esses campos quando for médico
-                ...(formData.role.startsWith('MEDICO') && {
-                    medicoRole: formData.medicoRole,
-                    shiftHours: formData.shiftHours,
-                }),
             };
 
-            let saved: GlobalCollaborator;
+            let savedCollaborator: GlobalCollaborator;
+
             if (isEdit) {
                 await updateGlobalCollaboratorApi(initialData!.id!, payload);
-                saved = { ...initialData!, ...payload, id: initialData!.id! };
+                savedCollaborator = {
+                    id: initialData!.id!,
+                    nome: payload.nome,
+                    cpf: payload.cpf,
+                    idCallRote: payload.idCallRote,
+                    role: payload.role,
+                    pontuacao: initialData!.pontuacao,
+                    isGlobal: initialData!.isGlobal,
+                };
             } else {
-                saved = await createGlobalCollaboratorApi(payload);
+                savedCollaborator = await createGlobalCollaboratorApi(payload);
             }
 
             if (projectId) {
                 await addCollaboratorToProjectApi(
                     projectId,
-                    saved.id!,
-                    saved.role
+                    savedCollaborator.id!,
+                    savedCollaborator.role
                 );
             }
 
             onSuccess();
             onClose();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Erro ao salvar colaborador');
-            console.error(err);
+            const apiErrorMessage = err.response?.data?.message || err.message || 'Erro ao salvar colaborador';
+            setError(apiErrorMessage);
+            console.error("API Error:", err.response?.data || err);
         } finally {
             setLoading(false);
         }
     };
+
+    const isSubmitDisabled = loading ||
+        !formData.nome ||
+        !formData.cpf ||
+        !formData.idCallRote ||
+        !formData.baseRole ||
+        (formData.baseRole === 'MEDICO' &&
+            (!formData.medicoRole || !formData.shiftHours));
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -150,47 +212,54 @@ export default function CollaboratorModal({
                             onChange={e => setFormData(f => ({ ...f, idCallRote: e.target.value }))}
                             fullWidth required
                         />
-                        <Select
-                            value={formData.role}
-                            onChange={e => setFormData(f => ({
-                                ...f,
-                                role: e.target.value,
-                                // quando mudar de role não-médico, limpar valores de médico
-                                ...(!e.target.value.startsWith('MEDICO')
-                                    ? { medicoRole: '', shiftHours: '' }
-                                    : {}
-                                )
-                            }))}
-                            displayEmpty fullWidth required
-                        >
-                            <MenuItem value="" disabled>Selecione a função</MenuItem>
-                            <MenuItem value="TARM">Tarm</MenuItem>
-                            <MenuItem value="FROTA">Frota</MenuItem>
-                            <MenuItem value="MEDICO">Médico</MenuItem>
-                            <MenuItem value="MEDICO_SUPERVISOR">Médico Supervisor</MenuItem>
-                        </Select>
-                        {formData.role.startsWith('MEDICO') && (
+
+                        <FormControl fullWidth required>
+                            <InputLabel id="base-role-label">Função</InputLabel>
+                            <Select
+                                labelId="base-role-label"
+                                value={formData.baseRole}
+                                onChange={handleBaseRoleChange}
+                                label="Função"
+                                displayEmpty
+                            >
+                                <MenuItem value="TARM">Tarm</MenuItem>
+                                <MenuItem value="FROTA">Frota</MenuItem>
+                                <MenuItem value="MEDICO">Médico</MenuItem>
+                                <MenuItem value="MEDICO_SUPERVISOR">Médico Supervisor</MenuItem>
+                            </Select>
+                        </FormControl>
+
+                        {formData.baseRole === 'MEDICO' && (
                             <>
-                                <Select
-                                    value={formData.medicoRole}
-                                    onChange={e => setFormData(f => ({ ...f, medicoRole: e.target.value as MedicoRole }))}
-                                    displayEmpty fullWidth required
-                                >
-                                    <MenuItem value="" disabled>Selecione o papel médico</MenuItem>
-                                    {Object.values(MedicoRole).map(mr => (
-                                        <MenuItem key={mr} value={mr}>{mr}</MenuItem>
-                                    ))}
-                                </Select>
-                                <Select
-                                    value={formData.shiftHours}
-                                    onChange={e => setFormData(f => ({ ...f, shiftHours: e.target.value as ShiftHours }))}
-                                    displayEmpty fullWidth required
-                                >
-                                    <MenuItem value="" disabled>Selecione o turno</MenuItem>
-                                    {Object.values(ShiftHours).map(sh => (
-                                        <MenuItem key={sh} value={sh}>{sh}</MenuItem>
-                                    ))}
-                                </Select>
+                                <FormControl fullWidth required>
+                                    <InputLabel id="medico-role-label">Papel Médico</InputLabel>
+                                    <Select
+                                        labelId="medico-role-label"
+                                        value={formData.medicoRole}
+                                        onChange={handleMedicoRoleChange}
+                                        label="Papel Médico"
+                                        displayEmpty
+                                    >
+                                        {Object.values(MedicoRole).map((mr: MedicoRole) => (
+                                            <MenuItem key={mr} value={mr}>{mr}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+
+                                <FormControl fullWidth required>
+                                    <InputLabel id="shift-hours-label">Turno</InputLabel>
+                                    <Select
+                                        labelId="shift-hours-label"
+                                        value={formData.shiftHours}
+                                        onChange={handleShiftHoursChange}
+                                        label="Turno"
+                                        displayEmpty
+                                    >
+                                        {Object.values(ShiftHours).map((sh: ShiftHours) => (
+                                            <MenuItem key={sh} value={sh}>{sh}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
                             </>
                         )}
                     </div>
@@ -200,15 +269,7 @@ export default function CollaboratorModal({
                     <Button
                         onClick={handleSubmit}
                         variant="contained"
-                        disabled={
-                            loading ||
-                            !formData.nome ||
-                            !formData.cpf ||
-                            !formData.idCallRote ||
-                            !formData.role ||
-                            (formData.role.startsWith('MEDICO') &&
-                                (!formData.medicoRole || !formData.shiftHours))
-                        }
+                        disabled={isSubmitDisabled}
                     >
                         {loading ? <CircularProgress size={24} /> : isEdit ? 'Salvar' : 'Cadastrar'}
                     </Button>

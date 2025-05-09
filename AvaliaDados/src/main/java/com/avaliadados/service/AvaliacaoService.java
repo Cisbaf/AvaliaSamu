@@ -1,11 +1,10 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.FrotaEntity;
-import com.avaliadados.model.TarmEntity;
+import com.avaliadados.model.DTO.ProjectCollaborator;
+import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.repository.CollaboratorRepository;
-import com.avaliadados.repository.FrotaRepository;
-import com.avaliadados.repository.TarmRepository;
+import com.avaliadados.repository.ProjetoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.text.similarity.LevenshteinDistance;
@@ -14,92 +13,108 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class AvaliacaoService {
-    private final TarmRepository tarmRepository;
-    private final FrotaRepository frotaRepository;
-    private final CollaboratorRepository colaboradorRepository;
 
-    public void processarPlanilha(MultipartFile arquivo) throws IOException {
+    private final CollaboratorRepository colaboradorRepository;
+    private final ProjetoRepository projetoRepository;
+    private final ScoringService scoringService;
+
+
+    public void processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
+        ProjetoEntity projeto = projetoRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Projeto não encontrado: " + projectId));
+
         Map<String, CollaboratorEntity> colaboradores = colaboradorRepository.findAll()
                 .stream()
                 .collect(Collectors.toMap(
                         c -> normalizarNome(c.getNome()),
                         c -> c,
-                        (existing, replacement) -> existing
+                        (a, b) -> a
                 ));
 
-        try (Workbook workbook = WorkbookFactory.create(arquivo.getInputStream())) {
-            Sheet sheet = workbook.getSheetAt(0);
-            Row headerRow = sheet.getRow(0);
-            Map<String, Integer> colunas = getColumnMapping(headerRow);
+        try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
+            Sheet sheet = wb.getSheetAt(0);
+            Map<String, Integer> cols = getColumnMapping(sheet.getRow(0));
+
+            Map<String, Integer> paramsProjeto = Optional.ofNullable(projeto.getParameters())
+                    .orElseGet(HashMap::new);
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
 
-                String nomePlanilha = normalizarNome(getCellStringValue(row, colunas.get("COLABORADOR")));
-                if (nomePlanilha == null || nomePlanilha.isEmpty()) continue;
-
-                Optional<Map.Entry<String, CollaboratorEntity>> melhorMatch = colaboradores.entrySet()
-                        .stream()
-                        .filter(e -> calcularSimilaridade(e.getKey(), nomePlanilha) > 0.7)
-                        .max(Comparator.comparingDouble(e -> calcularSimilaridade(e.getKey(), nomePlanilha)));
-
-                if (melhorMatch.isPresent()) {
-                    CollaboratorEntity colaborador = melhorMatch.get().getValue();
-                    Map<String, Double> parametros = colaborador.getParametros();
-                    if (parametros == null) {
-                        parametros = new HashMap<>();
-                    }
-
-                    // Atualiza os parâmetros conforme os papéis disponíveis na planilha
-                    if (colunas.containsKey("TEMPO REGULAÇÃO TARM")) {
-                        parametros.put("TARM_tempoRegulacao", convertToDecimalHours(row.getCell(colunas.get("TEMPO REGULAÇÃO TARM"))));
-                    }
-
-                    if (colunas.containsKey("PONTOS TARM")) {
-                        parametros.put("TARM_pontuacao", getCellDoubleValue(row, colunas.get("PONTOS TARM")));
-                    }
-
-                    if (colunas.containsKey("OP. FROTA REGULAÇÃO MÉDICA")) {
-                        parametros.put("FROTA_regulacaoMedica", convertToDecimalHours(row.getCell(colunas.get("OP. FROTA REGULAÇÃO MÉDICA"))));
-                    }
-
-                    if (colunas.containsKey("PONTOS FROTA")) {
-                        parametros.put("FROTA_pontuacao", getCellDoubleValue(row, colunas.get("PONTOS FROTA")));
-                    }
-
-                    colaborador.setParametros(parametros);
-                    colaboradorRepository.save(colaborador);
-                }
+                processarLinhaPlanilha(projeto, colaboradores, cols, paramsProjeto, row);
             }
         }
+
+        projetoRepository.save(projeto);
     }
 
-    private Double convertToDecimalHours(Cell cell) {
-        if (cell == null) return null;
+    private void processarLinhaPlanilha(ProjetoEntity projeto,
+                                        Map<String, CollaboratorEntity> colaboradores,
+                                        Map<String, Integer> cols,
+                                        Map<String, Integer> paramsProjeto,
+                                        Row row) {
+        String nomePlanilha = normalizarNome(getCellStringValue(row, cols.get("COLABORADOR")));
+        if (nomePlanilha == null) return;
 
-        try {
-            String timeString = cell.getStringCellValue();
-            LocalTime time = LocalTime.parse(timeString);
-            return time.getHour() + time.getMinute() / 60.0;
-        } catch (Exception e1) {
-            try {
-                double num = cell.getNumericCellValue(); // Excel time as fraction of day
-                return num * 24;
-            } catch (Exception e2) {
-                return null;
-            }
+        colaboradores.entrySet().stream()
+                .filter(e -> calcularSimilaridade(e.getKey(), nomePlanilha) > 0.7)
+                .max(Comparator.comparingDouble(e -> calcularSimilaridade(e.getKey(), nomePlanilha)))
+                .ifPresent(match -> {
+                    CollaboratorEntity colEnt = match.getValue();
+                    String colaboratorId = colEnt.getId();
+
+                    projeto.getCollaborators().stream()
+                            .filter(pc -> pc.getCollaboratorId().equals(colaboratorId))
+                            .findFirst()
+                            .ifPresent(pc -> atualizarDadosColaborador(pc, row, cols, paramsProjeto));
+                });
+    }
+
+    private void atualizarDadosColaborador(ProjectCollaborator pc,
+                                           Row row,
+                                           Map<String, Integer> cols,
+                                           Map<String, Integer> paramsProjeto) {
+        // Atualiza durações e quantidades
+        if (cols.containsKey("TEMPO REGULAÇÃO TARM")) {
+            Long durationSeconds = getCellTimeInSeconds(row.getCell(cols.get("TEMPO REGULAÇÃO TARM")));
+            pc.setDurationSeconds(durationSeconds);
         }
+
+        if (cols.containsKey("QUANTIDADE TARM")) {
+            Integer quantity = getSafeIntValue(row.getCell(cols.get("QUANTIDADE TARM")));
+            pc.setQuantity(quantity);
+        }
+
+        // Calcula pontos
+        int pontos = calcularPontuacao(pc, paramsProjeto);
+        pc.setPontuacao(pontos);
     }
 
+    private int calcularPontuacao(ProjectCollaborator pc, Map<String, Integer> paramsProjeto) {
+        Duration duracao = pc.getDurationSeconds() != null ? Duration.ofSeconds(pc.getDurationSeconds()) : null;
+        Duration pausaMensal = pc.getPausaMensalSeconds() != null ? Duration.ofSeconds(pc.getPausaMensalSeconds()) : null;
+
+        return scoringService.calculateScore(
+                pc.getRole(),
+                duracao,
+                pc.getQuantity(),
+                pausaMensal,
+                paramsProjeto
+        );
+    }
 
     private Map<String, Integer> getColumnMapping(Row headerRow) {
         Map<String, Integer> columnMap = new HashMap<>();
@@ -125,14 +140,53 @@ public class AvaliacaoService {
         return row.getCell(colIndex).getStringCellValue();
     }
 
-    private Double getCellDoubleValue(Row row, Integer colIndex) {
-        if (colIndex == null || row.getCell(colIndex) == null) return null;
-        Cell cell = row.getCell(colIndex);
+    private Integer getSafeIntValue(Cell cell) {
+        if (cell == null) return null;
+
         try {
-            return cell.getNumericCellValue();
+            switch (cell.getCellType()) {
+                case NUMERIC:
+                    double value = cell.getNumericCellValue();
+                    if (value > Integer.MAX_VALUE) {
+                        log.warn("Valor {} excede Integer.MAX_VALUE", value);
+                        return Integer.MAX_VALUE;
+                    }
+                    if (value < Integer.MIN_VALUE) {
+                        log.warn("Valor {} menor que Integer.MIN_VALUE", value);
+                        return Integer.MIN_VALUE;
+                    }
+                    return (int) Math.round(value);
+                case STRING:
+                    try {
+                        return Integer.parseInt(cell.getStringCellValue().trim());
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                default:
+                    return null;
+            }
         } catch (Exception e) {
-            return null; // Handle non-numeric values as null or throw an exception
+            log.error("Erro ao converter célula para inteiro", e);
+            return null;
         }
+    }
+
+    private Long getCellTimeInSeconds(Cell cell) {
+        if (cell == null) return null;
+
+        try {
+            if (cell.getCellType() == CellType.STRING) {
+                String timeString = cell.getStringCellValue().trim();
+                LocalTime time = LocalTime.parse(timeString);
+                return (long) time.toSecondOfDay();
+            } else if (cell.getCellType() == CellType.NUMERIC) {
+                double excelTime = cell.getNumericCellValue();
+                return Math.round(excelTime * 24 * 3600);
+            }
+        } catch (Exception e) {
+            log.error("Erro ao converter tempo da célula", e);
+        }
+        return null;
     }
 
 

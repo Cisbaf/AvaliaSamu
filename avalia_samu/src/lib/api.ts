@@ -34,23 +34,31 @@ export const fetchProjectCollaboratorsApi = (projectId: string) =>
 export const addCollaboratorToProjectApi = (
   projectId: string,
   collaboratorId: string,
-  role: string
+  role: string,
+  durationSeconds?: number,
+  quantity?: number,
+  pausaMensalSeconds?: number,
+  parametros?: Record<string, number>
 ) =>
   api.post<void>(
     `/projetos/${projectId}/collaborators`,
-    { collaboratorId, role }
+    { collaboratorId, role, durationSeconds, quantity, pausaMensalSeconds, parametros } // Include all parameters
   );
+
 
 export const updateProjectCollaboratorApi = (
   projectId: string,
   projectCollabId: string,
-  role: string
+  role: string,
+  durationSeconds?: number,
+  quantity?: number,
+  pausaMensalSeconds?: number,
+  parametros?: Record<string, number>
 ) =>
   api.put<void>(
     `/projetos/${projectId}/collaborators/${projectCollabId}`,
-    { role }
+    { role, durationSeconds, quantity, pausaMensalSeconds, parametros }  // Include all parameters
   );
-
 export const deleteProjectCollaboratorApi = (
   projectId: string,
   projectCollabId: string

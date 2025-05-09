@@ -72,10 +72,9 @@ export function Header() {
       <CollaboratorModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSave={handleSave}
         onSuccess={() => {
           console.log('Collaborator added successfully');
-        }} loading={loading} />
+        }} />
     </header>
   );
 }
