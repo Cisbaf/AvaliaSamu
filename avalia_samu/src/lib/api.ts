@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { GlobalCollaborator, Project, ProjectCollaborator } from '@/types/project';
+import { GlobalCollaborator, Project, ProjectCollaborator, NestedScoringParameters } from '@/types/project';
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL + '/api',
@@ -7,10 +7,10 @@ export const api = axios.create({
 });
 
 export const fetchProjectsApi = () => api.get<Project[]>('/projetos');
-export const createProjectApi = (data: { name: string; month: string; parameters: Record<string, number> }) =>
+export const createProjectApi = (data: { name: string; month: string; parameters: NestedScoringParameters }) =>
   api.post<Project>('/projetos', data);
 
-export const updateProjectApi = (id: string, updates: { name?: string; month?: string; parameters?: Record<string, number> }) =>
+export const updateProjectApi = (id: string, updates: { name?: string; month?: string; parameters?: NestedScoringParameters }) =>
   api.put<Project>(`/projetos/${id}`, updates);
 export const deleteProjectApi = (id: string) =>
   api.delete<void>(`/projetos/${id}`);

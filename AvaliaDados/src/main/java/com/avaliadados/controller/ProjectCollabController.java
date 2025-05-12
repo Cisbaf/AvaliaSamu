@@ -1,8 +1,9 @@
 package com.avaliadados.controller;
 
+import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.DTO.ProjectCollabRequest;
 import com.avaliadados.model.ProjetoEntity;
-import com.avaliadados.model.DTO.CollaboratorsResponse;
+import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.service.ProjectCollabService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -11,7 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/projetos/{projectId}/collaborator")
@@ -25,7 +25,7 @@ public class ProjectCollabController {
     public ResponseEntity<ProjetoEntity> add(
             @PathVariable String projectId,
             @RequestBody ProjectCollabRequest dto,
-            @RequestParam(required = false) Map<String, Integer> parametros // Adicionando parâmetro para os thresholds
+            @RequestParam(required = false) NestedScoringParameters parametros // Adicionando parâmetro para os thresholds
     ) {
         logger.info("Adicionando colaborador ao projeto ID: {}", projectId);
         logger.debug("Dados do colaborador recebidos: {}", dto);
@@ -37,8 +37,7 @@ public class ProjectCollabController {
                         dto.getRole(),
                         dto.getDurationSeconds(),
                         dto.getQuantity(),
-                        dto.getPausaMensalSeconds(),
-                        parametros != null ? parametros : Map.of() // Passando os parâmetros para o serviço
+                        dto.getPausaMensalSeconds()
                 )
         );
     }
@@ -57,7 +56,7 @@ public class ProjectCollabController {
             @PathVariable String projectId,
             @PathVariable String collaboratorId,
             @RequestBody ProjectCollabRequest dto,
-            @RequestParam(required = false) Map<String, Integer> parametros
+            @RequestParam(required = false) NestedScoringParameters parametros
     ) {
 
         return ResponseEntity.ok(
@@ -67,8 +66,7 @@ public class ProjectCollabController {
                         dto.getRole(),
                         dto.getDurationSeconds(),
                         dto.getQuantity(),
-                        dto.getPausaMensalSeconds(),
-                        parametros != null ? parametros : Map.of()
+                        dto.getPausaMensalSeconds()
                 )
         );
     }

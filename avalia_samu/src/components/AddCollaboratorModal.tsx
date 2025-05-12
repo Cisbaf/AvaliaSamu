@@ -16,7 +16,6 @@ import {
     updateProjectCollaboratorApi
 } from '@/lib/api';
 import { MedicoRole, ShiftHours } from '@/types/project';
-import { init } from 'next/dist/compiled/webpack/webpack';
 
 type FormData = {
     nome: string;

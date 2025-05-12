@@ -4,6 +4,9 @@ import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
+import com.avaliadados.model.params.NestedScoringParameters;
+import com.avaliadados.model.params.ScoringRule;
+import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Time;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,8 +38,7 @@ public class ProjectCollabService {
             String role,
             Long durationSeconds,
             Integer quantity,
-            Long pausaMensalSeconds,
-            Map<String, Integer> parametros
+            Long pausaMensalSeconds
     ) {
         log.info("Adicionando colaborador [{}] ao projeto [{}] com role [{}]", collaboratorId, projectId, role);
 
@@ -43,24 +47,24 @@ public class ProjectCollabService {
         CollaboratorEntity collab = collaboratorRepo.findById(collaboratorId)
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
 
-        Map<String, Integer> thresholds = (parametros != null && !parametros.isEmpty())
-                ? parametros
-                : projeto.getParameters();
+        var scoringParams = convertMapToNested(collab.getParametros());
 
-        log.debug("Parâmetros usados para pontuação: {}", thresholds);
+        log.debug("Parâmetros usados para pontuação: {}", scoringParams);
 
-        Duration regDur = durationSeconds != null ? Duration.ofSeconds(durationSeconds) : null;
-        Duration pauseDur = pausaMensalSeconds != null ? Duration.ofSeconds(pausaMensalSeconds) : null;
+        Duration regDur = durationSeconds != null ? Duration.ofSeconds(durationSeconds) : Duration.ofSeconds(0);
+        Duration pauseDur = pausaMensalSeconds != null ? Duration.ofSeconds(pausaMensalSeconds) : Duration.ofSeconds(0);
+        quantity = quantity != null ? quantity : 0;
 
         log.debug("Valores recebidos para cálculo: duração={}, quantidade={}, pausa={}",
                 regDur, quantity, pauseDur);
 
-        int pontos = scoringService.calculateScore(
+
+        int pontos = scoringService.calculateCollaboratorScore(
                 role,
-                regDur,
+                durationSeconds,
                 quantity,
-                pauseDur,
-                thresholds
+                pausaMensalSeconds,
+                scoringParams
         );
 
         log.info("Pontuação calculada para colaborador [{}]: {}", collaboratorId, pontos);
@@ -72,7 +76,7 @@ public class ProjectCollabService {
                 .durationSeconds(durationSeconds)
                 .quantity(quantity)
                 .pausaMensalSeconds(pausaMensalSeconds)
-                .parametros(thresholds)
+                .parametros(scoringParams)
                 .pontuacao(pontos)
                 .build();
 
@@ -108,10 +112,9 @@ public class ProjectCollabService {
             String newRole,
             Long durationSeconds,
             Integer quantity,
-            Long pausaMensalSeconds,
-            Map<String, Integer> parametros
+            Long pausaMensalSeconds
     ) {
-        log.info("Atualizando colaborador [{}] no projeto [{}] com nova role [{}]", collaboratorId, projectId, newRole);
+        log.info("Atualizando colaborador [{}] no projeto [{}]", collaboratorId, projectId);
 
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -120,30 +123,23 @@ public class ProjectCollabService {
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
+
                     pc.setRole(newRole);
                     pc.setDurationSeconds(durationSeconds);
                     pc.setQuantity(quantity);
                     pc.setPausaMensalSeconds(pausaMensalSeconds);
-                    pc.setParametros(parametros);
+                    pc.setParametros(pc.getParametros());
 
-                    Duration regDur = durationSeconds != null ? Duration.ofSeconds(durationSeconds) : null;
-                    Duration pauseDur = pausaMensalSeconds != null ? Duration.ofSeconds(pausaMensalSeconds) : null;
-
-                    log.debug("Atualização - Valores: duração={}, quantidade={}, pausa={}, thresholds={}",
-                            regDur, quantity, pauseDur, parametros);
-
-                    int pontos = scoringService.calculateScore(
+                    int pontos = scoringService.calculateCollaboratorScore(
                             newRole,
-                            regDur,
+                            durationSeconds,
                             quantity,
-                            pauseDur,
-                            parametros
+                            pausaMensalSeconds,
+                            pc.getParametros()
                     );
 
-                    log.info("Nova pontuação calculada: {}", pontos);
                     pc.setPontuacao(pontos);
                     syncCollaboratorData(collaboratorId);
-
                 });
 
         return projetoRepo.save(projeto);
@@ -157,6 +153,7 @@ public class ProjectCollabService {
         projeto.getCollaborators().removeIf(pc -> pc.getCollaboratorId().equals(collaboratorId));
         projetoRepo.save(projeto);
     }
+
     public void syncCollaboratorData(String collaboratorId) {
         CollaboratorEntity collaborator = collaboratorRepo.findById(collaboratorId)
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
@@ -170,5 +167,59 @@ public class ProjectCollabService {
                     .ifPresent(pc -> pc.setNome(collaborator.getNome()));
             projetoRepo.save(projeto);
         });
+    }
+
+    public static NestedScoringParameters convertMapToNested(Map<String, Integer> flatParams) {
+        NestedScoringParameters nested = new NestedScoringParameters();
+        if (flatParams == null || flatParams.isEmpty()) {
+            log.warn("Mapa de parâmetros plano está nulo ou vazio. Retornando estrutura de parâmetros aninhada vazia.");
+            nested.setTarm(new ScoringSectionParams(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
+            nested.setFrota(new ScoringSectionParams(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
+            nested.setMedico(new ScoringSectionParams(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
+            return nested;
+        }
+
+        nested.setTarm(convertSection(flatParams, "tarm"));
+        nested.setFrota(convertSection(flatParams, "frota"));
+        nested.setMedico(convertSection(flatParams, "medico"));
+
+        return nested;
+    }
+
+
+    private static ScoringSectionParams convertSection(Map<String, Integer> params, String section) {
+        return ScoringSectionParams.builder()
+                .removidos(extractRules(params, section, "removidos"))
+                .regulacao(extractRules(params, section, "regulacao"))
+                .pausas(extractRules(params, section, "pausas"))
+                .saidaVtr(extractRules(params, section, "saidaVtr"))
+                .regulacaoLider(extractRules(params, section, "regulacaoLider"))
+                .build();
+    }
+
+    private static List<ScoringRule> extractRules(Map<String, Integer> params, String section, String field) {
+        List<ScoringRule> rules = new ArrayList<>();
+        int index = 0;
+
+        while (true) {
+            String quantityKey = String.format("%s_%s_%d_quantity", section, field, index);
+            String durationKey = String.format("%s_%s_%d_duration", section, field, index);
+            String pointsKey = String.format("%s_%s_%d_points", section, field, index);
+
+            if (!params.containsKey(pointsKey)) break;
+
+            rules.add(new ScoringRule(
+                    params.getOrDefault(quantityKey, 0),
+                    parseDuration(params.get(durationKey)),
+                    params.get(pointsKey)
+            ));
+            index++;
+        }
+
+        return rules;
+    }
+
+    private static String parseDuration(Integer seconds) {
+        return seconds != null ? Duration.ofSeconds(seconds).toString() : null;
     }
 }

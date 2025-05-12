@@ -18,12 +18,11 @@ import {
 } from '@mui/material';
 import { Edit, Delete, Add } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
-import { Collaborator, GlobalCollaborator, ScoringParameters } from '@/types/project';
+import { GlobalCollaborator, NestedScoringParameters } from '@/types/project';
 import CollaboratorModal from './AddCollaboratorModal';
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
-import { DEFAULT_PARAMS } from "./ParameterPanel";
 type CombinedCollaboratorData = GlobalCollaborator & { projectId?: string };
 
 export default function CollaboratorsPanel() {
@@ -36,10 +35,11 @@ export default function CollaboratorsPanel() {
       addCollaboratorToProject,
       deleteCollaboratorFromProject,
       fetchProjectCollaborators,
+      updateProjectParameters
     }
   } = useProjects();
   const [scoringParamsModalOpen, setScoringParamsModalOpen] = useState(false);
-  const [scoringParams, setScoringParams] = useState<ScoringParameters>(DEFAULT_PARAMS)
+  const [scoringParams, setScoringParams] = useState<NestedScoringParameters>()
 
 
 
@@ -207,7 +207,21 @@ export default function CollaboratorsPanel() {
           <ScoringParamsModal
             open={scoringParamsModalOpen}
             onClose={() => setScoringParamsModalOpen(false)}
-            onSave={(params) => setScoringParams(params)}
+            onSave={async params => {
+              setScoringParams(params);
+              if (selectedProject) {
+                setPanelLoading(true);
+                try {
+                  await updateProjectParameters(selectedProject, params);
+                  await fetchProjectCollaborators(selectedProject);
+                } catch (error) {
+                  console.error('Erro ao atualizar parâmetros do projeto:', error);
+                } finally {
+                  setPanelLoading(false);
+                }
+              }
+              setScoringParamsModalOpen(false);
+            }}
             initialParams={scoringParams}
           />
 

@@ -1,5 +1,5 @@
 import { addCollaboratorToProjectApi, createProjectApi, deleteProjectApi, fetchGlobalCollaboratorsApi, fetchProjectsApi, updateProjectApi } from "@/lib/api";
-import { Project } from "@/types/project";
+import { NestedScoringParameters, Project } from "@/types/project";
 import { useCallback, useEffect, useState } from "react";
 
 export function useProjectActions() {
@@ -12,7 +12,7 @@ export function useProjectActions() {
     }, []);
 
     const createProject = useCallback(
-        async (data: { name: string; month: string; parameters: Record<string, number> }) => {
+        async (data: { name: string; month: string; parameters: NestedScoringParameters }) => {
             const { data: newProject } = await createProjectApi(data);
 
             const { data: globals } = await fetchGlobalCollaboratorsApi();
@@ -35,9 +35,23 @@ export function useProjectActions() {
     );
 
     const updateProject = useCallback(
-        async (id: string, updates: { name?: string; month?: string; parameters?: Record<string, number> }) => {
+        async (id: string, updates: { name?: string; month?: string; parameters?: NestedScoringParameters }) => {
             await updateProjectApi(id, updates);
             await fetchProjects();
+        },
+        [fetchProjects]
+    );
+
+    const updateProjectParameters = useCallback(
+        async (projectId: string, parameters: NestedScoringParameters) => {
+            try {
+                const resp = await updateProjectApi(projectId, { parameters });
+                setProjects(prev =>
+                    prev.map(p => (p.id === projectId ? resp.data : p))
+                );
+            } finally {
+                await fetchProjects();
+            }
         },
         [fetchProjects]
     );
@@ -59,6 +73,6 @@ export function useProjectActions() {
         projects,
         selectedProject,
         setSelectedProject,
-        actions: { createProject, updateProject, deleteProject }
+        actions: { createProject, updateProject, deleteProject, updateProjectParameters },
     };
 }

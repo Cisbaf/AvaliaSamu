@@ -29,7 +29,7 @@ public class CollaboratorEntity {
     @CollectionTable(name = "collaborator_parametros", joinColumns = @JoinColumn(name = "collaborator_id"))
     @MapKeyColumn(name = "param_key")
     @Column(name = "param_value")
-    private Map<String, Double> parametros;
+    private Map<String, Integer> parametros;
 
 
     public CollaboratorEntity(String nome, String cpf, String idCallRote, int pontuacao, String role, Long version) {

@@ -39,31 +39,26 @@ export interface ScoringRule {
   points: number;
 }
 
-export interface RemovidosParams {
-  quantity: number;
-  points: number;
-}
-
 export interface ScoringSectionParams {
-  removidos: RemovidosParams | ScoringRule[];
+  removidos: ScoringRule[];
   regulacao: ScoringRule[];
   pausas?: ScoringRule[];
   saidaVtr?: ScoringRule[];
-  saudacaoVtr?: ScoringRule[];
   regulacaoLider?: ScoringRule[];
 }
 
-export interface ScoringParameters {
+export interface NestedScoringParameters {
   tarm: ScoringSectionParams;
   frota: ScoringSectionParams;
   medico: ScoringSectionParams;
 }
 
+
 export interface Project {
   id?: string;
   name: string;
   month: string;
-  parameters: ScoringParameters;
+  parameters: NestedScoringParameters;
   collaborators: Array<{
     collaboratorId: string;
     role: string;

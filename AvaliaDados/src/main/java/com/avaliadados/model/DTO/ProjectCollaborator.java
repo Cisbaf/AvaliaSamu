@@ -1,5 +1,6 @@
 package com.avaliadados.model.DTO;
 
+import com.avaliadados.model.params.NestedScoringParameters;
 import jakarta.persistence.Id;
 import lombok.*;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -21,7 +22,7 @@ public class ProjectCollaborator {
     private Long durationSeconds;
     private Integer quantity;
     private Integer pontuacao;
-    private Map<String, Integer> parametros;
+    private NestedScoringParameters parametros;
     private Long pausaMensalSeconds;
 
 
