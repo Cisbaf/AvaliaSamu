@@ -12,9 +12,11 @@ import { GlobalCollaborator } from '@/types/project';
 import {
     createGlobalCollaboratorApi,
     updateGlobalCollaboratorApi,
-    addCollaboratorToProjectApi
+    addCollaboratorToProjectApi,
+    updateProjectCollaboratorApi
 } from '@/lib/api';
 import { MedicoRole, ShiftHours } from '@/types/project';
+import { init } from 'next/dist/compiled/webpack/webpack';
 
 type FormData = {
     nome: string;
@@ -125,53 +127,60 @@ export default function CollaboratorModal({
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
-        try {
-            const finalRole = formData.baseRole === 'MEDICO'
+
+        const finalRole =
+            formData.baseRole === 'MEDICO'
                 ? `MEDICO_${formData.medicoRole}_${formData.shiftHours}`
                 : formData.baseRole;
 
-            type ApiPayload = Omit<GlobalCollaborator, 'id'> & { isGlobal: true };
+        type Payload = Omit<GlobalCollaborator, 'id'> & { isGlobal: boolean };
+        const payload: Payload = {
+            nome: formData.nome,
+            cpf: formData.cpf.replace(/\D/g, ''),
+            idCallRote: formData.idCallRote,
+            role: finalRole,
+            pontuacao: isEdit ? initialData!.pontuacao : 0,
+            isGlobal: true,
+        };
 
-            const payload: ApiPayload = {
-                nome: formData.nome,
-                cpf: formData.cpf.replace(/\D/g, ''),
-                idCallRote: formData.idCallRote,
-                role: finalRole,
-                pontuacao: isEdit ? initialData!.pontuacao : 0,
-                isGlobal: true,
-            };
+        try {
+            let collaboratorId = initialData?.id; // Usar ID inicial se existir
 
-            let savedCollaborator: GlobalCollaborator;
-
-            if (isEdit) {
-                await updateGlobalCollaboratorApi(initialData!.id!, payload);
-                savedCollaborator = {
-                    id: initialData!.id!,
-                    nome: payload.nome,
-                    cpf: payload.cpf,
-                    idCallRote: payload.idCallRote,
-                    role: payload.role,
-                    pontuacao: initialData!.pontuacao,
-                    isGlobal: initialData!.isGlobal,
-                };
-            } else {
-                savedCollaborator = await createGlobalCollaboratorApi(payload);
+            // Criar/Atualizar Colaborador Global (se necessário)
+            if (!projectId || !isEdit) {
+                if (isEdit) {
+                    await updateGlobalCollaboratorApi(initialData!.id!, payload);
+                } else {
+                    const newCollaborator = await createGlobalCollaboratorApi(payload);
+                    collaboratorId = newCollaborator.id;
+                }
             }
 
+            // Se for associado a projeto, adicione/atualize no projeto
             if (projectId) {
-                await addCollaboratorToProjectApi(
-                    projectId,
-                    savedCollaborator.id!,
-                    savedCollaborator.role
-                );
+                if (isEdit) {
+                    // Atualizar colaborador no projeto (usando initialData.id do projeto)
+                    await updateProjectCollaboratorApi(
+                        projectId,
+                        initialData!.id!, // ID da associação no projeto
+                        finalRole,
+                        initialData?.durationSeconds, // Outros parâmetros conforme necessário
+                        initialData?.quantity,
+                        initialData?.pausaMensalSeconds,
+                    );
+                } else {
+                    // Adicionar novo colaborador ao projeto (precisa do ID global)
+                    if (!collaboratorId) throw new Error("ID do colaborador não encontrado");
+                    await addCollaboratorToProjectApi(projectId, collaboratorId, finalRole);
+                }
             }
 
             onSuccess();
             onClose();
         } catch (err: any) {
-            const apiErrorMessage = err.response?.data?.message || err.message || 'Erro ao salvar colaborador';
-            setError(apiErrorMessage);
-            console.error("API Error:", err.response?.data || err);
+            const msg = err.response?.data?.message ?? err.message ?? 'Erro ao salvar colaborador';
+            setError(msg);
+            console.error('API Error:', err.response || err);
         } finally {
             setLoading(false);
         }

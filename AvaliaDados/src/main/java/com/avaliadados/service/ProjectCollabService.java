@@ -142,6 +142,8 @@ public class ProjectCollabService {
 
                     log.info("Nova pontuação calculada: {}", pontos);
                     pc.setPontuacao(pontos);
+                    syncCollaboratorData(collaboratorId);
+
                 });
 
         return projetoRepo.save(projeto);
@@ -154,5 +156,19 @@ public class ProjectCollabService {
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
         projeto.getCollaborators().removeIf(pc -> pc.getCollaboratorId().equals(collaboratorId));
         projetoRepo.save(projeto);
+    }
+    public void syncCollaboratorData(String collaboratorId) {
+        CollaboratorEntity collaborator = collaboratorRepo.findById(collaboratorId)
+                .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
+
+        List<ProjetoEntity> projetos = projetoRepo.findByCollaboratorsCollaboratorId(collaboratorId);
+
+        projetos.forEach(projeto -> {
+            projeto.getCollaborators().stream()
+                    .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
+                    .findFirst()
+                    .ifPresent(pc -> pc.setNome(collaborator.getNome()));
+            projetoRepo.save(projeto);
+        });
     }
 }

@@ -18,11 +18,12 @@ import {
 } from '@mui/material';
 import { Edit, Delete, Add } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
-import { Collaborator, GlobalCollaborator } from '@/types/project';
+import { Collaborator, GlobalCollaborator, ScoringParameters } from '@/types/project';
 import CollaboratorModal from './AddCollaboratorModal';
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
-
+import ScoringParamsModal from './ParameterPanel';
+import { DEFAULT_PARAMS } from "./ParameterPanel";
 type CombinedCollaboratorData = GlobalCollaborator & { projectId?: string };
 
 export default function CollaboratorsPanel() {
@@ -35,9 +36,12 @@ export default function CollaboratorsPanel() {
       addCollaboratorToProject,
       deleteCollaboratorFromProject,
       fetchProjectCollaborators,
-      updateGlobalCollaborator,
     }
   } = useProjects();
+  const [scoringParamsModalOpen, setScoringParamsModalOpen] = useState(false);
+  const [scoringParams, setScoringParams] = useState<ScoringParameters>(DEFAULT_PARAMS)
+
+
 
   const [panelLoading, setPanelLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -192,6 +196,21 @@ export default function CollaboratorsPanel() {
           >
             {panelLoading ? <CircularProgress size={24} /> : 'Adicionar Existente'}
           </Button>
+          <Button
+            variant="contained"
+            onClick={() => setScoringParamsModalOpen(true)}
+            style={{ marginLeft: '16px' }}
+          >
+            Configurar Parâmetros
+          </Button>
+
+          <ScoringParamsModal
+            open={scoringParamsModalOpen}
+            onClose={() => setScoringParamsModalOpen(false)}
+            onSave={(params) => setScoringParams(params)}
+            initialParams={scoringParams}
+          />
+
 
           <TableContainer component={Paper} className={styles.tableContainer}>
             <Table stickyHeader aria-label="project collaborators table">

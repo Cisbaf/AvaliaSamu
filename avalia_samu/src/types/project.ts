@@ -1,3 +1,4 @@
+// project.ts
 export interface BaseCollaborator {
   id?: string;
   nome: string;
@@ -31,11 +32,38 @@ export interface ProjectCollaborator extends BaseCollaborator {
 
 export type Collaborator = GlobalCollaborator | ProjectCollaborator;
 
+// Novas interfaces para parâmetros de pontuação
+export interface ScoringRule {
+  duration?: string;
+  quantity?: number;
+  points: number;
+}
+
+export interface RemovidosParams {
+  quantity: number;
+  points: number;
+}
+
+export interface ScoringSectionParams {
+  removidos: RemovidosParams | ScoringRule[];
+  regulacao: ScoringRule[];
+  pausas?: ScoringRule[];
+  saidaVtr?: ScoringRule[];
+  saudacaoVtr?: ScoringRule[];
+  regulacaoLider?: ScoringRule[];
+}
+
+export interface ScoringParameters {
+  tarm: ScoringSectionParams;
+  frota: ScoringSectionParams;
+  medico: ScoringSectionParams;
+}
+
 export interface Project {
   id?: string;
   name: string;
   month: string;
-  parameters: Record<string, number>; // thresholds e parâmetros do projeto
+  parameters: ScoringParameters;
   collaborators: Array<{
     collaboratorId: string;
     role: string;

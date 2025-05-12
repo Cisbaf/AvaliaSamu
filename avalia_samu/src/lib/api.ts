@@ -29,7 +29,7 @@ export const deleteGlobalCollaboratorApi = (id: string) =>
   api.delete<void>(`/collaborator/${id}`);
 
 export const fetchProjectCollaboratorsApi = (projectId: string) =>
-  api.get<ProjectCollaborator[]>(`/projetos/${projectId}/collaborators`);
+  api.get<ProjectCollaborator[]>(`/projetos/${projectId}/collaborator`);
 
 export const addCollaboratorToProjectApi = (
   projectId: string,
@@ -41,7 +41,7 @@ export const addCollaboratorToProjectApi = (
   parametros?: Record<string, number>
 ) =>
   api.post<void>(
-    `/projetos/${projectId}/collaborators`,
+    `/projetos/${projectId}/collaborator`,
     { collaboratorId, role, durationSeconds, quantity, pausaMensalSeconds, parametros } // Include all parameters
   );
 
@@ -56,13 +56,13 @@ export const updateProjectCollaboratorApi = (
   parametros?: Record<string, number>
 ) =>
   api.put<void>(
-    `/projetos/${projectId}/collaborators/${projectCollabId}`,
+    `/projetos/${projectId}/collaborator/${projectCollabId}`,
     { role, durationSeconds, quantity, pausaMensalSeconds, parametros }  // Include all parameters
   );
 export const deleteProjectCollaboratorApi = (
   projectId: string,
   projectCollabId: string
 ) =>
-  api.delete<void>(`/projetos/${projectId}/collaborators/${projectCollabId}`);
+  api.delete<void>(`/projetos/${projectId}/collaborator/${projectCollabId}`);
 
 export default api;

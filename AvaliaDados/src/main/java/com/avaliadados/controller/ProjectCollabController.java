@@ -1,4 +1,3 @@
-// src/main/java/com/avaliadados/controller/ProjectCollabController.java
 package com.avaliadados.controller;
 
 import com.avaliadados.model.DTO.ProjectCollabRequest;
@@ -15,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/projetos/{projectId}/collaborators")
+@RequestMapping("/api/projetos/{projectId}/collaborator")
 @RequiredArgsConstructor
 public class ProjectCollabController {
 
