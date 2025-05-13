@@ -18,16 +18,20 @@ import {
 } from '@mui/material';
 import { Edit, Delete, Add } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
-import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ShiftHours } from '@/types/project';
+import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ProjectCollaborator, ShiftHours } from '@/types/project';
 import CollaboratorModal from './AddCollaboratorModal';
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
-export type CombinedCollaboratorData = GlobalCollaborator & { projectId?: string, medicoRole: MedicoRole, shiftHours: ShiftHours };
+
+export type CombinedCollaboratorData = GlobalCollaborator & {
+  projectId?: string;
+  medicoRole?: MedicoRole;
+  shiftHours?: ShiftHours;
+};
 
 export default function CollaboratorsPanel() {
   const {
-    projects,
     selectedProject,
     projectCollaborators,
     globalCollaborators,
@@ -38,10 +42,9 @@ export default function CollaboratorsPanel() {
       updateProjectParameters
     }
   } = useProjects();
+
   const [scoringParamsModalOpen, setScoringParamsModalOpen] = useState(false);
-  const [scoringParams, setScoringParams] = useState<NestedScoringParameters>()
-
-
+  const [scoringParams, setScoringParams] = useState<NestedScoringParameters>();
   const [panelLoading, setPanelLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | string>('all');
@@ -57,136 +60,111 @@ export default function CollaboratorsPanel() {
   }, [selectedProject, fetchProjectCollaborators]);
 
   useEffect(() => {
-    const rolesInProject = projectCollaborators[selectedProject || '']?.map(c => c.role) || [];
-    setRoles(Array.from(new Set(rolesInProject)).filter(role => typeof role === 'string') as string[]);
+    const inProject = projectCollaborators[selectedProject || ''] || [];
+    setRoles(Array.from(new Set(inProject.map(c => c.role))));
   }, [projectCollaborators, selectedProject]);
 
   const combinedProjectGlobalCollaborators: CombinedCollaboratorData[] = useMemo(() => {
-    const projectCollabs = projectCollaborators[selectedProject || ''] || [];
-    return projectCollabs.map(pc => {
-      const globalCollab = globalCollaborators?.find(gc => gc.id === pc.id);
+    const pcs = projectCollaborators[selectedProject || ''] || [];
+    return pcs.map(pc => {
+      const gc = globalCollaborators?.find(g => g.id === pc.id)!;
       return {
+        // base fields
         id: pc.id,
-        nome: globalCollab?.nome ?? 'Nome Desconhecido',
-        cpf: globalCollab?.cpf ?? '',
-        idCallRote: globalCollab?.idCallRote ?? '',
+        nome: gc?.nome || '—',
+        cpf: gc?.cpf || '',
+        idCallRote: gc?.idCallRote || '',
         role: pc.role,
-        pontuacao: pc?.pontuacao,
-        isGlobal: globalCollab?.isGlobal ?? false,
+        pontuacao: pc.pontuacao,
+        isGlobal: gc?.isGlobal ?? false,
         projectId: selectedProject || undefined,
-      } as CombinedCollaboratorData;
-    });
-  }, [projectCollaborators, selectedProject, globalCollaborators]);
 
-  const filteredCollaborators = useMemo(() => {
+        // **extras para edição**
+        quantity: pc.quantity,
+        durationSeconds: pc.durationSeconds,
+        pausaMensalSeconds: pc.pausaMensalSeconds,
+        medicoRole: pc.medicoRole,
+        shiftHours: pc.shiftHours,
+      };
+    });
+  }, [projectCollaborators, globalCollaborators, selectedProject]);
+
+  const filtered = useMemo(() => {
     return combinedProjectGlobalCollaborators.filter(c => {
-      const matchesName = c.nome.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRole = filterRole === 'all' || (typeof c.role === 'string' && c.role === filterRole);
-      return matchesName && matchesRole;
+      const nameMatch = c.nome.toLowerCase().includes(searchTerm.toLowerCase());
+      const roleMatch = filterRole === 'all' || c.role === filterRole;
+      return nameMatch && roleMatch;
     });
   }, [combinedProjectGlobalCollaborators, searchTerm, filterRole]);
 
-  const availableCollaborators = useMemo(() => {
+  const available = useMemo(() => {
     if (!globalCollaborators || !selectedProject) return [];
-    const projectCollabIds = new Set((projectCollaborators[selectedProject] || []).map(pc => pc.id));
-    return globalCollaborators.filter(gc => !projectCollabIds.has(gc.id));
-  }, [globalCollaborators, selectedProject, projectCollaborators]);
+    const inProjectIds = new Set((projectCollaborators[selectedProject] || []).map(c => c.id));
+    return globalCollaborators.filter(gc => !inProjectIds.has(gc.id));
+  }, [globalCollaborators, projectCollaborators, selectedProject]);
 
-  const handleDelete = useCallback(async (collaboratorId: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!selectedProject) return;
     setPanelLoading(true);
     try {
-      await deleteCollaboratorFromProject(selectedProject, collaboratorId);
+      await deleteCollaboratorFromProject(selectedProject, id);
       await fetchProjectCollaborators(selectedProject);
-    } catch (error) {
-      console.error('Erro ao remover colaborador do projeto:', error);
     } finally {
       setPanelLoading(false);
     }
-  }, [deleteCollaboratorFromProject, selectedProject, fetchProjectCollaborators]);
+  }, [selectedProject, deleteCollaboratorFromProject, fetchProjectCollaborators]);
 
-  const handleOpenAddExistingModal = useCallback(() => {
-    setIsAddExistingModalOpen(true);
-  }, []);
+  const handleOpenAddExisting = () => setIsAddExistingModalOpen(true);
+  const handleCloseAddExisting = () => setIsAddExistingModalOpen(false);
 
-  const handleCloseAddExistingModal = useCallback(() => {
-    setIsAddExistingModalOpen(false);
-  }, []);
-
-  const handleAddExistingCollaboratorToProject = useCallback(async (collaboratorId: string, role: string) => {
+  const handleAddExisting = useCallback(async (id: string, role: string) => {
     if (!selectedProject) return;
     setPanelLoading(true);
     try {
-      await addCollaboratorToProject(selectedProject, { id: collaboratorId, role });
+      await addCollaboratorToProject(selectedProject, { id, role });
       await fetchProjectCollaborators(selectedProject);
-      handleCloseAddExistingModal();
-    } catch (error) {
-      console.error('Erro ao adicionar colaborador existente:', error);
+      handleCloseAddExisting();
     } finally {
       setPanelLoading(false);
     }
-  }, [selectedProject, addCollaboratorToProject, fetchProjectCollaborators, handleCloseAddExistingModal]);
+  }, [selectedProject, addCollaboratorToProject, fetchProjectCollaborators]);
 
-  const handleOpenEditModal = useCallback((collab: CombinedCollaboratorData) => {
+  const handleOpenEdit = (collab: CombinedCollaboratorData) => {
     setEditingCollaboratorInitialData(collab);
-  }, []);
+  };
+  const handleCloseEdit = () => setEditingCollaboratorInitialData(undefined);
+  const handleEditSuccess = async () => {
+    if (selectedProject) await fetchProjectCollaborators(selectedProject);
+    handleCloseEdit();
+  };
 
-  const handleCloseEditModal = useCallback(() => {
-    setEditingCollaboratorInitialData(undefined);
-  }, []);
-
-  const handleEditModalSuccess = useCallback(async () => {
-    if (selectedProject) {
-      await fetchProjectCollaborators(selectedProject);
-    }
-    handleCloseEditModal();
-  }, [selectedProject, fetchProjectCollaborators, handleCloseEditModal]);
-
-  const isTableLoading = selectedProject ? !projectCollaborators[selectedProject] : false;
-
-
-  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || event.target.files.length === 0) return;
-    const file = event.target.files[0];
-
-    if (!selectedProject) {
-      console.error('Nenhum projeto selecionado.');
-      alert('Selecione um projeto antes de enviar a planilha!');
-      return;
-    }
-
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length || !selectedProject) return;
     setLoading(true);
-    const formData = new FormData();
-    formData.append('arquivo', file);
-
+    const file = e.target.files[0];
+    const fd = new FormData();
+    fd.append('arquivo', file);
     try {
-      const response = await fetch(process.env.NEXT_PUBLIC_API_URL + `/api/${selectedProject}/processar`, {
-        method: 'POST',
-        body: formData,
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/${selectedProject}/processar`, {
+        method: 'POST', body: fd
       });
-      if (!response.ok) {
-        throw new Error(`Erro HTTP: ${response.status}`);
-      }
-
-      console.log('Arquivo processado com sucesso!');
+      if (!resp.ok) throw new Error(resp.statusText);
       await fetchProjectCollaborators(selectedProject);
-    } catch (error) {
-      console.error('Falha no upload:', error);
-      alert('Erro ao processar planilha! Verifique o console.');
     } finally {
       setLoading(false);
     }
-  }, [selectedProject, fetchProjectCollaborators]);
+  };
+
+  const isTableLoading = selectedProject && !projectCollaborators[selectedProject];
 
   return (
     <div className={styles.panel}>
-      {!selectedProject && <p>Selecione um projeto para ver os colaboradores.</p>}
-
+      {!selectedProject && <p>Selecione um projeto.</p>}
       {selectedProject && (
         <>
           <div className={styles.filters}>
             <TextField
-              placeholder="Pesquisar por nome"
+              placeholder="Pesquisar"
               size="small"
               fullWidth
               value={searchTerm}
@@ -195,34 +173,28 @@ export default function CollaboratorsPanel() {
             <Select
               value={filterRole}
               size="small"
-              onChange={e => setFilterRole(e.target.value)}
-              className={styles.roleSelect}
-              displayEmpty
+              onChange={e => setFilterRole(e.target.value as string)}
             >
-              <MenuItem value="all">Todas as funções</MenuItem>
-              {roles.map(r => (
-                <MenuItem key={r} value={r}>{r}</MenuItem>
-              ))}
+              <MenuItem value="all">Todas funções</MenuItem>
+              {roles.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
             </Select>
           </div>
 
           <Button
             variant="contained"
             color="warning"
-            onClick={handleOpenAddExistingModal}
-            className={styles.addExistingButton}
             startIcon={<Add />}
-            style={{ marginBottom: '16px', borderRadius: '20px' }}
+            onClick={handleOpenAddExisting}
             disabled={panelLoading}
           >
-            {panelLoading ? <CircularProgress size={24} /> : 'Adicionar Existente'}
+            Adicionar Existente
           </Button>
           <Button
             variant="contained"
             color="warning"
-            className={styles.addExistingButton}
             onClick={() => setScoringParamsModalOpen(true)}
-            style={{ marginBottom: '16px', borderRadius: '20px', marginLeft: '8px' }}
+            disabled={panelLoading}
+            style={{ marginLeft: 8 }}
           >
             Configurar Parâmetros
           </Button>
@@ -231,103 +203,69 @@ export default function CollaboratorsPanel() {
             color="success"
             component="label"
             disabled={loading}
-            style={{ marginBottom: '16px', borderRadius: '20px', marginLeft: '8px' }}
-            sx={{ ml: 2 }}
+            style={{ marginLeft: 8 }}
           >
             {loading ? 'Enviando...' : 'Enviar Planilha'}
-            <input
-              type="file"
-              hidden
-              accept=".xlsx,.xls,.csv"
-              onChange={handleFileUpload}
-            />
+            <input type="file" hidden accept=".xlsx,.xls" onChange={handleUpload} />
           </Button>
 
           <ScoringParamsModal
             open={scoringParamsModalOpen}
             onClose={() => setScoringParamsModalOpen(false)}
             onSave={async params => {
-              setScoringParams(params);
-              if (selectedProject) {
-                setPanelLoading(true);
-                try {
-                  await updateProjectParameters(selectedProject, params);
-                  await fetchProjectCollaborators(selectedProject);
-                } catch (error) {
-                  console.error('Erro ao atualizar parâmetros do projeto:', error);
-                } finally {
-                  setPanelLoading(false);
-                }
+              setPanelLoading(true);
+              try {
+                if (selectedProject) await updateProjectParameters(selectedProject, params);
+                await fetchProjectCollaborators(selectedProject!);
+              } finally {
+                setPanelLoading(false);
+                setScoringParamsModalOpen(false);
               }
-              setScoringParamsModalOpen(false);
             }}
             initialParams={scoringParams}
           />
 
-
-          <TableContainer component={Paper} className={styles.tableContainer}>
-            <Table stickyHeader aria-label="project collaborators table">
+          <TableContainer component={Paper} style={{ marginTop: 16 }}>
+            <Table stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Nome</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Função</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Pontuação</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Ações</TableCell>
+                  <TableCell>Nome</TableCell>
+                  <TableCell>Função</TableCell>
+                  <TableCell>Pontuação</TableCell>
+                  <TableCell>Ações</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {isTableLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} align="center">
-                      <CircularProgress size={30} />
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredCollaborators.map(collab => (
-                    <TableRow key={collab.id}>
-                      <TableCell>{collab.nome}</TableCell>
-                      <TableCell>{collab.role}</TableCell>
-                      <TableCell>{collab.pontuacao}</TableCell>
+                {isTableLoading
+                  ? <TableRow><TableCell colSpan={4} align="center"><CircularProgress /></TableCell></TableRow>
+                  : filtered.map(c => (
+                    <TableRow key={c.id}>
+                      <TableCell>{c.nome}</TableCell>
+                      <TableCell>{c.role}</TableCell>
+                      <TableCell>{c.pontuacao}</TableCell>
                       <TableCell>
-                        <IconButton
-                          onClick={() => handleOpenEditModal(collab)}
-                          aria-label={`editar ${collab.nome}`}
-                          disabled={panelLoading}
-                        >
-                          <Edit color="primary" />
-                        </IconButton>
-                        <IconButton
-                          onClick={() => handleDelete(collab.id!)}
-                          aria-label={`remover ${collab.nome} do projeto`}
-                          disabled={panelLoading}
-                        >
-                          {panelLoading ? <CircularProgress size={20} color="error" /> : <Delete color="error" />}
-                        </IconButton>
+                        <IconButton onClick={() => handleOpenEdit(c)}><Edit color='primary' /></IconButton>
+                        <IconButton onClick={() => handleDelete(c.id!)}><Delete color="error" /></IconButton>
                       </TableCell>
                     </TableRow>
                   ))
-                )}
+                }
               </TableBody>
             </Table>
           </TableContainer>
 
-          {!isTableLoading && filteredCollaborators.length === 0 && (
-            <p className={styles.noResults}>Nenhum colaborador encontrado.</p>
-          )}
-
           <CollaboratorModal
             open={!!editingCollaboratorInitialData}
-            onClose={handleCloseEditModal}
-            onSuccess={handleEditModalSuccess}
+            onClose={handleCloseEdit}
+            onSuccess={handleEditSuccess}
             initialData={editingCollaboratorInitialData}
             projectId={selectedProject}
           />
-
           <AddExistingCollaboratorModal
             open={isAddExistingModalOpen}
-            onClose={handleCloseAddExistingModal}
-            collaborators={availableCollaborators}
-            onAdd={handleAddExistingCollaboratorToProject}
+            onClose={handleCloseAddExisting}
+            collaborators={available}
+            onAdd={handleAddExisting}
             loading={panelLoading}
           />
         </>

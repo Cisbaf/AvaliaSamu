@@ -4,6 +4,7 @@ import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.DTO.ProjectCollabRequest;
 import com.avaliadados.model.DTO.ProjectCollaborator;
+import com.avaliadados.model.DTO.UpdateProjectCollabRequest;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
@@ -16,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.sql.Time;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -117,39 +117,36 @@ public class ProjectCollabService {
     }
 
     @Transactional
-    public ProjetoEntity updatePjCollaborator(
+    public ProjetoEntity updateProjectCollaborator(
             String projectId,
             String collaboratorId,
-            String newRole,
-            Long durationSeconds,
-            Integer quantity,
-            Long pausaMensalSeconds
+            UpdateProjectCollabRequest dto
     ) {
         log.info("Atualizando colaborador [{}] no projeto [{}]", collaboratorId, projectId);
 
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
 
-        projeto.getCollaborators().stream()
+        projeto.getCollaborators()
+                .stream()
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
-
-                    pc.setRole(newRole);
-                    pc.setDurationSeconds(durationSeconds);
-                    pc.setQuantity(quantity);
-                    pc.setPausaMensalSeconds(pausaMensalSeconds);
-                    pc.setParametros(pc.getParametros());
+                    pc.setRole(dto.getRole());
+                    pc.setDurationSeconds(dto.getDurationSeconds());
+                    pc.setQuantity(dto.getQuantity());
+                    pc.setPausaMensalSeconds(dto.getPausaMensalSeconds());
 
                     int pontos = scoringService.calculateCollaboratorScore(
-                            newRole,
-                            durationSeconds,
-                            quantity,
-                            pausaMensalSeconds,
-                            pc.getParametros()
+                            pc.getRole(),
+                            pc.getDurationSeconds(),
+                            pc.getQuantity(),
+                            pc.getPausaMensalSeconds(),
+                            projeto.getParameters()
                     );
-
                     pc.setPontuacao(pontos);
+
+
                     syncCollaboratorData(collaboratorId);
                 });
 

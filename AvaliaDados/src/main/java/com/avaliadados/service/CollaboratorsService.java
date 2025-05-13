@@ -71,7 +71,6 @@ public class CollaboratorsService {
             return handleRoleChange(existing, request);
         }
 
-        // Atualiza campos específicos de médico
         if (existing instanceof MedicoEntity medicoEntity) {
             updateMedicoFields(medicoEntity, request);
         }

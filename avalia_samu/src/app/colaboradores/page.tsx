@@ -278,17 +278,14 @@ export default function CollaboratorsPage() {
             )}
 
 
-            {/* Collaborator Modal (used for both Add New and Edit) */}
             <CollaboratorModal
                 open={modalOpen}
                 onClose={() => {
                     setModalOpen(false);
-                    setSelectedCollaborator(undefined); // Clear selected collaborator on close
+                    setSelectedCollaborator(undefined);
                 }}
-                onSuccess={loadCollaborators} // Reload collaborators after successful save/create
-                initialData={selectedCollaborator} // Pass the selected global collaborator data for editing (undefined for new)
-            // projectId is not needed here as this modal manages GLOBAL collaborators
-            // projectId={undefined} // Explicitly pass undefined or just omit
+                onSuccess={loadCollaborators}
+                initialData={selectedCollaborator}
             />
         </div>
     );

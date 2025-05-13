@@ -2,6 +2,7 @@ package com.avaliadados.controller;
 
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.DTO.ProjectCollabRequest;
+import com.avaliadados.model.DTO.UpdateProjectCollabRequest;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.service.ProjectCollabService;
@@ -44,17 +45,14 @@ public class ProjectCollabController {
     public ResponseEntity<ProjetoEntity> update(
             @PathVariable String projectId,
             @PathVariable String collaboratorId,
-            @RequestBody ProjectCollabRequest dto
+            @RequestBody UpdateProjectCollabRequest dto
     ) {
 
         return ResponseEntity.ok(
-                service.updatePjCollaborator(
+                service.updateProjectCollaborator(
                         projectId,
                         collaboratorId,
-                        dto.getRole(),
-                        dto.getDurationSeconds(),
-                        dto.getQuantity(),
-                        dto.getPausaMensalSeconds()
+                        dto
                 )
         );
     }

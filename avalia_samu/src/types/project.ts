@@ -75,3 +75,10 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface UpdateProjectCollabDto {
+  role: string;
+  durationSeconds?: number;
+  quantity?: number;
+  pausaMensalSeconds?: number;
+}
