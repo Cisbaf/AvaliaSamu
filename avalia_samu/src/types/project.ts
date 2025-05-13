@@ -5,6 +5,8 @@ export interface BaseCollaborator {
   cpf: string;
   idCallRote: string;
   role: string;
+  shiftHours?: ShiftHours;
+  medicoRole?: MedicoRole;
   pontuacao: number;
   quantity?: number;
   durationSeconds?: number;
@@ -63,6 +65,8 @@ export interface Project {
   collaborators: Array<{
     collaboratorId: string;
     role: string;
+    shiftHours?: ShiftHours;
+    medicoRole?: MedicoRole;
     pontuacao: number;
     quantity?: number;
     durationSeconds?: number;

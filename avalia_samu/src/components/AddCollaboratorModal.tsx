@@ -8,7 +8,7 @@ import {
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import styles from './styles/Modal.module.css';
-import { GlobalCollaborator } from '@/types/project';
+import { CombinedCollaboratorData } from './CollaboratorsPanel';
 import {
     createGlobalCollaboratorApi,
     updateGlobalCollaboratorApi,
@@ -26,38 +26,11 @@ type FormData = {
     shiftHours: ShiftHours | '';
 };
 
-const parseInitialRole = (roleString: string) => {
-    let baseRole = roleString;
-    let medicoRole: MedicoRole | '' = '';
-    let shiftHours: ShiftHours | '' = '';
-
-    const parts = roleString.split('_');
-    if (parts[0] === 'MEDICO') {
-        baseRole = 'MEDICO';
-        const parsedMedicoRole = parts[1];
-        if (parsedMedicoRole && Object.values(MedicoRole).includes(parsedMedicoRole as MedicoRole)) {
-            medicoRole = parsedMedicoRole as MedicoRole;
-        }
-        const parsedShiftHours = parts[2];
-        if (parsedShiftHours && Object.values(ShiftHours).includes(parsedShiftHours as ShiftHours)) {
-            shiftHours = parsedShiftHours as ShiftHours;
-        }
-    } else if (roleString === 'MEDICO_SUPERVISOR') {
-        baseRole = 'MEDICO_SUPERVISOR';
-    }
-
-    return {
-        baseRole,
-        medicoRole,
-        shiftHours,
-    };
-};
-
 interface CollaboratorModalProps {
     open: boolean;
     onClose: () => void;
     onSuccess: () => void;
-    initialData?: GlobalCollaborator;
+    initialData?: CombinedCollaboratorData;
     projectId?: string;
 }
 
@@ -77,14 +50,14 @@ export default function CollaboratorModal({
 
     useEffect(() => {
         if (initialData) {
-            const parsedRoles = parseInitialRole(initialData.role);
+            const isMedico = initialData.role === 'MEDICO' || initialData.role.startsWith('MEDICO_');
             setFormData({
                 nome: initialData.nome,
                 cpf: initialData.cpf,
                 idCallRote: initialData.idCallRote,
-                baseRole: parsedRoles.baseRole,
-                medicoRole: parsedRoles.medicoRole,
-                shiftHours: parsedRoles.shiftHours,
+                baseRole: isMedico ? 'MEDICO' : initialData.role,
+                medicoRole: isMedico && initialData.medicoRole ? initialData.medicoRole : '',
+                shiftHours: isMedico && initialData.shiftHours ? initialData.shiftHours : '',
             });
         } else {
             setFormData({
@@ -100,105 +73,90 @@ export default function CollaboratorModal({
 
     const isEdit = Boolean(initialData?.id);
 
-    const handleBaseRoleChange = (event: any) => {
-        const newBaseRole = event.target.value as string;
-        setFormData(prev => {
-            const updatedFormData = {
-                ...prev,
-                baseRole: newBaseRole,
-            };
-            if (newBaseRole !== 'MEDICO') {
-                updatedFormData.medicoRole = '';
-                updatedFormData.shiftHours = '';
-            }
-            return updatedFormData;
-        });
+    const handleBaseRoleChange = (e: any) => {
+        const baseRole = e.target.value as string;
+        setFormData(f => ({
+            ...f,
+            baseRole,
+            medicoRole: baseRole === 'MEDICO' ? f.medicoRole : '',
+            shiftHours: baseRole === 'MEDICO' ? f.shiftHours : ''
+        }));
     };
-
-    const handleMedicoRoleChange = (event: any) => {
-        setFormData(prev => ({ ...prev, medicoRole: event.target.value as MedicoRole }));
+    const handleMedicoRoleChange = (e: any) => {
+        setFormData(f => ({ ...f, medicoRole: e.target.value as MedicoRole }));
     };
-
-    const handleShiftHoursChange = (event: any) => {
-        setFormData(prev => ({ ...prev, shiftHours: event.target.value as ShiftHours }));
+    const handleShiftHoursChange = (e: any) => {
+        setFormData(f => ({ ...f, shiftHours: e.target.value as ShiftHours }));
     };
 
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
 
-        const finalRole =
-            formData.baseRole === 'MEDICO'
-                ? `MEDICO_${formData.medicoRole}_${formData.shiftHours}`
-                : formData.baseRole;
+        const finalRole = formData.baseRole === 'MEDICO'
+            ? `MEDICO_${formData.medicoRole}_${formData.shiftHours}`
+            : formData.baseRole;
 
-        type Payload = Omit<GlobalCollaborator, 'id'> & { isGlobal: boolean };
-        const payload: Payload = {
+        const payload = {
             nome: formData.nome,
             cpf: formData.cpf.replace(/\D/g, ''),
             idCallRote: formData.idCallRote,
             role: finalRole,
             pontuacao: isEdit ? initialData!.pontuacao : 0,
-            isGlobal: true,
+            isGlobal: true as true,
+            medicoRole: formData.medicoRole as MedicoRole,
+            shiftHours: formData.shiftHours as ShiftHours,
         };
 
         try {
-            let collaboratorId = initialData?.id; // Usar ID inicial se existir
-
-            // Criar/Atualizar Colaborador Global (se necessário)
-            if (!projectId || !isEdit) {
-                if (isEdit) {
-                    await updateGlobalCollaboratorApi(initialData!.id!, payload);
-                } else {
-                    const newCollaborator = await createGlobalCollaboratorApi(payload);
-                    collaboratorId = newCollaborator.id;
-                }
+            let collaboratorId = initialData?.id!;
+            if (!isEdit) {
+                const newC = await createGlobalCollaboratorApi(payload);
+                collaboratorId = newC.id!;
+            } else {
+                await updateGlobalCollaboratorApi(collaboratorId, payload);
             }
 
-            // Se for associado a projeto, adicione/atualize no projeto
             if (projectId) {
                 if (isEdit) {
-                    // Atualizar colaborador no projeto (usando initialData.id do projeto)
                     await updateProjectCollaboratorApi(
                         projectId,
-                        initialData!.id!, // ID da associação no projeto
+                        collaboratorId,
                         finalRole,
-                        initialData?.durationSeconds, // Outros parâmetros conforme necessário
+                        initialData?.durationSeconds,
                         initialData?.quantity,
                         initialData?.pausaMensalSeconds,
                     );
                 } else {
-                    // Adicionar novo colaborador ao projeto (precisa do ID global)
-                    if (!collaboratorId) throw new Error("ID do colaborador não encontrado");
-                    await addCollaboratorToProjectApi(projectId, collaboratorId, finalRole);
+                    await addCollaboratorToProjectApi(
+                        projectId,
+                        collaboratorId,
+                        finalRole,
+                        undefined, undefined, undefined, {}
+                    );
                 }
             }
 
             onSuccess();
             onClose();
         } catch (err: any) {
-            const msg = err.response?.data?.message ?? err.message ?? 'Erro ao salvar colaborador';
-            setError(msg);
-            console.error('API Error:', err.response || err);
+            setError(err.response?.data?.message || err.message || 'Erro ao salvar');
         } finally {
             setLoading(false);
         }
     };
 
-    const isSubmitDisabled = loading ||
-        !formData.nome ||
-        !formData.cpf ||
-        !formData.idCallRote ||
-        !formData.baseRole ||
-        (formData.baseRole === 'MEDICO' &&
-            (!formData.medicoRole || !formData.shiftHours));
+    const isSubmitDisabled = loading
+        || !formData.nome
+        || !formData.cpf
+        || !formData.idCallRote
+        || !formData.baseRole
+        || (formData.baseRole === 'MEDICO' && (!formData.medicoRole || !formData.shiftHours));
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
             <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-                <DialogTitle>
-                    {isEdit ? 'Editar Colaborador' : 'Novo Colaborador'}
-                </DialogTitle>
+                <DialogTitle>{isEdit ? 'Editar Colaborador' : 'Novo Colaborador'}</DialogTitle>
                 <DialogContent className={styles.modalContent}>
                     {error && <div className={styles.errorMessage}>{error}</div>}
                     <div className={styles.formGrid}>
@@ -220,7 +178,6 @@ export default function CollaboratorModal({
                             onChange={e => setFormData(f => ({ ...f, idCallRote: e.target.value }))}
                             fullWidth required
                         />
-
                         <FormControl fullWidth required>
                             <InputLabel id="base-role-label">Função</InputLabel>
                             <Select
@@ -228,15 +185,13 @@ export default function CollaboratorModal({
                                 value={formData.baseRole}
                                 onChange={handleBaseRoleChange}
                                 label="Função"
-                                displayEmpty
                             >
-                                <MenuItem value="TARM">Tarm</MenuItem>
-                                <MenuItem value="FROTA">Frota</MenuItem>
-                                <MenuItem value="MEDICO">Médico</MenuItem>
-                                <MenuItem value="MEDICO_SUPERVISOR">Médico Supervisor</MenuItem>
+                                <MenuItem value="TARM">TARM</MenuItem>
+                                <MenuItem value="FROTA">FROTA</MenuItem>
+                                <MenuItem value="MEDICO">MÉDICO</MenuItem>
+                                <MenuItem value="MEDICO_SUPERVISOR">MÉDICO SUPERVISOR</MenuItem>
                             </Select>
                         </FormControl>
-
                         {formData.baseRole === 'MEDICO' && (
                             <>
                                 <FormControl fullWidth required>
@@ -246,14 +201,12 @@ export default function CollaboratorModal({
                                         value={formData.medicoRole}
                                         onChange={handleMedicoRoleChange}
                                         label="Papel Médico"
-                                        displayEmpty
                                     >
-                                        {Object.values(MedicoRole).map((mr: MedicoRole) => (
+                                        {Object.values(MedicoRole).map(mr => (
                                             <MenuItem key={mr} value={mr}>{mr}</MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
-
                                 <FormControl fullWidth required>
                                     <InputLabel id="shift-hours-label">Turno</InputLabel>
                                     <Select
@@ -261,9 +214,8 @@ export default function CollaboratorModal({
                                         value={formData.shiftHours}
                                         onChange={handleShiftHoursChange}
                                         label="Turno"
-                                        displayEmpty
                                     >
-                                        {Object.values(ShiftHours).map((sh: ShiftHours) => (
+                                        {Object.values(ShiftHours).map(sh => (
                                             <MenuItem key={sh} value={sh}>{sh}</MenuItem>
                                         ))}
                                     </Select>
@@ -274,11 +226,7 @@ export default function CollaboratorModal({
                 </DialogContent>
                 <DialogActions className={styles.modalActions}>
                     <Button onClick={onClose} disabled={loading}>Cancelar</Button>
-                    <Button
-                        onClick={handleSubmit}
-                        variant="contained"
-                        disabled={isSubmitDisabled}
-                    >
+                    <Button onClick={handleSubmit} variant="contained" disabled={isSubmitDisabled}>
                         {loading ? <CircularProgress size={24} /> : isEdit ? 'Salvar' : 'Cadastrar'}
                     </Button>
                 </DialogActions>

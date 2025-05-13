@@ -18,12 +18,12 @@ import {
 } from '@mui/material';
 import { Edit, Delete, Add } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
-import { GlobalCollaborator, NestedScoringParameters } from '@/types/project';
+import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ShiftHours } from '@/types/project';
 import CollaboratorModal from './AddCollaboratorModal';
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
-type CombinedCollaboratorData = GlobalCollaborator & { projectId?: string };
+export type CombinedCollaboratorData = GlobalCollaborator & { projectId?: string, medicoRole: MedicoRole, shiftHours: ShiftHours };
 
 export default function CollaboratorsPanel() {
   const {
@@ -42,12 +42,11 @@ export default function CollaboratorsPanel() {
   const [scoringParams, setScoringParams] = useState<NestedScoringParameters>()
 
 
-
   const [panelLoading, setPanelLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | string>('all');
   const [roles, setRoles] = useState<string[]>([]);
-  const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<GlobalCollaborator | undefined>(undefined);
+  const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>(undefined);
   const [isAddExistingModalOpen, setIsAddExistingModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -129,16 +128,7 @@ export default function CollaboratorsPanel() {
   }, [selectedProject, addCollaboratorToProject, fetchProjectCollaborators, handleCloseAddExistingModal]);
 
   const handleOpenEditModal = useCallback((collab: CombinedCollaboratorData) => {
-    const initialData: GlobalCollaborator = {
-      id: collab.id,
-      nome: collab.nome,
-      cpf: collab.cpf,
-      idCallRote: collab.idCallRote,
-      role: collab.role,
-      pontuacao: collab.pontuacao,
-      isGlobal: collab.isGlobal,
-    };
-    setEditingCollaboratorInitialData(initialData);
+    setEditingCollaboratorInitialData(collab);
   }, []);
 
   const handleCloseEditModal = useCallback(() => {
