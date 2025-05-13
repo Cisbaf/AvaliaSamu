@@ -23,29 +23,18 @@ public class ProjectCollabController {
 
     @PostMapping
     public ResponseEntity<ProjetoEntity> add(
-            @PathVariable String projectId,
-            @RequestBody ProjectCollabRequest dto,
-            @RequestParam(required = false) NestedScoringParameters parametros // Adicionando parâmetro para os thresholds
-    ) {
+            @PathVariable String projectId, @RequestBody ProjectCollabRequest dto,
+            @RequestParam(required = false) NestedScoringParameters parametros) {
+
         logger.info("Adicionando colaborador ao projeto ID: {}", projectId);
         logger.debug("Dados do colaborador recebidos: {}", dto);
         logger.debug("Parâmetros recebidos: {}", parametros);
-        return ResponseEntity.ok(
-                service.addCollaborator(
-                        projectId,
-                        dto.getCollaboratorId(),
-                        dto.getRole(),
-                        dto.getDurationSeconds(),
-                        dto.getQuantity(),
-                        dto.getPausaMensalSeconds()
-                )
-        );
+        return ResponseEntity.ok(service.addCollaborator(projectId, dto));
     }
 
     @GetMapping
-    public ResponseEntity<List<CollaboratorsResponse>> getAll(
-            @PathVariable String projectId
-    ) {
+    public ResponseEntity<List<CollaboratorsResponse>> getAll(@PathVariable String projectId) {
+
         List<CollaboratorsResponse> collaborators = service.getAllProjectCollaborators(projectId);
         logger.info("Buscando todos os colaboradores do projeto ID: {}", collaborators);
         return ResponseEntity.ok(collaborators);
@@ -55,8 +44,7 @@ public class ProjectCollabController {
     public ResponseEntity<ProjetoEntity> update(
             @PathVariable String projectId,
             @PathVariable String collaboratorId,
-            @RequestBody ProjectCollabRequest dto,
-            @RequestParam(required = false) NestedScoringParameters parametros
+            @RequestBody ProjectCollabRequest dto
     ) {
 
         return ResponseEntity.ok(

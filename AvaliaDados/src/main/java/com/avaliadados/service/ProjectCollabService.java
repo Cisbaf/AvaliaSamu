@@ -2,12 +2,14 @@ package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
+import com.avaliadados.model.DTO.ProjectCollabRequest;
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
+import com.avaliadados.repository.MedicoEntityRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 
@@ -30,57 +33,53 @@ public class ProjectCollabService {
     private final ProjetoRepository projetoRepo;
     private final CollaboratorRepository collaboratorRepo;
     private final ScoringService scoringService;
+    private final MedicoEntityRepository medicoRepo;
 
     @Transactional
-    public ProjetoEntity addCollaborator(
-            String projectId,
-            String collaboratorId,
-            String role,
-            Long durationSeconds,
-            Integer quantity,
-            Long pausaMensalSeconds
-    ) {
-        log.info("Adicionando colaborador [{}] ao projeto [{}] com role [{}]", collaboratorId, projectId, role);
+    public ProjetoEntity addCollaborator(String projectId, ProjectCollabRequest dto) {
+        log.info("Adicionando colaborador [{}] ao projeto [{}] com role [{}]",
+                dto.getCollaboratorId(), projectId, dto.getRole());
 
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
-        CollaboratorEntity collab = collaboratorRepo.findById(collaboratorId)
+        CollaboratorEntity collab = collaboratorRepo.findById(dto.getCollaboratorId())
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
 
         var scoringParams = convertMapToNested(collab.getParametros());
 
         log.debug("Parâmetros usados para pontuação: {}", scoringParams);
 
-        Duration regDur = durationSeconds != null ? Duration.ofSeconds(durationSeconds) : Duration.ofSeconds(0);
-        Duration pauseDur = pausaMensalSeconds != null ? Duration.ofSeconds(pausaMensalSeconds) : Duration.ofSeconds(0);
-        quantity = quantity != null ? quantity : 0;
+        Duration regDur = dto.getDurationSeconds() != null ?
+                Duration.ofSeconds(dto.getDurationSeconds()) : Duration.ofSeconds(0);
+        Duration pauseDur = dto.getPausaMensalSeconds() != null ?
+                Duration.ofSeconds(dto.getPausaMensalSeconds()) : Duration.ofSeconds(0);
+        Integer quantity = dto.getQuantity() != null ? dto.getQuantity() : 0;
 
         log.debug("Valores recebidos para cálculo: duração={}, quantidade={}, pausa={}",
                 regDur, quantity, pauseDur);
 
-
         int pontos = scoringService.calculateCollaboratorScore(
-                role,
-                durationSeconds,
-                quantity,
-                pausaMensalSeconds,
+                dto.getRole(),
+                dto.getDurationSeconds(),
+                dto.getQuantity(),
+                dto.getPausaMensalSeconds(),
                 scoringParams
         );
 
-        log.info("Pontuação calculada para colaborador [{}]: {}", collaboratorId, pontos);
+        log.info("Pontuação calculada para colaborador [{}]: {}", dto.getCollaboratorId(), pontos);
 
         ProjectCollaborator pc = ProjectCollaborator.builder()
-                .collaboratorId(collaboratorId)
+                .collaboratorId(dto.getCollaboratorId())
                 .nome(collab.getNome())
-                .role(role)
-                .durationSeconds(durationSeconds)
-                .quantity(quantity)
-                .pausaMensalSeconds(pausaMensalSeconds)
+                .role(dto.getRole())
+                .durationSeconds(dto.getDurationSeconds())
+                .quantity(dto.getQuantity())
+                .pausaMensalSeconds(dto.getPausaMensalSeconds())
                 .parametros(scoringParams)
                 .pontuacao(pontos)
                 .build();
 
-        projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(collaboratorId));
+        projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(dto.getCollaboratorId()));
         projeto.getCollaborators().add(pc);
         return projetoRepo.save(projeto);
     }
@@ -93,13 +92,25 @@ public class ProjectCollabService {
                 .map(pc -> {
                     CollaboratorEntity collab = collaboratorRepo.findById(pc.getCollaboratorId())
                             .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
+                    if (Objects.equals(collab.getRole(), "MEDICO")) {
+                        var medico = medicoRepo.findById(collab.getId());
+                        log.info("Medico é isso aqui: {}", medico);
+                        if (medico.isPresent()) {
+                            pc.setMedicoRole(medico.get().getMedicoRole());
+                            pc.setShiftHours(medico.get().getShiftHours());
+                        } else {
+                            throw new RuntimeException("Médico não encontrado");
+                        }
+                    }
                     return new CollaboratorsResponse(
                             pc.getCollaboratorId(),
                             collab.getNome(),
                             collab.getCpf(),
                             collab.getIdCallRote(),
                             pc.getPontuacao(),
-                            pc.getRole()
+                            pc.getRole(),
+                            pc.getShiftHours(),
+                            pc.getMedicoRole()
                     );
                 })
                 .collect(Collectors.toList());

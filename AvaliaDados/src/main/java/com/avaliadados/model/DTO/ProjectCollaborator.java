@@ -1,5 +1,7 @@
 package com.avaliadados.model.DTO;
 
+import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.params.NestedScoringParameters;
 import jakarta.persistence.Id;
 import lombok.*;
@@ -19,6 +21,8 @@ public class ProjectCollaborator {
     private String collaboratorId;
     private String nome;
     private String role;
+    private ShiftHours shiftHours;
+    private MedicoRole medicoRole;
     private Long durationSeconds;
     private Integer quantity;
     private Integer pontuacao;

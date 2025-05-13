@@ -1,5 +1,9 @@
 package com.avaliadados.model.DTO;
 
+import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.ShiftHours;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.*;
 
 import java.io.Serializable;
@@ -19,4 +23,8 @@ public class CollaboratorsResponse implements Serializable {
     private String idCallRote;
     private int pontuacao;
     private String role;
+    @Enumerated(EnumType.STRING)
+    private ShiftHours shiftHours;
+    @Enumerated(EnumType.STRING)
+    private MedicoRole medicoRole;
 }

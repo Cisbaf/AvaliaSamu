@@ -22,7 +22,10 @@ public class CollaboratorsMapper {
                 entity.getCpf(),
                 entity.getIdCallRote(),
                 entity.getPontuacao(),
-                entity.getRole()
+                entity.getRole(),
+                null,
+                null
+
         );
     }
 
@@ -32,14 +35,14 @@ public class CollaboratorsMapper {
         if (role.startsWith("MEDICO")) {
             String[] parts = role.split("_");
             MedicoRole medicoRole = MedicoRole.valueOf(parts[1]);
-            ShiftHours shiftHours = ShiftHours.valueOf(parts[2]); // Converte "12H" para H12
+            ShiftHours shiftHours = ShiftHours.valueOf(parts[2]);
 
             return new MedicoEntity(
                     request.nome(),
                     request.cpf(),
                     request.idCallRote(),
                     request.pontuacao(),
-                    role, // Armazena o role completo
+                    role,
                     medicoRole,
                     shiftHours,
                     0L
