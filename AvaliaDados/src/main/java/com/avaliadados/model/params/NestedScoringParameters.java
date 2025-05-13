@@ -7,6 +7,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NestedScoringParameters {
+    private ScoringSectionParams colab;
     private ScoringSectionParams tarm;
     private ScoringSectionParams frota;
     private ScoringSectionParams medico;

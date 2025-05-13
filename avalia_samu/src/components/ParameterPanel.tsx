@@ -162,28 +162,34 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
           onChange={(_, v) => setTabIndex(v)}
           sx={{ mb: 2 }}
         >
-          <Tab label="TARM" {...a11yProps(0)} />
-          <Tab label="FROTA" {...a11yProps(1)} />
-          <Tab label="MÉDICO" {...a11yProps(2)} />
+          <Tab label="COLAB" {...a11yProps(0)} />
+          <Tab label="TARM" {...a11yProps(1)} />
+          <Tab label="FROTA" {...a11yProps(2)} />
+          <Tab label="MÉDICO" {...a11yProps(3)} />
+
         </Tabs>
         <TabPanel value={tabIndex} index={0}>
+          <Typography variant="subtitle1">Pausas Mensais</Typography>
+          {renderTable('colab', 'pausas', ['Duração', 'Pontuação'])}
+        </TabPanel>
+
+        <TabPanel value={tabIndex} index={1}>
           <Typography variant="subtitle1">Removidos TARM</Typography>
           {renderTable('tarm', 'removidos', ['Quantidade', 'Pontuação'])}
 
           <Typography variant="subtitle1">Tempo de Regulação TARM</Typography>
           {renderTable('tarm', 'regulacao', ['Duração', 'Pontuação'])}
 
-          <Typography variant="subtitle1">Pausas Mensais</Typography>
-          {renderTable('tarm', 'pausas', ['Duração', 'Pontuação'])}
+
         </TabPanel>
-        <TabPanel value={tabIndex} index={1}>
+        <TabPanel value={tabIndex} index={2}>
           <Typography variant="subtitle1">Saída VTR</Typography>
           {renderTable('frota', 'saidaVtr', ['Duração', 'Pontuação'])}
 
           <Typography variant="subtitle1">Tempo de Regulação Frota</Typography>
           {renderTable('frota', 'regulacao', ['Duração', 'Pontuação'])}
         </TabPanel>
-        <TabPanel value={tabIndex} index={2}>
+        <TabPanel value={tabIndex} index={3}>
           <Typography variant="subtitle1">Removidos Médico</Typography>
           {renderTable('medico', 'removidos', ['Quantidade', 'Pontuação'])}
 
@@ -193,6 +199,9 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
           <Typography variant="subtitle1">Tempo de Regulação Líder</Typography>
           {renderTable('medico', 'regulacaoLider', ['Duração', 'Pontuação'])}
         </TabPanel>
+
+
+
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>

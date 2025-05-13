@@ -40,14 +40,15 @@ export interface ScoringRule {
 }
 
 export interface ScoringSectionParams {
-  removidos: ScoringRule[];
-  regulacao: ScoringRule[];
+  removidos?: ScoringRule[];
+  regulacao?: ScoringRule[];
   pausas?: ScoringRule[];
   saidaVtr?: ScoringRule[];
   regulacaoLider?: ScoringRule[];
 }
 
 export interface NestedScoringParameters {
+  colab: ScoringSectionParams;
   tarm: ScoringSectionParams;
   frota: ScoringSectionParams;
   medico: ScoringSectionParams;

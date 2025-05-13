@@ -1,6 +1,16 @@
-import { NestedScoringParameters, ScoringRule } from '@/types/project';
+import { NestedScoringParameters } from '@/types/project';
 
 export const DEFAULT_PARAMS: NestedScoringParameters = {
+
+    colab: {
+        pausas: [
+            { duration: '02:15:00', points: 8 },
+            { duration: '02:17:00', points: 6 },
+            { duration: '02:19:00', points: 4 },
+            { duration: '02:21:00', points: 2 },
+            { duration: '02:22:00', points: 0 }
+        ],
+    },
     tarm: {
         removidos: [
             { quantity: 1, points: 6 },
@@ -13,13 +23,7 @@ export const DEFAULT_PARAMS: NestedScoringParameters = {
             { duration: '00:02:45', points: 1 },
             { duration: '00:02:46', points: 0 }
         ],
-        pausas: [
-            { duration: '02:15:00', points: 8 },
-            { duration: '02:17:00', points: 6 },
-            { duration: '02:19:00', points: 4 },
-            { duration: '02:21:00', points: 2 },
-            { duration: '02:22:00', points: 0 }
-        ]
+
     },
     frota: {
         removidos: [
@@ -62,18 +66,6 @@ export const DEFAULT_PARAMS: NestedScoringParameters = {
             { duration: '00:01:00:46', points: 0 }
         ]
     }
-};
-
-const durationToSeconds = (duration: string): number => {
-    const [h, m, s] = duration.split(':').map(Number);
-    return h * 3600 + m * 60 + s;
-};
-
-const secondsToDuration = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
 

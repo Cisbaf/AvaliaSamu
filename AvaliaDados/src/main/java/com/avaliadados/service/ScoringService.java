@@ -34,6 +34,7 @@ public class ScoringService {
             case "TARM"  -> params.getTarm();
             case "FROTA" -> params.getFrota();
             case "MEDICO"-> params.getMedico();
+            case "COLAB" -> params.getColab();
             default       -> null;
         };
 
@@ -42,20 +43,25 @@ public class ScoringService {
             return 0;
         }
 
-        int total;
-        switch (roleType) {
-            case "TARM":
-                total = calculateTarmScore(durationSeconds, quantity, pausaMensalSeconds, sectionParams);
-                break;
-            case "FROTA":
-                total = matchDurationRule(durationSeconds, sectionParams.getRegulacao());
-                break;
-            case "MEDICO":
-                total = calculateMedicoScore(role, durationSeconds, quantity, sectionParams);
-                break;
-            default:
-                total = 0;
-        }
+        int total = switch (roleType) {
+            case "TARM" -> {
+               var tarm =  calculateTarmScore(durationSeconds, quantity, pausaMensalSeconds, sectionParams);
+                var colab = calculateColb(pausaMensalSeconds, sectionParams);
+                yield tarm + colab;
+             }
+            case "FROTA" -> {
+                var frota = matchDurationRule(durationSeconds, sectionParams.getRegulacao());
+                var colab = calculateColb(pausaMensalSeconds, sectionParams);
+                yield  frota + colab;
+
+            }
+            case "MEDICO" -> {
+                var medico = calculateMedicoScore(role, durationSeconds, quantity, sectionParams);
+                var colab = calculateColb(pausaMensalSeconds, sectionParams);
+                yield  medico + colab;
+            }
+            default -> 0;
+        };
 
         log.info("Score final para role {}: {}", roleType, total);
         return total;
@@ -71,6 +77,16 @@ public class ScoringService {
                 score,
                 params.getRemovidos(),
                 params.getRegulacao(),
+                params.getPausas());
+        return score;
+    }
+    private int calculateColb( Long pausa, ScoringSectionParams params) {
+        log.info("Calculando Colab:  pausa={}s", pausa);
+        int score = 0;
+
+        score += matchDurationRule(pausa, params.getPausas());
+        log.info("Colab partial score: {} |, Pausas: [{}]",
+                score,
                 params.getPausas());
         return score;
     }
