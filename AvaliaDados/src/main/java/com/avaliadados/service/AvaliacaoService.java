@@ -4,7 +4,6 @@ import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.params.NestedScoringParameters;
-import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
@@ -22,12 +21,8 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.ArrayList;
 
 import static com.avaliadados.service.ProjectCollabService.convertMapToNested;
 
@@ -45,19 +40,15 @@ public class AvaliacaoService {
         ProjetoEntity projeto = projetoRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado: " + projectId));
 
-        // Calcula hash único do conteúdo da planilha
         String hash = computeFileHash(arquivo.getInputStream());
 
-        // Inicializa lista de hashes se necessário
         if (projeto.getProcessedSpreadsheetHashes() == null) {
             projeto.setProcessedSpreadsheetHashes(new ArrayList<>());
         }
-        // Verifica duplicidade
         if (projeto.getProcessedSpreadsheetHashes().contains(hash)) {
             throw new RuntimeException("Esta planilha já foi processada para este projeto.");
         }
 
-        // Carrega colaboradores do banco
         Map<String, CollaboratorEntity> colaboradores = colaboradorRepository.findAll()
                 .stream()
                 .collect(Collectors.toMap(
@@ -66,7 +57,6 @@ public class AvaliacaoService {
                         (a, b) -> a
                 ));
 
-        // Processa linhas da planilha
         try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
             Map<String, Integer> cols = getColumnMapping(sheet.getRow(0));
@@ -78,7 +68,6 @@ public class AvaliacaoService {
             }
         }
 
-        // Salva hash para evitar reprocessamento
         projeto.getProcessedSpreadsheetHashes().add(hash);
         projetoRepository.save(projeto);
     }
@@ -91,7 +80,7 @@ public class AvaliacaoService {
         if (nomePlanilha == null) return;
 
         colaboradores.entrySet().stream()
-                .filter(e -> similaridade(e.getKey(), nomePlanilha) > 0.7)
+                .filter(e -> similaridade(e.getKey(), nomePlanilha) >= 0.85)
                 .max(Comparator.comparingDouble(e -> similaridade(e.getKey(), nomePlanilha)))
                 .ifPresent(match -> {
                     CollaboratorEntity colEnt = match.getValue();
@@ -106,42 +95,26 @@ public class AvaliacaoService {
                                            Row row,
                                            Map<String, Integer> cols,
                                            CollaboratorEntity collab) {
-        Long dur = null;
-        // Extrai duration conforme role
-        if (Objects.equals(pc.getRole(), "TARM") && cols.containsKey("TEMPO REGULAÇÃO TARM")) {
-            dur = getCellTimeInSeconds(row.getCell(cols.get("TEMPO REGULAÇÃO TARM")));
+        Map<String, String> roleToColumnMap = Map.of(
+                "TARM", "TEMPO REGULAÇÃO TARM",
+                "FROTA", "OP. FROTA REGULAÇÃO MÉDICA"
+        );
+
+        Long dur;
+        String colName = roleToColumnMap.get(pc.getRole());
+        if (colName != null && cols.containsKey(colName)) {
+            dur = getCellTimeInSeconds(row.getCell(cols.get(colName)));
             pc.setDurationSeconds(dur);
-            log.info("Tempo de regulação TARM para {}: {}s", collab.getNome(), dur);
-        }
-        if (Objects.equals(pc.getRole(), "FROTA") && cols.containsKey("OP. FROTA REGULAÇÃO MÉDICA")) {
-            dur = getCellTimeInSeconds(row.getCell(cols.get("OP. FROTA REGULAÇÃO MÉDICA")));
-            pc.setDurationSeconds(dur);
-            log.info("OP. FROTA REGULAÇÃO MÉDICA para {}: {}s", collab.getNome(), dur);
+            log.info("Duração para {} ({}): {}s", collab.getNome(), pc.getRole(), dur);
         }
 
-        // Inicializa ou recupera parâmetros aninhados
         NestedScoringParameters params = pc.getParametros();
         if (params == null) {
             params = convertMapToNested(collab.getParametros());
         }
-        // Garante que as seções existam
         if (params.getTarm() == null) params.setTarm(new ScoringSectionParams());
         if (params.getFrota() == null) params.setFrota(new ScoringSectionParams());
         if (params.getMedico() == null) params.setMedico(new ScoringSectionParams());
-
-        // Converte duration em regra dinâmica
-        if (dur != null) {
-            ScoringRule durationRule = ScoringRule.builder()
-                    .duration(formatSecondsAsTime(dur))
-                    .quantity(0)
-                    .points(0)
-                    .build();
-            if (Objects.equals(pc.getRole(), "TARM")) {
-                params.getTarm().getRegulacao().add(durationRule);
-            } else if (Objects.equals(pc.getRole(), "FROTA")) {
-                params.getFrota().getRegulacao().add(durationRule);
-            }
-        }
 
         int pontos = scoringService.calculateCollaboratorScore(
                 pc.getRole(),
@@ -153,7 +126,6 @@ public class AvaliacaoService {
         pc.setPontuacao(pontos);
         pc.setParametros(params);
     }
-
 
     private String computeFileHash(InputStream is) throws IOException {
         try {
@@ -170,9 +142,8 @@ public class AvaliacaoService {
         }
     }
 
-
     private Map<String, Integer> getColumnMapping(Row headerRow) {
-        Map<String, Integer> columnMap = new java.util.HashMap<>();
+        Map<String, Integer> columnMap = new HashMap<>();
         for (Cell cell : headerRow) {
             columnMap.put(cell.getStringCellValue().trim().toUpperCase(), cell.getColumnIndex());
         }
@@ -205,10 +176,6 @@ public class AvaliacaoService {
             log.error("Erro convertendo tempo: {} na célula {}", e.getMessage(), cell.getAddress());
         }
         return null;
-    }
-
-    private String formatSecondsAsTime(Long seconds) {
-        return seconds != null ? LocalTime.ofSecondOfDay(seconds).toString() : null;
     }
 
     private String normalizarNome(String nome) {

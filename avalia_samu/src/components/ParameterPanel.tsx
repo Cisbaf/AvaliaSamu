@@ -198,7 +198,7 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
         <Button onClick={onClose}>Cancelar</Button>
         <Button
           variant="contained"
-          onClick={() => onSave(params)}
+          onClick={() => { onSave(params); console.log(params); }}
         >
           Salvar
         </Button>

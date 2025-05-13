@@ -21,135 +21,115 @@ public class ScoringService {
             Long pausaMensalSeconds,
             NestedScoringParameters params
     ) {
-        log.info("Parametros: {}", params);
-        if (params == null) {
-            log.error("calculateCollaboratorScore chamado com NestedScoringParameters nulos! Role: {}, Duration: {}, Quantity: {}, Pausa: {}",
-                    role, durationSeconds, quantity, pausaMensalSeconds);
+        log.info("Iniciando cálculo de score para role={}, duration={}s, quantity={}, pausa={}s",
+                role, durationSeconds, quantity, pausaMensalSeconds);
 
+        if (params == null || role == null) {
+            log.error("Parâmetros nulos: role={}, params={}", role, params);
             return 0;
         }
 
-        if (role == null) {
-            log.error("calculateCollaboratorScore chamado com role nulo.");
-            return 0; // Ou lançar exceção
-        }
         String roleType = role.split("_")[0].toUpperCase();
+        ScoringSectionParams sectionParams = switch (roleType) {
+            case "TARM"  -> params.getTarm();
+            case "FROTA" -> params.getFrota();
+            case "MEDICO"-> params.getMedico();
+            default       -> null;
+        };
 
-        int total = 0;
+        if (sectionParams == null) {
+            log.warn("Nenhuma configuração encontrada para roleType: {}", roleType);
+            return 0;
+        }
 
-        // Adicionar verificações para as seções internas também (params.getTarm(), etc.)
+        int total;
         switch (roleType) {
             case "TARM":
-                if (params.getTarm() == null) { // Verifica se a seção TARM existe
-                    log.warn("Seção TARM dos parâmetros é nula para role {}. Pulando cálculo TARM.", role);
-                    break; // Não calcula pontos TARM
-                }
-                total += calculateTarmScore(
-                        durationSeconds, quantity, pausaMensalSeconds, params.getTarm()
-                );
+                total = calculateTarmScore(durationSeconds, quantity, pausaMensalSeconds, sectionParams);
                 break;
-
             case "FROTA":
-                if (params.getFrota() == null) { // Verifica se a seção FROTA existe
-                    log.warn("Seção FROTA dos parâmetros é nula para role {}. Pulando cálculo FROTA.", role);
-                    break; // Não calcula pontos FROTA
-                }
-                total += calculateFrotaScore(durationSeconds, params.getFrota());
+                total = matchDurationRule(durationSeconds, sectionParams.getRegulacao());
                 break;
-
             case "MEDICO":
-                if (params.getMedico() == null) { // Verifica se a seção MEDICO existe
-                    log.warn("Seção MEDICO dos parâmetros é nula para role {}. Pulando cálculo MEDICO.", role);
-                    break; // Não calcula pontos MEDICO
-                }
-                total += calculateMedicoScore(role, durationSeconds, quantity, params.getMedico());
+                total = calculateMedicoScore(role, durationSeconds, quantity, sectionParams);
                 break;
             default:
-                log.warn("Role type '{}' não reconhecido para cálculo de pontuação.", roleType);
+                total = 0;
         }
 
+        log.info("Score final para role {}: {}", roleType, total);
         return total;
     }
 
     private int calculateTarmScore(Long duration, Integer quantity, Long pausa, ScoringSectionParams params) {
-        if (params == null) {
-            log.warn("calculateTarmScore chamado com ScoringSectionParams nulos.");
-            return 0;
-        }
+        log.info("Calculando TARM: duration={}s, quantity={}, pausa={}s", duration, quantity, pausa);
         int score = 0;
-
-        if (quantity != null && params.getRemovidos() != null) {
-        }
-        if (duration != null && params.getRegulacao() != null) {
-            score += findMatchingRule(duration, params.getRegulacao());
-        }
-        if (pausa != null && params.getPausas() != null) {
-            score += findMatchingRule(pausa, params.getPausas());
-        }
-        log.info("Tamr Score {}", score);
-        return score;
-    }
-
-    private int calculateFrotaScore(Long duration, ScoringSectionParams params) {
-        int score = 0;
-
-        if (duration != null) {
-            score += findMatchingRule(duration, params.getSaidaVtr());
-            score += findMatchingRule(duration, params.getRegulacao());
-        }
-
-
+        score += matchQuantityRule(quantity, params.getRemovidos());
+        score += matchDurationRule(duration, params.getRegulacao());
+        score += matchDurationRule(pausa, params.getPausas());
+        log.info("TARM partial score: {} | Removidos, Regulacao, Pausas: [{}], [{}], [{}]",
+                score,
+                params.getRemovidos(),
+                params.getRegulacao(),
+                params.getPausas());
         return score;
     }
 
     private int calculateMedicoScore(String role, Long duration, Integer quantity, ScoringSectionParams params) {
+        log.info("Calculando MEDICO: duration={}s, quantity={}", duration, quantity);
         int score = 0;
-
-        if (quantity != null) {
-            score += findMatchingRule(quantity, params.getRemovidos());
-        }
-
-        if (duration != null) {
-            if (role.contains("LIDER")) {
-                score += findMatchingRule(duration, params.getRegulacaoLider());
-            } else {
-                score += findMatchingRule(duration, params.getRegulacao());
-            }
-        }
-
+        score += matchQuantityRule(quantity, params.getRemovidos());
+        List<ScoringRule> rules = role.contains("LIDER") ? params.getRegulacaoLider() : params.getRegulacao();
+        score += matchDurationRule(duration, rules);
+        log.info("MEDICO partial score: {} | Removidos: {}, Regulacao: {}",
+                score, params.getRemovidos(), rules);
         return score;
     }
 
-    private int findMatchingRule(Integer value, List<ScoringRule> rules) {
+    private int matchQuantityRule(Integer value, List<ScoringRule> rules) {
         if (value == null || rules == null || rules.isEmpty()) {
+            log.info("matchQuantityRule: valor nulo ou sem regras (value={}, rules={})", value, rules);
             return 0;
         }
-        return rules.stream()
-                .filter(rule -> rule != null && rule.getQuantity() != null && value <= rule.getQuantity())
+        log.info("matchQuantityRule: valor={} contra regras {}", value, rules);
+        int points = rules.stream()
+                .filter(r -> r.getQuantity() != null && value <= r.getQuantity())
                 .findFirst()
-                .map(ScoringRule::getPoints)
+                .map(r -> {
+                    log.info("Quantidade casada: value={} <= {} → points={} ", value, r.getQuantity(), r.getPoints());
+                    return r.getPoints();
+                })
                 .orElse(0);
+        log.info("matchQuantityRule result: {}", points);
+        return points;
     }
 
-
-    private int findMatchingRule(Long seconds, List<ScoringRule> rules) {
+    private int matchDurationRule(Long seconds, List<ScoringRule> rules) {
         if (seconds == null || rules == null || rules.isEmpty()) {
+            log.info("matchDurationRule: valor nulo ou sem regras (seconds={}, rules={})", seconds, rules);
             return 0;
         }
-        return rules.stream()
-                .filter(rule -> rule != null && rule.getDuration() != null && !rule.getDuration().isEmpty())
-                .filter(rule -> {
+        log.info("matchDurationRule: seconds={}s contra regras {}", seconds, rules);
+        int points = rules.stream()
+                .filter(r -> r.getDuration() != null && !r.getDuration().isEmpty())
+                .filter(r -> {
                     try {
-                        LocalTime time = LocalTime.parse(rule.getDuration());
-                        long ruleSeconds = time.toSecondOfDay();
-                        return seconds <= ruleSeconds;
+                        long ruleSec = LocalTime.parse(r.getDuration()).toSecondOfDay();
+                        boolean matches = seconds <= ruleSec;
+                        log.info("Comparando {}s <= {}s ({}): {}", seconds, ruleSec, r.getDuration(), matches);
+                        return matches;
                     } catch (DateTimeParseException e) {
-                        log.error("Erro ao parsear duração da regra '{}' para a regra: {}", rule.getDuration(), rule, e);
+                        log.error("Formato inválido '{}' em regra {}", r.getDuration(), r, e);
                         return false;
                     }
                 })
                 .findFirst()
-                .map(ScoringRule::getPoints)
+                .map(r -> {
+                    log.info("Regra casada: duration={} → points={} ", r.getDuration(), r.getPoints());
+                    return r.getPoints();
+                })
                 .orElse(0);
+        log.info("matchDurationRule result: {}", points);
+        return points;
     }
 }
