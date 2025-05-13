@@ -23,6 +23,7 @@ import CollaboratorModal from './AddCollaboratorModal';
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
+import api from '@/lib/api';
 type CombinedCollaboratorData = GlobalCollaborator & { projectId?: string };
 
 export default function CollaboratorsPanel() {
@@ -49,6 +50,7 @@ export default function CollaboratorsPanel() {
   const [roles, setRoles] = useState<string[]>([]);
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<GlobalCollaborator | undefined>(undefined);
   const [isAddExistingModalOpen, setIsAddExistingModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (selectedProject) {
@@ -157,6 +159,42 @@ export default function CollaboratorsPanel() {
 
   const isTableLoading = selectedProject ? !projectCollaborators[selectedProject] : false;
 
+
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) return;
+    const file = event.target.files[0];
+
+    // Verificação redundante para garantir que há um projeto selecionado
+    if (!selectedProject) {
+      console.error('Nenhum projeto selecionado.');
+      alert('Selecione um projeto antes de enviar a planilha!');
+      return;
+    }
+
+    setLoading(true);
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    try {
+      // URL corrigida usando template string
+      const response = await fetch(process.env.NEXT_PUBLIC_API_URL + `/api/${selectedProject}/processar`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+
+      console.log('Arquivo processado com sucesso!');
+      await fetchProjectCollaborators(selectedProject);
+    } catch (error) {
+      console.error('Falha no upload:', error);
+      alert('Erro ao processar planilha! Verifique o console.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProject, fetchProjectCollaborators]);
+
   return (
     <div className={styles.panel}>
       {!selectedProject && <p>Selecione um projeto para ver os colaboradores.</p>}
@@ -198,10 +236,28 @@ export default function CollaboratorsPanel() {
           </Button>
           <Button
             variant="contained"
+            color="warning"
+            className={styles.addExistingButton}
             onClick={() => setScoringParamsModalOpen(true)}
-            style={{ marginLeft: '16px' }}
+            style={{ marginBottom: '16px', borderRadius: '20px', marginLeft: '8px' }}
           >
             Configurar Parâmetros
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            component="label"
+            disabled={loading}
+            style={{ marginBottom: '16px', borderRadius: '20px', marginLeft: '8px' }}
+            sx={{ ml: 2 }}
+          >
+            {loading ? 'Enviando...' : 'Enviar Planilha'}
+            <input
+              type="file"
+              hidden
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileUpload}
+            />
           </Button>
 
           <ScoringParamsModal
@@ -295,4 +351,8 @@ export default function CollaboratorsPanel() {
       )}
     </div>
   );
+}
+
+function setLoading(arg0: boolean) {
+  throw new Error('Function not implemented.');
 }
