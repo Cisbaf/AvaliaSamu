@@ -23,7 +23,6 @@ import CollaboratorModal from './AddCollaboratorModal';
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
-import api from '@/lib/api';
 type CombinedCollaboratorData = GlobalCollaborator & { projectId?: string };
 
 export default function CollaboratorsPanel() {
@@ -62,10 +61,6 @@ export default function CollaboratorsPanel() {
     const rolesInProject = projectCollaborators[selectedProject || '']?.map(c => c.role) || [];
     setRoles(Array.from(new Set(rolesInProject)).filter(role => typeof role === 'string') as string[]);
   }, [projectCollaborators, selectedProject]);
-
-  const selectedProjectData = useMemo(() => {
-    return selectedProject ? projects.find(p => p.id === selectedProject) : null;
-  }, [projects, selectedProject]);
 
   const combinedProjectGlobalCollaborators: CombinedCollaboratorData[] = useMemo(() => {
     const projectCollabs = projectCollaborators[selectedProject || ''] || [];
@@ -164,7 +159,6 @@ export default function CollaboratorsPanel() {
     if (!event.target.files || event.target.files.length === 0) return;
     const file = event.target.files[0];
 
-    // Verificação redundante para garantir que há um projeto selecionado
     if (!selectedProject) {
       console.error('Nenhum projeto selecionado.');
       alert('Selecione um projeto antes de enviar a planilha!');
@@ -176,7 +170,6 @@ export default function CollaboratorsPanel() {
     formData.append('arquivo', file);
 
     try {
-      // URL corrigida usando template string
       const response = await fetch(process.env.NEXT_PUBLIC_API_URL + `/api/${selectedProject}/processar`, {
         method: 'POST',
         body: formData,
@@ -351,8 +344,4 @@ export default function CollaboratorsPanel() {
       )}
     </div>
   );
-}
-
-function setLoading(arg0: boolean) {
-  throw new Error('Function not implemented.');
 }
