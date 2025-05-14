@@ -102,8 +102,6 @@ public class AvaliacaoService {
         }
         if (params.getTarm() == null) params.setTarm(new ScoringSectionParams());
         if (params.getFrota() == null) params.setFrota(new ScoringSectionParams());
-        if (params.getMedico() == null) params.setMedico(new ScoringSectionParams());
-
         int pontos = scoringService.calculateCollaboratorScore(
                 pc.getRole(),
                 pc.getDurationSeconds(),

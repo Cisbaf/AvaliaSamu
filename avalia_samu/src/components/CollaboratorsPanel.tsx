@@ -162,10 +162,12 @@ export default function CollaboratorsPanel() {
       const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/${selectedProject}/processar`, {
         method: 'POST', body: fd
       });
+      if (selectedProject) {
+        await fetchProjectCollaborators(selectedProject);
+      }
       if (!resp.ok) throw new Error(resp.statusText);
-      await fetchProjectCollaborators(selectedProject);
     } catch (err: any) {
-      setError(err.message || 'Falha ao processar planilha || Plahnilha ja processada');
+      setError(err.message || 'Falha ao processar planilha');
     } finally {
       setLoading(false);
     }
