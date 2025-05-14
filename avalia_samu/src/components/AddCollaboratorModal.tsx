@@ -12,7 +12,8 @@ import {
     Select,
     CircularProgress,
     InputLabel,
-    FormControl
+    FormControl,
+    Alert
 } from '@mui/material';
 import styles from './styles/Modal.module.css';
 import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
@@ -59,6 +60,7 @@ export default function CollaboratorModal({
         pausaMensalSeconds: ''
     });
     const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     useEffect(() => {
         if (initialData) {
@@ -87,15 +89,22 @@ export default function CollaboratorModal({
 
     const handleChange = (key: keyof FormData, value: any) => {
         setFormData(f => ({ ...f, [key]: value }));
+        setErrorMessage(null); // Limpa erro ao editar campo
     };
 
     const handleSubmit = async () => {
-        setLoading(true);
-        const finalRole = formData.baseRole === 'MEDICO'
-            ? `MEDICO_${formData.medicoRole}_${formData.shiftHours}`
-            : formData.baseRole;
+        try {
+            setLoading(true);
+            setErrorMessage(null);
 
-        if (projectId) {
+            const finalRole = formData.baseRole === 'MEDICO'
+                ? `MEDICO_${formData.medicoRole}_${formData.shiftHours}`
+                : formData.baseRole;
+
+            if (!projectId) {
+                throw new Error('Projeto não selecionado');
+            }
+
             if (isEdit) {
                 const dto: UpdateProjectCollabDto = {
                     role: finalRole,
@@ -119,11 +128,19 @@ export default function CollaboratorModal({
                     }
                 );
             }
-        }
 
-        setLoading(false);
-        onSuccess();
-        onClose();
+            onSuccess();
+            onClose();
+        } catch (error: any) {
+            console.error('Erro ao salvar colaborador:', error);
+            setErrorMessage(
+                error.response?.data?.message ||
+                error.message ||
+                'Ocorreu um erro ao salvar o colaborador'
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     const isSubmitDisabled = loading
@@ -137,6 +154,12 @@ export default function CollaboratorModal({
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
             <DialogTitle>{isEdit ? 'Editar Colaborador' : 'Novo Colaborador'}</DialogTitle>
             <DialogContent className={styles.modalContent}>
+                {errorMessage && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        {errorMessage}
+                    </Alert>
+                )}
+
                 <div className={styles.formGrid}>
                     <TextField
                         label="Nome"
@@ -144,36 +167,45 @@ export default function CollaboratorModal({
                         margin="dense"
                         value={formData.nome}
                         onChange={e => handleChange('nome', e.target.value)}
+                        error={!formData.nome && !!errorMessage}
+                        helperText={!formData.nome && !!errorMessage && "Nome é obrigatório"}
                     />
+
                     <TextField
                         label="CPF"
                         fullWidth
                         margin="dense"
                         value={formData.cpf}
                         onChange={e => handleChange('cpf', e.target.value)}
+                        error={!formData.cpf && !!errorMessage}
+                        helperText={!formData.cpf && !!errorMessage && "CPF é obrigatório"}
                     />
+
                     <TextField
                         label="ID Call Rote"
                         fullWidth
                         margin="dense"
                         value={formData.idCallRote}
                         onChange={e => handleChange('idCallRote', e.target.value)}
+                        error={!formData.idCallRote && !!errorMessage}
+                        helperText={!formData.idCallRote && !!errorMessage && "ID Call Rote é obrigatório"}
                     />
+
                     <FormControl fullWidth margin="dense" className={styles.roleSelect}>
                         <InputLabel id="base-role-label">Função</InputLabel>
-
                         <Select
                             labelId="base-role-label"
                             value={formData.baseRole}
                             onChange={e => handleChange('baseRole', e.target.value)}
                             label="Função"
-
+                            error={!formData.baseRole && !!errorMessage}
                         >
                             <MenuItem value="TARM">TARM</MenuItem>
                             <MenuItem value="FROTA">FROTA</MenuItem>
                             <MenuItem value="MEDICO">MÉDICO</MenuItem>
                         </Select>
                     </FormControl>
+
                     {formData.baseRole === 'MEDICO' && (
                         <>
                             <FormControl fullWidth margin="dense">
@@ -183,12 +215,14 @@ export default function CollaboratorModal({
                                     label="Papel Médico"
                                     value={formData.medicoRole}
                                     onChange={e => handleChange('medicoRole', e.target.value)}
+                                    error={!formData.medicoRole && !!errorMessage}
                                 >
                                     {Object.values(MedicoRole).map(mr => (
                                         <MenuItem key={mr} value={mr}>{mr}</MenuItem>
                                     ))}
                                 </Select>
                             </FormControl>
+
                             <FormControl fullWidth margin="dense">
                                 <InputLabel id="turno-label">Turno</InputLabel>
                                 <Select
@@ -196,6 +230,7 @@ export default function CollaboratorModal({
                                     label="Turno"
                                     value={formData.shiftHours}
                                     onChange={e => handleChange('shiftHours', e.target.value)}
+                                    error={!formData.shiftHours && !!errorMessage}
                                 >
                                     {Object.values(ShiftHours).map(sh => (
                                         <MenuItem key={sh} value={sh}>{sh}</MenuItem>
@@ -204,9 +239,9 @@ export default function CollaboratorModal({
                             </FormControl>
                         </>
                     )}
-
                 </div>
             </DialogContent>
+
             <DialogActions className={styles.modalActions}>
                 <Button onClick={onClose} disabled={loading}>Cancelar</Button>
                 <Button
