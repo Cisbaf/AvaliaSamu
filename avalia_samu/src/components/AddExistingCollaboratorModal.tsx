@@ -1,7 +1,7 @@
 // AddExistingCollaboratorModal.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { GlobalCollaborator } from '@/types/project';
-import { useGlobalCollaborators } from '@/context/project/hooks/useGlobalCollaborators';
 
 interface AddExistingCollaboratorModalProps {
     open: boolean;
