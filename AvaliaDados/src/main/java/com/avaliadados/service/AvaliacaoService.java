@@ -16,12 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.avaliadados.service.ProjectCollabService.convertMapToNested;
@@ -39,15 +37,6 @@ public class AvaliacaoService {
     public void processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
         ProjetoEntity projeto = projetoRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado: " + projectId));
-
-        String hash = computeFileHash(arquivo.getInputStream());
-
-        if (projeto.getProcessedSpreadsheetHashes() == null) {
-            projeto.setProcessedSpreadsheetHashes(new ArrayList<>());
-        }
-        if (projeto.getProcessedSpreadsheetHashes().contains(hash)) {
-            throw new RuntimeException("Esta planilha já foi processada para este projeto.");
-        }
 
         Map<String, CollaboratorEntity> colaboradores = colaboradorRepository.findAll()
                 .stream()
@@ -68,7 +57,6 @@ public class AvaliacaoService {
             }
         }
 
-        projeto.getProcessedSpreadsheetHashes().add(hash);
         projetoRepository.save(projeto);
     }
 
@@ -127,20 +115,6 @@ public class AvaliacaoService {
         pc.setParametros(params);
     }
 
-    private String computeFileHash(InputStream is) throws IOException {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            try (DigestInputStream dis = new DigestInputStream(is, md)) {
-                byte[] buffer = new byte[8192];
-                while (dis.read(buffer) != -1) {
-                }
-            }
-            byte[] digest = md.digest();
-            return java.util.HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("Não foi possível criar hash da planilha", e);
-        }
-    }
 
     private Map<String, Integer> getColumnMapping(Row headerRow) {
         Map<String, Integer> columnMap = new HashMap<>();

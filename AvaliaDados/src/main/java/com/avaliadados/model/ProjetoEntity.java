@@ -2,11 +2,14 @@ package com.avaliadados.model;
 
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.params.NestedScoringParameters;
-import lombok.*;
-import org.springframework.data.mongodb.core.mapping.Document;
 import jakarta.persistence.Id;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.springframework.data.mongodb.core.mapping.Document;
+
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 @Document
@@ -26,7 +29,5 @@ public class ProjetoEntity {
 
     private Instant createdAt;
     private Instant updatedAt;
-
-    private List<String> processedSpreadsheetHashes = new ArrayList<>();
 
 }
