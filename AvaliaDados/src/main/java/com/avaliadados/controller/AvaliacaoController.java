@@ -1,6 +1,7 @@
 package com.avaliadados.controller;
 
-import com.avaliadados.service.AvaliacaoService;
+import com.avaliadados.service.AvaliacaoServiceMedico;
+import com.avaliadados.service.factory.AvaliacaoServiceFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -15,16 +16,14 @@ import java.io.IOException;
 @Slf4j
 public class AvaliacaoController {
 
-    private final AvaliacaoService service;
+    private final AvaliacaoServiceMedico service;
+    private final AvaliacaoServiceFactory factory;
 
     @PostMapping("/{projectId}/processar")
-    public ResponseEntity<String> processarPlanilha(@RequestParam MultipartFile arquivo, @PathVariable String projectId) {
-        try {
-            service.processarPlanilha(arquivo, projectId);
-            return ResponseEntity.ok("Planilha processada com sucesso");
-        } catch (IOException e) {
-            return ResponseEntity.badRequest().body("Erro ao processar planilha: " + e.getMessage());
-        }
+    public ResponseEntity<String> processarPlanilha(@RequestParam MultipartFile arquivo, @PathVariable String projectId) throws IOException {
+            var processor = factory.getProcessor(arquivo);
+            processor.processarPlanilha(arquivo, projectId);
+            return ResponseEntity.ok("Processamento concluído.");
     }
 
 }

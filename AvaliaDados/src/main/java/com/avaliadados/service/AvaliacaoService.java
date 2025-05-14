@@ -7,6 +7,7 @@ import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
+import com.avaliadados.service.factory.AvaliacaoProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.text.similarity.LevenshteinDistance;
@@ -27,7 +28,7 @@ import static com.avaliadados.service.ProjectCollabService.convertMapToNested;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class AvaliacaoService {
+public class AvaliacaoService implements AvaliacaoProcessor {
 
     private final CollaboratorRepository colaboradorRepository;
     private final ProjetoRepository projetoRepository;

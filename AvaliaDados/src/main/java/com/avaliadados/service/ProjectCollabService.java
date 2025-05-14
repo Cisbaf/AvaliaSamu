@@ -94,7 +94,6 @@ public class ProjectCollabService {
                             .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
                     if (Objects.equals(collab.getRole(), "MEDICO")) {
                         var medico = medicoRepo.findById(collab.getId());
-                        log.info("Medico é isso aqui: {}", medico);
                         if (medico.isPresent()) {
                             pc.setMedicoRole(medico.get().getMedicoRole());
                             pc.setShiftHours(medico.get().getShiftHours());
@@ -153,6 +152,43 @@ public class ProjectCollabService {
                 });
 
         return projetoRepo.save(projeto);
+    }
+    public void updateProjectCollaborator(
+            String projectId,
+            String collaboratorId,
+            ProjectCollaborator dto
+    ) {
+        log.info("Atualizando colaborador [{}] no projeto [{}]", collaboratorId, projectId);
+
+        ProjetoEntity projeto = projetoRepo.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+
+        projeto.getCollaborators()
+                .stream()
+                .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
+                .findFirst()
+                .ifPresent(pc -> {
+                    pc.setRole(dto.getRole());
+                    pc.setDurationSeconds(dto.getDurationSeconds());
+                    pc.setQuantity(dto.getQuantity());
+                    pc.setPausaMensalSeconds(dto.getPausaMensalSeconds());
+                    pc.setMedicoRole(dto.getMedicoRole());
+                    pc.setShiftHours(dto.getShiftHours());
+
+                    int pontos = scoringService.calculateCollaboratorScore(
+                            pc.getRole(),
+                            pc.getDurationSeconds(),
+                            pc.getQuantity(),
+                            pc.getPausaMensalSeconds(),
+                            projeto.getParameters()
+                    );
+                    pc.setPontuacao(pontos);
+
+
+                    syncCollaboratorData(collaboratorId);
+                });
+
+        projetoRepo.save(projeto);
     }
 
     @Transactional

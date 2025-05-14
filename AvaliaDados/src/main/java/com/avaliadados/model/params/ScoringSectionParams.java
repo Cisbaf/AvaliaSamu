@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -12,9 +13,9 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ScoringSectionParams {
-    private List<ScoringRule> removidos;
-    private List<ScoringRule> regulacao;
-    private List<ScoringRule> pausas;
-    private List<ScoringRule> saidaVtr;
-    private List<ScoringRule> regulacaoLider;
+   @Builder.Default private List<ScoringRule> removidos = new ArrayList<>();
+    @Builder.Default private List<ScoringRule> regulacao = new ArrayList<>();
+    @Builder.Default private List<ScoringRule> pausas = new ArrayList<>();
+    @Builder.Default private List<ScoringRule> saidaVtr = new ArrayList<>();
+    @Builder.Default private List<ScoringRule> regulacaoLider = new ArrayList<>();
 }
