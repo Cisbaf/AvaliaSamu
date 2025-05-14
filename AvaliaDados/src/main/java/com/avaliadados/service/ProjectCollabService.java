@@ -136,6 +136,8 @@ public class ProjectCollabService {
                     pc.setDurationSeconds(dto.getDurationSeconds());
                     pc.setQuantity(dto.getQuantity());
                     pc.setPausaMensalSeconds(dto.getPausaMensalSeconds());
+                    pc.setMedicoRole(dto.getMedicoRole());
+                    pc.setShiftHours(dto.getShiftHours());
 
                     int pontos = scoringService.calculateCollaboratorScore(
                             pc.getRole(),

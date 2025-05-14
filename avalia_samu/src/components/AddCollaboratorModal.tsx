@@ -101,7 +101,9 @@ export default function CollaboratorModal({
                     role: finalRole,
                     durationSeconds: typeof formData.durationSeconds === 'number' ? formData.durationSeconds : undefined,
                     quantity: typeof formData.quantity === 'number' ? formData.quantity : undefined,
-                    pausaMensalSeconds: typeof formData.pausaMensalSeconds === 'number' ? formData.pausaMensalSeconds : undefined
+                    pausaMensalSeconds: typeof formData.pausaMensalSeconds === 'number' ? formData.pausaMensalSeconds : undefined,
+                    medicoRole: formData.medicoRole as MedicoRole,
+                    shiftHours: formData.shiftHours as ShiftHours
                 };
                 await updateProjectCollaborator(projectId, initialData!.id!, dto);
             } else {

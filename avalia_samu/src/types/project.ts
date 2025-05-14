@@ -81,4 +81,6 @@ export interface UpdateProjectCollabDto {
   durationSeconds?: number;
   quantity?: number;
   pausaMensalSeconds?: number;
+  medicoRole?: MedicoRole;
+  shiftHours?: ShiftHours;
 }
