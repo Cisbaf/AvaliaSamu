@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { Box } from '@mui/material';
 import { useProjects } from '@/context/ProjectContext';
 import CollaboratorsPanel from '@/components/CollaboratorsPanel';
-import ParametersPanel from '@/components/ParameterPanel';
 import { useParams } from 'next/navigation';
 
 export default function DashboardPage() {
@@ -24,7 +23,6 @@ export default function DashboardPage() {
 
   return (
     <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      <ParametersPanel />
       <CollaboratorsPanel />
     </Box>
   );

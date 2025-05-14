@@ -14,7 +14,8 @@ import {
   MenuItem,
   IconButton,
   Button,
-  CircularProgress
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import { Edit, Delete, Add } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
@@ -52,10 +53,13 @@ export default function CollaboratorsPanel() {
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>(undefined);
   const [isAddExistingModalOpen, setIsAddExistingModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedProject) {
-      fetchProjectCollaborators(selectedProject);
+      fetchProjectCollaborators(selectedProject).catch(err => {
+        setError('Falha ao carregar colaboradores do projeto');
+      });
     }
   }, [selectedProject, fetchProjectCollaborators]);
 
@@ -69,7 +73,6 @@ export default function CollaboratorsPanel() {
     return pcs.map(pc => {
       const gc = globalCollaborators?.find(g => g.id === pc.id)!;
       return {
-        // base fields
         id: pc.id,
         nome: gc?.nome || '—',
         cpf: gc?.cpf || '',
@@ -78,8 +81,6 @@ export default function CollaboratorsPanel() {
         pontuacao: pc.pontuacao,
         isGlobal: gc?.isGlobal ?? false,
         projectId: selectedProject || undefined,
-
-        // **extras para edição**
         quantity: pc.quantity,
         durationSeconds: pc.durationSeconds,
         pausaMensalSeconds: pc.pausaMensalSeconds,
@@ -106,9 +107,12 @@ export default function CollaboratorsPanel() {
   const handleDelete = useCallback(async (id: string) => {
     if (!selectedProject) return;
     setPanelLoading(true);
+    setError(null);
     try {
       await deleteCollaboratorFromProject(selectedProject, id);
       await fetchProjectCollaborators(selectedProject);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Falha ao excluir colaborador');
     } finally {
       setPanelLoading(false);
     }
@@ -120,10 +124,13 @@ export default function CollaboratorsPanel() {
   const handleAddExisting = useCallback(async (id: string, role: string) => {
     if (!selectedProject) return;
     setPanelLoading(true);
+    setError(null);
     try {
       await addCollaboratorToProject(selectedProject, { id, role });
       await fetchProjectCollaborators(selectedProject);
       handleCloseAddExisting();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Falha ao adicionar colaborador');
     } finally {
       setPanelLoading(false);
     }
@@ -134,13 +141,20 @@ export default function CollaboratorsPanel() {
   };
   const handleCloseEdit = () => setEditingCollaboratorInitialData(undefined);
   const handleEditSuccess = async () => {
-    if (selectedProject) await fetchProjectCollaborators(selectedProject);
+    if (selectedProject) {
+      try {
+        await fetchProjectCollaborators(selectedProject);
+      } catch (err: any) {
+        setError('Falha ao atualizar colaborador');
+      }
+    }
     handleCloseEdit();
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length || !selectedProject) return;
     setLoading(true);
+    setError(null);
     const file = e.target.files[0];
     const fd = new FormData();
     fd.append('arquivo', file);
@@ -150,6 +164,8 @@ export default function CollaboratorsPanel() {
       });
       if (!resp.ok) throw new Error(resp.statusText);
       await fetchProjectCollaborators(selectedProject);
+    } catch (err: any) {
+      setError(err.message || 'Falha ao processar planilha || Plahnilha ja processada');
     } finally {
       setLoading(false);
     }
@@ -162,61 +178,76 @@ export default function CollaboratorsPanel() {
       {!selectedProject && <p>Selecione um projeto.</p>}
       {selectedProject && (
         <>
+          {error && (
+            <Alert severity="error" onClose={() => setError(null)} sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
           <div className={styles.filters}>
             <TextField
               placeholder="Pesquisar"
               size="small"
               fullWidth
               value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              onChange={e => {
+                setSearchTerm(e.target.value);
+                setError(null);
+              }}
             />
             <Select
               value={filterRole}
               size="small"
-              onChange={e => setFilterRole(e.target.value as string)}
+              onChange={e => {
+                setFilterRole(e.target.value as string);
+                setError(null);
+              }}
             >
               <MenuItem value="all">Todas funções</MenuItem>
               {roles.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
             </Select>
           </div>
 
-          <Button
-            variant="contained"
-            color="warning"
-            startIcon={<Add />}
-            onClick={handleOpenAddExisting}
-            disabled={panelLoading}
-          >
-            Adicionar Existente
-          </Button>
-          <Button
-            variant="contained"
-            color="warning"
-            onClick={() => setScoringParamsModalOpen(true)}
-            disabled={panelLoading}
-            style={{ marginLeft: 8 }}
-          >
-            Configurar Parâmetros
-          </Button>
-          <Button
-            variant="contained"
-            color="success"
-            component="label"
-            disabled={loading}
-            style={{ marginLeft: 8 }}
-          >
-            {loading ? 'Enviando...' : 'Enviar Planilha'}
-            <input type="file" hidden accept=".xlsx,.xls" onChange={handleUpload} />
-          </Button>
+          <div className={styles.actionButtons}>
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<Add />}
+              onClick={handleOpenAddExisting}
+              disabled={panelLoading}
+            >
+              Adicionar Existente
+            </Button>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={() => setScoringParamsModalOpen(true)}
+              disabled={panelLoading}
+            >
+              Configurar Parâmetros
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              component="label"
+              disabled={loading}
+            >
+              {loading ? 'Enviando...' : 'Enviar Planilha'}
+              <input type="file" hidden accept=".xlsx,.xls" onChange={handleUpload} />
+            </Button>
+          </div>
 
           <ScoringParamsModal
             open={scoringParamsModalOpen}
             onClose={() => setScoringParamsModalOpen(false)}
             onSave={async params => {
               setPanelLoading(true);
+              setError(null);
               try {
                 if (selectedProject) await updateProjectParameters(selectedProject, params);
                 await fetchProjectCollaborators(selectedProject!);
+              } catch (err: any) {
+                setError(err.response?.data?.message || 'Falha ao salvar parâmetros');
               } finally {
                 setPanelLoading(false);
                 setScoringParamsModalOpen(false);
@@ -225,7 +256,7 @@ export default function CollaboratorsPanel() {
             initialParams={scoringParams}
           />
 
-          <TableContainer component={Paper} style={{ marginTop: 16 }}>
+          <TableContainer component={Paper} className={styles.tableContainer}>
             <Table stickyHeader>
               <TableHead>
                 <TableRow>
@@ -236,20 +267,41 @@ export default function CollaboratorsPanel() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {isTableLoading
-                  ? <TableRow><TableCell colSpan={4} align="center"><CircularProgress /></TableCell></TableRow>
-                  : filtered.map(c => (
+                {isTableLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center">
+                      <CircularProgress />
+                    </TableCell>
+                  </TableRow>
+                ) : filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center">
+                      Nenhum colaborador encontrado
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.map(c => (
                     <TableRow key={c.id}>
                       <TableCell>{c.nome}</TableCell>
                       <TableCell>{c.role}</TableCell>
                       <TableCell>{c.pontuacao}</TableCell>
                       <TableCell>
-                        <IconButton onClick={() => handleOpenEdit(c)}><Edit color='primary' /></IconButton>
-                        <IconButton onClick={() => handleDelete(c.id!)}><Delete color="error" /></IconButton>
+                        <IconButton
+                          onClick={() => handleOpenEdit(c)}
+                          disabled={panelLoading}
+                        >
+                          <Edit color='primary' />
+                        </IconButton>
+                        <IconButton
+                          onClick={() => handleDelete(c.id!)}
+                          disabled={panelLoading}
+                        >
+                          {panelLoading ? <CircularProgress size={24} /> : <Delete color="error" />}
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   ))
-                }
+                )}
               </TableBody>
             </Table>
           </TableContainer>
