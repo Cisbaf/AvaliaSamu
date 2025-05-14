@@ -132,7 +132,7 @@ export default function CollaboratorModal({
         || (formData.baseRole === 'MEDICO' && (!formData.medicoRole || !formData.shiftHours));
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
             <DialogTitle>{isEdit ? 'Editar Colaborador' : 'Novo Colaborador'}</DialogTitle>
             <DialogContent className={styles.modalContent}>
                 <div className={styles.formGrid}>
@@ -158,10 +158,14 @@ export default function CollaboratorModal({
                         onChange={e => handleChange('idCallRote', e.target.value)}
                     />
                     <FormControl fullWidth margin="dense" className={styles.roleSelect}>
-                        <InputLabel>Função</InputLabel>
+                        <InputLabel id="base-role-label">Função</InputLabel>
+
                         <Select
+                            labelId="base-role-label"
                             value={formData.baseRole}
                             onChange={e => handleChange('baseRole', e.target.value)}
+                            label="Função"
+
                         >
                             <MenuItem value="TARM">TARM</MenuItem>
                             <MenuItem value="FROTA">FROTA</MenuItem>
@@ -171,8 +175,10 @@ export default function CollaboratorModal({
                     {formData.baseRole === 'MEDICO' && (
                         <>
                             <FormControl fullWidth margin="dense">
-                                <InputLabel>Papel Médico</InputLabel>
+                                <InputLabel id="papel-label">Papel Médico</InputLabel>
                                 <Select
+                                    labelId="papel-label"
+                                    label="Papel Médico"
                                     value={formData.medicoRole}
                                     onChange={e => handleChange('medicoRole', e.target.value)}
                                 >
@@ -182,8 +188,10 @@ export default function CollaboratorModal({
                                 </Select>
                             </FormControl>
                             <FormControl fullWidth margin="dense">
-                                <InputLabel>Turno</InputLabel>
+                                <InputLabel id="turno-label">Turno</InputLabel>
                                 <Select
+                                    labelId="turno-label"
+                                    label="Turno"
                                     value={formData.shiftHours}
                                     onChange={e => handleChange('shiftHours', e.target.value)}
                                 >
