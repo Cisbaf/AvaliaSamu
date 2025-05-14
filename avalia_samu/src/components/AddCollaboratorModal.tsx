@@ -108,7 +108,7 @@ export default function CollaboratorModal({
                 await addCollaboratorToProject(
                     projectId,
                     {
-                        id: '', // set after creating global collaborator elsewhere
+                        id: '',
                         role: finalRole,
                         durationSeconds: typeof formData.durationSeconds === 'number' ? formData.durationSeconds : undefined,
                         quantity: typeof formData.quantity === 'number' ? formData.quantity : undefined,
@@ -134,93 +134,77 @@ export default function CollaboratorModal({
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>{isEdit ? 'Editar Colaborador' : 'Novo Colaborador'}</DialogTitle>
-            <DialogContent>
-                <TextField
-                    label="Nome"
-                    fullWidth
-                    margin="dense"
-                    value={formData.nome}
-                    onChange={e => handleChange('nome', e.target.value)}
-                />
-                <TextField
-                    label="CPF"
-                    fullWidth
-                    margin="dense"
-                    value={formData.cpf}
-                    onChange={e => handleChange('cpf', e.target.value)}
-                />
-                <TextField
-                    label="ID Call Rote"
-                    fullWidth
-                    margin="dense"
-                    value={formData.idCallRote}
-                    onChange={e => handleChange('idCallRote', e.target.value)}
-                />
-                <FormControl fullWidth margin="dense">
-                    <InputLabel>Função</InputLabel>
-                    <Select
-                        value={formData.baseRole}
-                        onChange={e => handleChange('baseRole', e.target.value)}
-                    >
-                        <MenuItem value="TARM">TARM</MenuItem>
-                        <MenuItem value="FROTA">FROTA</MenuItem>
-                        <MenuItem value="MEDICO">MÉDICO</MenuItem>
-                    </Select>
-                </FormControl>
-                {formData.baseRole === 'MEDICO' && (
-                    <>
-                        <FormControl fullWidth margin="dense">
-                            <InputLabel>Papel Médico</InputLabel>
-                            <Select
-                                value={formData.medicoRole}
-                                onChange={e => handleChange('medicoRole', e.target.value)}
-                            >
-                                {Object.values(MedicoRole).map(mr => (
-                                    <MenuItem key={mr} value={mr}>{mr}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <FormControl fullWidth margin="dense">
-                            <InputLabel>Turno</InputLabel>
-                            <Select
-                                value={formData.shiftHours}
-                                onChange={e => handleChange('shiftHours', e.target.value)}
-                            >
-                                {Object.values(ShiftHours).map(sh => (
-                                    <MenuItem key={sh} value={sh}>{sh}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    </>
-                )}
-                <TextField
-                    label="Duração (s)"
-                    type="number"
-                    fullWidth
-                    margin="dense"
-                    value={formData.durationSeconds}
-                    onChange={e => handleChange('durationSeconds', parseInt(e.target.value, 10))}
-                />
-                <TextField
-                    label="Quantidade"
-                    type="number"
-                    fullWidth
-                    margin="dense"
-                    value={formData.quantity}
-                    onChange={e => handleChange('quantity', parseInt(e.target.value, 10))}
-                />
-                <TextField
-                    label="Pausa Mensal (s)"
-                    type="number"
-                    fullWidth
-                    margin="dense"
-                    value={formData.pausaMensalSeconds}
-                    onChange={e => handleChange('pausaMensalSeconds', parseInt(e.target.value, 10))}
-                />
+            <DialogContent className={styles.modalContent}>
+                <div className={styles.formGrid}>
+                    <TextField
+                        label="Nome"
+                        fullWidth
+                        margin="dense"
+                        value={formData.nome}
+                        onChange={e => handleChange('nome', e.target.value)}
+                    />
+                    <TextField
+                        label="CPF"
+                        fullWidth
+                        margin="dense"
+                        value={formData.cpf}
+                        onChange={e => handleChange('cpf', e.target.value)}
+                    />
+                    <TextField
+                        label="ID Call Rote"
+                        fullWidth
+                        margin="dense"
+                        value={formData.idCallRote}
+                        onChange={e => handleChange('idCallRote', e.target.value)}
+                    />
+                    <FormControl fullWidth margin="dense" className={styles.roleSelect}>
+                        <InputLabel>Função</InputLabel>
+                        <Select
+                            value={formData.baseRole}
+                            onChange={e => handleChange('baseRole', e.target.value)}
+                        >
+                            <MenuItem value="TARM">TARM</MenuItem>
+                            <MenuItem value="FROTA">FROTA</MenuItem>
+                            <MenuItem value="MEDICO">MÉDICO</MenuItem>
+                        </Select>
+                    </FormControl>
+                    {formData.baseRole === 'MEDICO' && (
+                        <>
+                            <FormControl fullWidth margin="dense">
+                                <InputLabel>Papel Médico</InputLabel>
+                                <Select
+                                    value={formData.medicoRole}
+                                    onChange={e => handleChange('medicoRole', e.target.value)}
+                                >
+                                    {Object.values(MedicoRole).map(mr => (
+                                        <MenuItem key={mr} value={mr}>{mr}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <FormControl fullWidth margin="dense">
+                                <InputLabel>Turno</InputLabel>
+                                <Select
+                                    value={formData.shiftHours}
+                                    onChange={e => handleChange('shiftHours', e.target.value)}
+                                >
+                                    {Object.values(ShiftHours).map(sh => (
+                                        <MenuItem key={sh} value={sh}>{sh}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </>
+                    )}
+
+                </div>
             </DialogContent>
-            <DialogActions>
+            <DialogActions className={styles.modalActions}>
                 <Button onClick={onClose} disabled={loading}>Cancelar</Button>
-                <Button onClick={handleSubmit} variant="contained" disabled={isSubmitDisabled}>
+                <Button
+                    onClick={handleSubmit}
+                    variant="contained"
+                    disabled={isSubmitDisabled}
+                    className={loading ? styles.buttonLoading : ''}
+                >
                     {loading ? <CircularProgress size={20} /> : isEdit ? 'Salvar' : 'Cadastrar'}
                 </Button>
             </DialogActions>
