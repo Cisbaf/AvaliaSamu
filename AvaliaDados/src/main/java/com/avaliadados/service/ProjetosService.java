@@ -21,8 +21,7 @@ public class ProjetosService {
     private final ProjetoRepository projetoRepo;
     private final CollaboratorRepository collaboratorRepo;
     private final ScoringService scoringService;
-    private final ObjectMapper objectMapper;  // para converter Map -> NestedScoringParameters
-
+    private final ObjectMapper objectMapper;
 
     public ProjetoEntity updateProjeto(String id, Map<String, Object> updates) {
         var p = projetoRepo.findById(id).orElseThrow();

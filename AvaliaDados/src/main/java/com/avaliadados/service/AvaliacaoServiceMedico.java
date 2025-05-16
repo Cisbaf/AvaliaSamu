@@ -1,9 +1,9 @@
 package com.avaliadados.service;
 
-import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.MedicoEntity;
 import com.avaliadados.model.ProjetoEntity;
+import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
@@ -28,8 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static com.avaliadados.service.ProjectCollabService.convertMapToNested;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -53,7 +51,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                         (a, b) -> a
                 ));
 
-        // 3) abre a planilha
         try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
             Map<String, Integer> cols = getColumnMapping(sheet.getRow(0));
@@ -72,18 +69,22 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                             projeto.getCollaborators().stream()
                                     .filter(pc -> pc.getCollaboratorId().equals(medico.getId()))
                                     .findFirst()
-                                    .ifPresent(pc -> atualizarDadosMedico(pc, row, cols, medico, projectId));
+                                    .ifPresent(pc -> {
+                                        pc.setMedicoRole(medico.getMedicoRole());
+
+                                        atualizarDadosMedico(pc, row, cols, projectId);
+                                    });
                         });
             }
         }
 
+        log.info("ROle do medico {}, {}", projeto.getCollaborators().stream().map(ProjectCollaborator::getRole).collect(Collectors.toList()), projeto.getCollaborators().stream().map(ProjectCollaborator::getMedicoRole).collect(Collectors.toList()));
         projetoRepo.save(projeto);
     }
 
     private void atualizarDadosMedico(ProjectCollaborator pc,
                                       Row row,
-                                      Map<String, Integer> cols,
-                                      CollaboratorEntity collab, String projectID) {
+                                      Map<String, Integer> cols, String projectID) {
         String[] tempoKeys = {"TEMPO MEDIO REGULACAO MEDICA"};
         String[] criticosKeys = {"CRITICOS"};
 
@@ -91,24 +92,25 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         Integer criticosCol = findBestColumnMatch(cols, criticosKeys);
 
         var params = pc.getParametros();
-        if (params == null){
+        if (params == null) {
             params = new NestedScoringParameters();
         }
 
 
-        if (tempoMedioCol != null && pc.getMedicoRole().name().equals("REGULADOR")) {
+        if (criticosCol != null
+                && pc.getMedicoRole() == MedicoRole.REGULADOR) {
             Long regulacoesSec = getCellTimeInSeconds(row.getCell(tempoMedioCol));
             pc.setDurationSeconds(regulacoesSec);
-            pc.setShiftHours(ShiftHours.H12);
-            params.setMedico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(regulacoesSec.toString()).build())).build());
+            params.setMedico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(regulacoesSec).build())).build());
             log.info("Regulacoes para {} ({}): {}s", pc.getNome(), pc.getRole(), regulacoesSec);
         }
 
-        if (criticosCol != null && pc.getMedicoRole().name().equals("LIDER")) {
+        if (criticosCol != null
+                && pc.getMedicoRole() == MedicoRole.LIDER) {
             Long criticos = getCellTimeInSeconds(row.getCell(criticosCol));
             pc.setDurationSeconds(criticos);
             pc.setShiftHours(ShiftHours.H24);
-            params.setMedico(ScoringSectionParams.builder().regulacaoLider(List.of(ScoringRule.builder().duration(criticos.toString()).build())).build());
+            params.setMedico(ScoringSectionParams.builder().regulacaoLider(List.of(ScoringRule.builder().duration(criticos).build())).build());
             log.info("Criticos para {} ({}): {}s", pc.getNome(), pc.getRole(), criticos);
         }
 
@@ -175,6 +177,12 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         try {
             if (cell.getCellType() == CellType.STRING) {
                 String s = cell.getStringCellValue().trim();
+                if (s.matches("^\\d{1,2}:\\d{2}:\\d{2}$")) { // Novo tratamento para HH:mm:ss
+                    String[] parts = s.split(":");
+                    return Long.parseLong(parts[0]) * 3600L
+                            + Long.parseLong(parts[1]) * 60L
+                            + Long.parseLong(parts[2]);
+                }
                 LocalTime lt = LocalTime.parse(s.length() == 5 ? s + ":00" : s);
                 return (long) lt.toSecondOfDay();
             }

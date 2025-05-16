@@ -7,7 +7,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ScoringRule {
-    private String duration;     // formato HH:mm:ss
+    private Long duration;
     private Integer quantity;
     private Integer points;
 

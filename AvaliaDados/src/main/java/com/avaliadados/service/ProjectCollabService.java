@@ -6,6 +6,8 @@ import com.avaliadados.model.DTO.ProjectCollabRequest;
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.DTO.UpdateProjectCollabRequest;
 import com.avaliadados.model.ProjetoEntity;
+import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
@@ -77,6 +79,8 @@ public class ProjectCollabService {
                 .pausaMensalSeconds(dto.getPausaMensalSeconds())
                 .parametros(scoringParams)
                 .pontuacao(pontos)
+                .medicoRole(dto.getMedicoRole())
+                .shiftHours(dto.getShiftHours())
                 .build();
 
         projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(dto.getCollaboratorId()));
@@ -153,6 +157,7 @@ public class ProjectCollabService {
 
         return projetoRepo.save(projeto);
     }
+
     public void updateProjectCollaborator(
             String projectId,
             String collaboratorId,
@@ -163,18 +168,28 @@ public class ProjectCollabService {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
 
+
         projeto.getCollaborators()
                 .stream()
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
+                    if (pc.getRole().startsWith("MEDICO_")) {
+                        String[] parts = pc.getRole().split("_");
+                        MedicoRole medicoRole = MedicoRole.valueOf(parts[1]);
+                        ShiftHours shiftHours = ShiftHours.valueOf(parts[2]);
+                        pc.setRole("MEDICO");
+                        pc.setMedicoRole(medicoRole);
+                        pc.setShiftHours(shiftHours);
+                    } else {
+                        pc.setRole(dto.getRole());
+                    }
                     pc.setRole(dto.getRole());
                     pc.setDurationSeconds(dto.getDurationSeconds());
                     pc.setQuantity(dto.getQuantity());
                     pc.setPausaMensalSeconds(dto.getPausaMensalSeconds());
                     pc.setMedicoRole(dto.getMedicoRole());
                     pc.setShiftHours(dto.getShiftHours());
-
                     int pontos = scoringService.calculateCollaboratorScore(
                             pc.getRole(),
                             pc.getDurationSeconds(),

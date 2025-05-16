@@ -6,9 +6,10 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class NestedScoringParameters {
-    private ScoringSectionParams colab;
-    private ScoringSectionParams tarm;
-    private ScoringSectionParams frota;
-    private ScoringSectionParams medico;
+    @Builder.Default private ScoringSectionParams colab  = new ScoringSectionParams();
+    @Builder.Default private ScoringSectionParams tarm   = new ScoringSectionParams();
+    @Builder.Default private ScoringSectionParams frota  = new ScoringSectionParams();
+    @Builder.Default private ScoringSectionParams medico = new ScoringSectionParams();
 }

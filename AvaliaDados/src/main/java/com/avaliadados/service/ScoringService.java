@@ -6,8 +6,7 @@ import com.avaliadados.model.params.ScoringSectionParams;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalTime;
-import java.time.format.DateTimeParseException;
+import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -31,11 +30,11 @@ public class ScoringService {
 
         String roleType = role.split("_")[0].toUpperCase();
         ScoringSectionParams sectionParams = switch (roleType) {
-            case "TARM"  -> params.getTarm();
+            case "TARM" -> params.getTarm();
             case "FROTA" -> params.getFrota();
-            case "MEDICO"-> params.getMedico();
+            case "MEDICO" -> params.getMedico();
             case "COLAB" -> params.getColab();
-            default       -> null;
+            default -> null;
         };
 
         if (sectionParams == null) {
@@ -45,20 +44,20 @@ public class ScoringService {
 
         int total = switch (roleType) {
             case "TARM" -> {
-               var tarm =  calculateTarmScore(durationSeconds, quantity, pausaMensalSeconds, sectionParams);
+                var tarm = calculateTarmScore(durationSeconds, quantity, pausaMensalSeconds, sectionParams);
                 var colab = calculateColb(pausaMensalSeconds, sectionParams);
                 yield tarm + colab;
-             }
+            }
             case "FROTA" -> {
                 var frota = matchDurationRule(durationSeconds, sectionParams.getRegulacao());
                 var colab = calculateColb(pausaMensalSeconds, sectionParams);
-                yield  frota + colab;
+                yield frota + colab;
 
             }
             case "MEDICO" -> {
                 var medico = calculateMedicoScore(role, durationSeconds, quantity, sectionParams);
                 var colab = calculateColb(pausaMensalSeconds, sectionParams);
-                yield  medico + colab;
+                yield medico + colab;
             }
             default -> 0;
         };
@@ -80,7 +79,8 @@ public class ScoringService {
                 params.getPausas());
         return score;
     }
-    private int calculateColb( Long pausa, ScoringSectionParams params) {
+
+    private int calculateColb(Long pausa, ScoringSectionParams params) {
         log.info("Calculando Colab:  pausa={}s", pausa);
         int score = 0;
 
@@ -92,13 +92,30 @@ public class ScoringService {
     }
 
     private int calculateMedicoScore(String role, Long duration, Integer quantity, ScoringSectionParams params) {
-        log.info("Calculando MEDICO: duration={}s, quantity={}", duration, quantity);
+        log.info(">> calculateMedicoScore ENTRY: role='{}', duration={}s, quantity={}, params={}",
+                role, duration, quantity, params);
+
         int score = 0;
-        score += matchQuantityRule(quantity, params.getRemovidos());
-        List<ScoringRule> rules = role.contains("LIDER") ? params.getRegulacaoLider() : params.getRegulacao();
-        score += matchDurationRule(duration, rules);
-        log.info("MEDICO partial score: {} | Removidos: {}, Regulacao: {}",
-                score, params.getRemovidos(), rules);
+
+        int qtyPoints = matchQuantityRule(quantity, params.getRemovidos());
+        log.info("   matchQuantityRule: quantity={} ➔ pointsFromQty={} (rules={})",
+                quantity, qtyPoints, params.getRemovidos());
+        score += qtyPoints;
+
+        List<ScoringRule> durationRules = role.contains("LIDER")
+                ? params.getRegulacaoLider()
+                : params.getRegulacao();
+        log.info("   Selected durationRules for role='{}': {}", role, durationRules);
+
+        // 3) Regra de duração
+        int durPoints = matchDurationRule(duration, durationRules);
+        log.info("   matchDurationRule: duration={}s ➔ pointsFromDuration={} (rules={})",
+                duration, durPoints, durationRules);
+        score += durPoints;
+
+        // 4) Resultado parcial e final
+        log.info("<< calculateMedicoScore EXIT: totalScore={} (qty={}, duration={})",
+                score, qtyPoints, durPoints);
         return score;
     }
 
@@ -125,27 +142,36 @@ public class ScoringService {
             log.info("matchDurationRule: valor nulo ou sem regras (seconds={}, rules={})", seconds, rules);
             return 0;
         }
-        log.info("matchDurationRule: seconds={}s contra regras {}", seconds, rules);
-        int points = rules.stream()
-                .filter(r -> r.getDuration() != null && !r.getDuration().isEmpty())
-                .filter(r -> {
-                    try {
-                        long ruleSec = LocalTime.parse(r.getDuration()).toSecondOfDay();
-                        boolean matches = seconds <= ruleSec;
-                        log.info("Comparando {}s <= {}s ({}): {}", seconds, ruleSec, r.getDuration(), matches);
-                        return matches;
-                    } catch (DateTimeParseException e) {
-                        log.error("Formato inválido '{}' em regra {}", r.getDuration(), r, e);
-                        return false;
-                    }
-                })
-                .findFirst()
-                .map(r -> {
-                    log.info("Regra casada: duration={} → points={} ", r.getDuration(), r.getPoints());
+        log.info("matchDurationRule ENTRY: seconds={}s | incoming rules:", seconds);
+        rules.forEach(r ->
+                log.info("  → rule(duration={}, points={})", r.getDuration(), r.getPoints())
+        );
+
+        List<ScoringRule> sorted = rules.stream()
+                .filter(r -> r.getDuration() != null)
+                .sorted(Comparator.comparingLong(ScoringRule::getDuration))
+                .toList();
+
+        log.info("Sorted rules by duration ascending:");
+        sorted.forEach(r ->
+                log.info("  → sorted rule(duration={}, points={})", r.getDuration(), r.getPoints())
+        );
+
+        for (ScoringRule r : sorted) {
+            boolean match = seconds <= r.getDuration();
+            log.info("Comparing seconds={} <= {}? → {}", seconds, r.getDuration(), match);
+            if (match) {
+                log.info("  → CASA rule(duration={}, points={}), returning {}",
+                        r.getDuration(), r.getPoints(), r.getPoints());
+                if (r.getPoints() != null) {
                     return r.getPoints();
-                })
-                .orElse(0);
-        log.info("matchDurationRule result: {}", points);
-        return points;
+                }
+                return 0;
+            }
+        }
+
+        // 3) Se não casar nenhuma
+        log.info("Nenhuma regra satisfeita para seconds={}, retornando 0", seconds);
+        return 0;
     }
 }

@@ -1,5 +1,7 @@
 package com.avaliadados.model.DTO;
 
+import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.ShiftHours;
 import lombok.*;
 
 import java.util.Map;
@@ -18,4 +20,5 @@ public class ProjectCollabRequest {
     private Integer pontuacao;
     private Map<String, Integer> parametros;
     private Long pausaMensalSeconds;
-}
+    private MedicoRole medicoRole;
+    private ShiftHours shiftHours;}
