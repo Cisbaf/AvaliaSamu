@@ -7,8 +7,6 @@ import jakarta.persistence.Id;
 import lombok.*;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.util.Map;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,6 +26,4 @@ public class ProjectCollaborator {
     private Integer pontuacao;
     private NestedScoringParameters parametros;
     private Long pausaMensalSeconds;
-
-
 }
