@@ -34,9 +34,8 @@ export interface ProjectCollaborator extends BaseCollaborator {
 
 export type Collaborator = GlobalCollaborator | ProjectCollaborator;
 
-// Novas interfaces para parâmetros de pontuação
 export interface ScoringRule {
-  duration?: string;
+  duration?: number;
   quantity?: number;
   points: number;
 }

@@ -61,7 +61,11 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
       const next = JSON.parse(JSON.stringify(prev)) as NestedScoringParameters;
       const rule = (next[section][field] as ScoringRule[])[idx];
       if (key === 'points' || key === 'quantity') rule[key] = Number(val);
-      else rule.duration = val;
+      else if (key === 'duration') {
+        const parts = val.split(':').map(v => Number(v));
+        const seconds = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+        rule.duration = seconds;
+      }
       return next;
     });
   };
@@ -88,12 +92,51 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
     });
   };
 
+  function timeStringToSeconds(val: string): number {
+    const [h = "0", m = "0", s = "0"] = val.split(":");
+    return Number(h) * 3600 + Number(m) * 60 + Number(s);
+  }
+
+  function normalizeParams(params: NestedScoringParameters): NestedScoringParameters {
+    // percorre cada seção (colab, tarm, frota, medico) e cada array de regras
+    const sections: (keyof NestedScoringParameters)[] = ["colab", "tarm", "frota", "medico"];
+    const normalized = { ...params } as any;
+
+    for (const sec of sections) {
+      const fields = Object.keys(normalized[sec]) as (keyof ScoringSectionParams)[];
+      for (const field of fields) {
+        const rules = normalized[sec][field] as ScoringRule[] | undefined;
+        if (!Array.isArray(rules)) continue;
+        normalized[sec][field] = rules.map(r => ({
+          quantity: r.quantity,
+          points: r.points,
+          duration:
+            typeof r.duration === "string"
+              ? timeStringToSeconds(r.duration)
+              : r.duration
+        }));
+      }
+    }
+
+    return normalized;
+  }
+
   const renderTable = (
     section: keyof NestedScoringParameters,
     field: keyof ScoringSectionParams,
     columns: string[]
   ) => {
     const arr = params[section][field] as ScoringRule[];
+    function formatTime(seconds: number) {
+      const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+      const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+      const s = (seconds % 60).toString().padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+
+
+
 
     return (
       <>
@@ -125,7 +168,7 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
                           size="small"
                           type={isDur ? 'time' : 'number'}
                           inputProps={isDur ? { step: 1 } : {}}
-                          value={val != null ? String(val) : ''}
+                          value={isDur && typeof val === 'number' ? formatTime(val) : String(val)}
                           onChange={e =>
                             handleParamChange(section, field, i, fieldKey, e.target.value)
                           }
@@ -207,7 +250,11 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
         <Button onClick={onClose}>Cancelar</Button>
         <Button
           variant="contained"
-          onClick={() => { onSave(params); console.log(params); }}
+          onClick={() => {
+            const clean = normalizeParams(params);
+            onSave(clean);
+            console.log(clean);
+          }}
         >
           Salvar
         </Button>

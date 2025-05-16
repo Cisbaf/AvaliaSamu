@@ -64,7 +64,8 @@ export default function CollaboratorModal({
     } = useProjectCollaborators().actions;
 
     const [formData, setFormData] = useState<FormData>({
-        nome: '', cpf: '', idCallRote: '', baseRole: ''
+        nome: '', cpf: '', idCallRote: '', baseRole: '',
+        medicoRole: undefined, shiftHours: undefined,
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -119,6 +120,7 @@ export default function CollaboratorModal({
                         (initialData as CombinedCollaboratorData).id!,
                         dto
                     );
+                    console.log("Enviado " + JSON.stringify(dto));
                 } else {
                     await addCollaboratorToProject(
                         projectId,
@@ -128,6 +130,8 @@ export default function CollaboratorModal({
                             durationSeconds: formData.durationSeconds,
                             quantity: formData.quantity,
                             pausaMensalSeconds: formData.pausaMensalSeconds,
+                            ...(formData.medicoRole && { medicoRole: formData.medicoRole }),
+                            ...(formData.shiftHours && { shiftHours: formData.shiftHours }),
                             parametros: {}
                         }
                     );
@@ -184,7 +188,7 @@ export default function CollaboratorModal({
                             value={formData.idCallRote} onChange={e => handleChange('idCallRote', e.target.value)} />
                         <FormControl fullWidth margin="dense">
                             <InputLabel>Função</InputLabel>
-                            <Select value={formData.baseRole} onChange={e => handleChange('baseRole', e.target.value as string)}>
+                            <Select value={formData.baseRole || ' '} onChange={e => handleChange('baseRole', e.target.value as string)}>
                                 <MenuItem value="TARM">TARM</MenuItem>
                                 <MenuItem value="FROTA">FROTA</MenuItem>
                                 <MenuItem value="MEDICO">MÉDICO</MenuItem>
@@ -195,13 +199,13 @@ export default function CollaboratorModal({
                             <>
                                 <FormControl fullWidth margin="dense">
                                     <InputLabel>Papel Médico</InputLabel>
-                                    <Select value={formData.medicoRole} onChange={e => handleChange('medicoRole', e.target.value as MedicoRole)}>
+                                    <Select value={formData.medicoRole || " "} onChange={e => handleChange('medicoRole', e.target.value as MedicoRole)}>
                                         {Object.values(MedicoRole).map(mr => <MenuItem key={mr} value={mr}>{mr}</MenuItem>)}
                                     </Select>
                                 </FormControl>
                                 <FormControl fullWidth margin="dense">
                                     <InputLabel>Turno</InputLabel>
-                                    <Select value={formData.shiftHours} onChange={e => handleChange('shiftHours', e.target.value as ShiftHours)}>
+                                    <Select value={formData.shiftHours || " "} onChange={e => handleChange('shiftHours', e.target.value as ShiftHours)}>
                                         {Object.values(ShiftHours).map(sh => <MenuItem key={sh} value={sh}>{sh}</MenuItem>)}
                                     </Select>
                                 </FormControl>
