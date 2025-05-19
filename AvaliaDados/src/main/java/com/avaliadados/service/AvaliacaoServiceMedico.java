@@ -3,13 +3,16 @@ package com.avaliadados.service;
 import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.MedicoEntity;
 import com.avaliadados.model.ProjetoEntity;
+import com.avaliadados.model.SheetRow;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
+import com.avaliadados.model.enums.TypeAv;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.MedicoEntityRepository;
 import com.avaliadados.repository.ProjetoRepository;
+import com.avaliadados.repository.SheetRowRepository;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,12 +38,70 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
     private final ProjetoRepository projetoRepo;
     private final MedicoEntityRepository medicoRepo;
+    private final SheetRowRepository sheetRowRepo;
     private final ScoringService scoringService;
-    private final ProjectCollabService projectCollabService;
 
     @Transactional
     public void processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
-        // 1) busca o projeto
+        sheetRowRepo.deleteByProjectIdAndType(projectId, TypeAv.MEDICO);
+
+        try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
+            Sheet sheet = wb.getSheetAt(0);
+            Map<String, Integer> cols = getColumnMapping(sheet.getRow(0));
+            log.info("Colunas disponíveis na sheet: {}", cols.keySet());
+
+            Integer idxMedicoReg = cols.entrySet().stream()
+                    .filter(e -> e.getKey().startsWith("MEDICO REGULADOR"))
+                    .map(Map.Entry::getValue)
+                    .findFirst().orElse(null);
+
+            Integer idxTempoMed = cols.entrySet().stream()
+                    .filter(e -> e.getKey().contains("TEMPO MEDIO REGULACAO MEDICA"))
+                    .map(Map.Entry::getValue)
+                    .findFirst().orElse(null);
+
+            Integer idxCriticos = cols.entrySet().stream()
+                    .filter(e -> e.getKey().startsWith("CRITICOS"))
+                    .map(Map.Entry::getValue)
+                    .findFirst().orElse(null);
+
+            log.info("Índices fuzzy → MEDICO_REGULADOR: {}, TEMPO_MED: {}, CRITICOS: {}",
+                    idxMedicoReg, idxTempoMed, idxCriticos);
+
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null) continue;
+
+                String nomeMedico = idxMedicoReg != null ? getCellStringValue(row, idxMedicoReg) : null;
+                String tempoReg = idxTempoMed    != null ? getCellStringValue(row, idxTempoMed)    : null;
+                if (nomeMedico == null || tempoReg == null) {
+                    log.debug("Descartando linha {}: nome='{}', tempo='{}'", i, nomeMedico, tempoReg);
+                    continue;
+                }
+
+                SheetRow sr = new SheetRow();
+                sr.setProjectId(projectId);
+                sr.getData().put("MEDICO_REGULADOR", nomeMedico);
+                sr.getData().put("TEMPO_REGULACAO", tempoReg);
+
+                if (idxCriticos != null) {
+                    String crit = getCellStringValue(row, idxCriticos);
+                    if (crit != null) sr.getData().put("CRITICOS", crit);
+                }
+
+                sheetRowRepo.save(sr);
+                log.debug("Salvou linha {} com dados: {}", i, sr.getData());
+            }
+        }
+
+        log.info("Planilha médica do projeto {} salva com {} linhas específicas", projectId,
+                sheetRowRepo.findByProjectId(projectId).size());
+
+        sincronizarColaboradores(projectId);
+    }
+
+    @Transactional
+    public void sincronizarColaboradores(String projectId) {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado: " + projectId));
 
@@ -51,114 +112,78 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                         (a, b) -> a
                 ));
 
-        try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
-            Sheet sheet = wb.getSheetAt(0);
-            Map<String, Integer> cols = getColumnMapping(sheet.getRow(0));
-
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) continue;
-                String nomePlanilha = normalizarNome(getCellStringValue(row, cols.get("MEDICO REGULADOR")));
-                if (nomePlanilha == null) continue;
-
-                medicos.entrySet().stream()
-                        .filter(e -> similaridade(e.getKey(), nomePlanilha) >= 0.85)
-                        .max(Comparator.comparingDouble(e -> similaridade(e.getKey(), nomePlanilha)))
-                        .ifPresent(match -> {
-                            MedicoEntity medico = match.getValue();
-                            projeto.getCollaborators().stream()
-                                    .filter(pc -> pc.getCollaboratorId().equals(medico.getId()))
-                                    .findFirst()
-                                    .ifPresent(pc -> {
-                                        pc.setMedicoRole(medico.getMedicoRole());
-
-                                        atualizarDadosMedico(pc, row, cols, projectId);
-                                    });
-                        });
-            }
+        for (SheetRow sr : sheetRowRepo.findByProjectId(projectId)) {
+            String nomeNorm = normalizarNome(sr.getData().get("MEDICO_REGULADOR"));
+            medicos.entrySet().stream()
+                    .filter(e -> similaridade(e.getKey(), nomeNorm) >= 0.85)
+                    .max(Comparator.comparingDouble(e -> similaridade(e.getKey(), nomeNorm)))
+                    .ifPresent(match -> {
+                        MedicoEntity med = match.getValue();
+                        String collabId = med.getId();
+                        ProjectCollaborator pc = projeto.getCollaborators().stream()
+                                .filter(c -> c.getCollaboratorId().equals(collabId))
+                                .findFirst()
+                                .orElseGet(() -> {
+                                    ProjectCollaborator novo = ProjectCollaborator.builder()
+                                            .collaboratorId(collabId)
+                                            .role(med.getMedicoRole().name())
+                                            .build();
+                                    projeto.getCollaborators().add(novo);
+                                    return novo;
+                                });
+                        atualizarDadosMedico(pc, sr.getData(), med);
+                    });
         }
 
-        log.info("ROle do medico {}, {}", projeto.getCollaborators().stream().map(ProjectCollaborator::getRole).collect(Collectors.toList()), projeto.getCollaborators().stream().map(ProjectCollaborator::getMedicoRole).collect(Collectors.toList()));
         projetoRepo.save(projeto);
+        log.info("Colaboradores sincronizados para projeto {}", projectId);
     }
 
     private void atualizarDadosMedico(ProjectCollaborator pc,
-                                      Row row,
-                                      Map<String, Integer> cols, String projectID) {
-        String[] tempoKeys = {"TEMPO MEDIO REGULACAO MEDICA"};
-        String[] criticosKeys = {"CRITICOS"};
+                                      Map<String, String> data,
+                                      MedicoEntity med) {
+        String tempoKey = "TEMPO_REGULACAO";
+        String criticosKey = "CRITICOS";
 
-        Integer tempoMedioCol = findBestColumnMatch(cols, tempoKeys);
-        Integer criticosCol = findBestColumnMatch(cols, criticosKeys);
+        NestedScoringParameters params = pc.getParametros();
+        if (params == null) params = new NestedScoringParameters();
 
-        var params = pc.getParametros();
-        if (params == null) {
-            params = new NestedScoringParameters();
+        if (pc.getMedicoRole() == MedicoRole.REGULADOR && data.containsKey(tempoKey)) {
+            Long secs = parseTimeToSeconds(data.get(tempoKey));
+            pc.setDurationSeconds(secs);
+            params.setMedico(ScoringSectionParams.builder()
+                    .regulacao(List.of(ScoringRule.builder().duration(secs).build()))
+                    .build());
+            log.info("Regulação méd. {}: {}s", pc.getNome(), secs);
         }
-
-
-        if (criticosCol != null
-                && pc.getMedicoRole() == MedicoRole.REGULADOR) {
-            Long regulacoesSec = getCellTimeInSeconds(row.getCell(tempoMedioCol));
-            pc.setDurationSeconds(regulacoesSec);
-            params.setMedico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(regulacoesSec).build())).build());
-            log.info("Regulacoes para {} ({}): {}s", pc.getNome(), pc.getRole(), regulacoesSec);
-        }
-
-        if (criticosCol != null
-                && pc.getMedicoRole() == MedicoRole.LIDER) {
-            Long criticos = getCellTimeInSeconds(row.getCell(criticosCol));
-            pc.setDurationSeconds(criticos);
+        if (pc.getMedicoRole() == MedicoRole.LIDER && data.containsKey(criticosKey)) {
+            Long crit = Long.parseLong(data.get(criticosKey));
+            pc.setQuantity(crit.intValue());
             pc.setShiftHours(ShiftHours.H24);
-            params.setMedico(ScoringSectionParams.builder().regulacaoLider(List.of(ScoringRule.builder().duration(criticos).build())).build());
-            log.info("Criticos para {} ({}): {}s", pc.getNome(), pc.getRole(), criticos);
+            params.setMedico(ScoringSectionParams.builder()
+                    .regulacaoLider(List.of(ScoringRule.builder().duration(crit).build()))
+                    .build());
+            log.info("Críticos méd. {}: {}", pc.getNome(), crit);
         }
 
         int pontos = scoringService.calculateCollaboratorScore(
-                pc.getRole(),
-                pc.getDurationSeconds(),
-                pc.getQuantity(),
-                pc.getPausaMensalSeconds(),
-                params
-        );
-        log.info("Pontuação para {} ({}): {}", pc.getNome(), pc.getRole(), pontos);
-        log.info("Parâmetros: {}", params);
+                pc.getRole(), pc.getDurationSeconds(), pc.getQuantity(), pc.getPausaMensalSeconds(), params);
         pc.setPontuacao(pontos);
         pc.setParametros(params);
-        projectCollabService.updateProjectCollaborator(projectID, pc.getCollaboratorId(), pc);
-    }
-
-    private Integer findBestColumnMatch(Map<String, Integer> cols, String[] possibleKeys) {
-        for (String key : possibleKeys) {
-            String normalizedKey = Normalizer.normalize(key, Normalizer.Form.NFD)
-                    .replaceAll("[^A-Z0-9 ]", "")
-                    .trim()
-                    .toUpperCase();
-
-            if (cols.containsKey(normalizedKey)) {
-                return cols.get(normalizedKey);
-            }
-        }
-        return null;
     }
 
     private Map<String, Integer> getColumnMapping(Row header) {
         Map<String, Integer> map = new HashMap<>();
         DataFormatter fmt = new DataFormatter();
-
         for (Cell c : header) {
             String raw = fmt.formatCellValue(c);
-
             String normalized = Normalizer.normalize(raw, Normalizer.Form.NFD)
-                    .replaceAll("[^\\p{ASCII}]", "") // Remove acentos
-                    .replaceAll("[^A-Z0-9 ]", "")    // Mantém apenas letras, números e espaços
-                    .replaceAll("\\d+$", "")         // Remove números no final (ex: 0000220)
+                    .replaceAll("[^\\p{ASCII}]", "")
+                    .replaceAll("[^A-Z0-9 ]", "")
                     .trim()
                     .toUpperCase();
-
             map.put(normalized, c.getColumnIndex());
         }
-
         log.info("Colunas normalizadas: {}", map.keySet());
         return map;
     }
@@ -172,32 +197,19 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         return null;
     }
 
-    private Long getCellTimeInSeconds(Cell cell) {
-        if (cell == null) return null;
+    private Long parseTimeToSeconds(String s) {
+        if (s == null || s.isBlank()) return null;
         try {
-            if (cell.getCellType() == CellType.STRING) {
-                String s = cell.getStringCellValue().trim();
-                if (s.matches("^\\d{1,2}:\\d{2}:\\d{2}$")) { // Novo tratamento para HH:mm:ss
-                    String[] parts = s.split(":");
-                    return Long.parseLong(parts[0]) * 3600L
-                            + Long.parseLong(parts[1]) * 60L
-                            + Long.parseLong(parts[2]);
-                }
-                LocalTime lt = LocalTime.parse(s.length() == 5 ? s + ":00" : s);
-                return (long) lt.toSecondOfDay();
-            }
-            if (cell.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-                return Math.round(cell.getNumericCellValue() * 24 * 3600);
-            }
+            LocalTime lt = LocalTime.parse(s);
+            return (long) lt.toSecondOfDay();
         } catch (Exception e) {
-            log.error("Erro convertendo tempo na célula {}: {}", cell.getAddress(), e.getMessage());
+            log.error("Erro convertendo tempo '{}': {}", s, e.getMessage());
+            return null;
         }
-        return null;
     }
 
     private String normalizarNome(String nome) {
-        return nome == null ? null
-                : nome.trim().toUpperCase().replaceAll("[^A-Z0-9 ]", "");
+        return nome == null ? null : nome.trim().toUpperCase().replaceAll("[^A-Z0-9 ]", "");
     }
 
     private double similaridade(String a, String b) {
