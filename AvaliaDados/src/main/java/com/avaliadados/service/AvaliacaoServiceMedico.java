@@ -142,6 +142,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         if (params == null) params = new NestedScoringParameters();
 
         long regulacao = 0L;
+        long pausas = 0L;
+        int quantity = 0;
 
         if (pc.getMedicoRole().equals(MedicoRole.REGULADOR) && data.containsKey("TEMPO.REGULACAO")) {
             Long secs = parseTimeToSeconds(data.get("TEMPO.REGULACAO"));
@@ -156,13 +158,18 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             regulacao = params.getMedico().getRegulacaoLider().getLast().getDuration();
         }
 
+        if (!params.getMedico().getRemovidos().isEmpty()) {
+            quantity = params.getMedico().getRemovidos().getLast().getQuantity();
+            pausas =  params.getMedico().getPausas().getLast().getDuration();
+        }
+
 
         int pontos = scoringService.calculateCollaboratorScore(
                 pc.getRole(),
                 pc.getMedicoRole().name(),
                 regulacao,
-                params.getMedico().getRemovidos().getLast().getQuantity(),
-                params.getMedico().getPausas().getLast().getDuration(),
+                quantity,
+                pausas,
                 projeto.getParameters());
 
         pc.setPontuacao(pontos);
