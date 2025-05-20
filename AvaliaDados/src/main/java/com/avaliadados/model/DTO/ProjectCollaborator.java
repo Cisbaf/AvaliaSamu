@@ -3,9 +3,7 @@ package com.avaliadados.model.DTO;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.params.NestedScoringParameters;
-import jakarta.persistence.Id;
 import lombok.*;
-import org.springframework.data.mongodb.core.mapping.Document;
 
 @Getter
 @Setter
@@ -13,9 +11,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 @AllArgsConstructor
 @Builder
 @ToString
-@Document
 public class ProjectCollaborator {
-    @Id
     private String collaboratorId;
     private String nome;
     private String role;

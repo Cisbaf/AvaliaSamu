@@ -2,7 +2,6 @@ package com.avaliadados.controller;
 
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.DTO.ProjectCollabRequest;
-import com.avaliadados.model.DTO.UpdateProjectCollabRequest;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.service.ProjectCollabService;
@@ -42,14 +41,9 @@ public class ProjectCollabController {
     }
 
     @PutMapping("/{collaboratorId}")
-    public ResponseEntity<ProjetoEntity> update(
-            @PathVariable String projectId,
-            @PathVariable String collaboratorId,
-            @RequestBody UpdateProjectCollabRequest dto
-    ) {
+    public ResponseEntity<ProjetoEntity> update(@PathVariable String projectId, @PathVariable String collaboratorId, @RequestBody ProjectCollabRequest dto) {
 
-        return ResponseEntity.ok(
-                service.updateProjectCollaborator(
+        return ResponseEntity.ok(service.updateProjectCollaborator(
                         projectId,
                         collaboratorId,
                         dto
