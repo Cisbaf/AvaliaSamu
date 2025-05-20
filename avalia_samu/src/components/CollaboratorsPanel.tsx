@@ -24,6 +24,7 @@ import CollaboratorModal from './AddCollaboratorModal'; // Este é o modal de ed
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
+import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
   isGlobal: boolean;
@@ -55,6 +56,8 @@ export default function CollaboratorsPanel() {
   const [isAddExistingModalOpen, setIsAddExistingModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { actions } = useProjectCollaborators();
+
 
   useEffect(() => {
     if (selectedProject) {
@@ -75,7 +78,7 @@ export default function CollaboratorsPanel() {
       const gc = globalCollaborators?.find(g => g.id === pc.id);
       return {
         id: pc.id,
-        nome: pc?.nome || pc.nome || '—',
+        nome: pc?.nome || gc?.nome || '—',
         cpf: gc?.cpf || '',
         idCallRote: gc?.idCallRote || '',
         role: pc.role,
@@ -85,8 +88,8 @@ export default function CollaboratorsPanel() {
         quantity: pc.quantity,
         durationSeconds: pc.durationSeconds,
         pausaMensalSeconds: pc.pausaMensalSeconds,
-        medicoRole: pc.medicoRole,
-        shiftHours: pc.shiftHours,
+        medicoRole: pc.medicoRole || gc?.medicoRole,
+        shiftHours: pc.shiftHours || gc?.shiftHours,
       };
     });
   }, [projectCollaborators, globalCollaborators, selectedProject]);
@@ -137,11 +140,11 @@ export default function CollaboratorsPanel() {
         role: string;
         medicoRole?: MedicoRole;
         shiftHours?: ShiftHours;
-      } = { id, role };
+      } = { id, role, medicoRole, shiftHours };
 
       if (role === 'MEDICO') {
         if (!medicoRole || !shiftHours) {
-          throw new Error('Para a função MÉDICO, o Papel Médico e o Turno são obrigatórios ao adicionar ao projeto.');
+          throw new Error('Para a função MEDICO, o Papel Médico e o Turno são obrigatórios ao adicionar ao projeto.');
         }
         payload.medicoRole = medicoRole;
         payload.shiftHours = shiftHours;
@@ -191,6 +194,19 @@ export default function CollaboratorsPanel() {
       setError(err.message || 'Falha ao processar planilha');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddFromGlobal = async (collab: CombinedCollaboratorData) => {
+    try {
+      await actions.addCollaboratorToProject(selectedProject!, {
+        id: collab.id!,
+        role: collab.role,
+        medicoRole: collab.medicoRole,
+        shiftHours: collab.shiftHours
+      });
+    } catch (error) {
+      console.error('Erro ao adicionar colaborador:', error);
     }
   };
 
@@ -338,7 +354,7 @@ export default function CollaboratorsPanel() {
             projectId={selectedProject}
           />
           <AddExistingCollaboratorModal
-            open={isAddExistingModalOpen}
+            open={!!isAddExistingModalOpen}
             onClose={handleCloseAddExisting}
             collaborators={available}
             onAdd={handleAddExisting}

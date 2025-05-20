@@ -5,7 +5,7 @@ import api, {
     updateGlobalCollaboratorApi,
     deleteGlobalCollaboratorApi
 } from '@/lib/api';
-import { Collaborator, GlobalCollaborator } from '@/types/project';
+import { Collaborator, GlobalCollaborator, MedicoRole, ShiftHours } from '@/types/project';
 
 export function useGlobalCollaborators() {
     const [globalCollaborators, setGlobalCollaborators] = useState<GlobalCollaborator[]>([]);
@@ -20,7 +20,10 @@ export function useGlobalCollaborators() {
                 pontuacao: c.pontuacao || 0,
                 cpf: c.cpf,
                 idCallRote: c.idCallRote,
-                isGlobal: true
+                isGlobal: true,
+                // Incluir medicoRole e shiftHours se existirem nos dados
+                medicoRole: c.medicoRole as MedicoRole | undefined,
+                shiftHours: c.shiftHours as ShiftHours | undefined
             })));
         } catch (error) {
             console.error('Erro ao buscar colaboradores:', error);

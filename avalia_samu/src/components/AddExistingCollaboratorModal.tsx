@@ -1,4 +1,3 @@
-// AddExistingCollaboratorModal.tsx
 'use client';
 
 import React from 'react';
@@ -15,16 +14,15 @@ import {
     IconButton
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
-import { GlobalCollaborator } from '@/types/project';
+import { GlobalCollaborator, MedicoRole, ShiftHours } from '@/types/project';
 
 interface AddExistingCollaboratorModalProps {
     open: boolean;
     onClose: () => void;
     collaborators: GlobalCollaborator[];
-    onAdd: (collaboratorId: string, role: string) => Promise<void>;
+    onAdd: (collaboratorId: string, role: string, medicoRole?: MedicoRole, shiftHours?: ShiftHours) => Promise<void>;
     loading: boolean;
 }
-
 
 export default function AddExistingCollaboratorModal({
     open,
@@ -35,7 +33,27 @@ export default function AddExistingCollaboratorModal({
 }: AddExistingCollaboratorModalProps) {
     console.log('Colaboradores disponíveis:', collaborators);
 
+    // Função para adicionar colaborador, passando medicoRole e shiftHours quando disponíveis
+    const handleAddCollaborator = async (collab: GlobalCollaborator) => {
+        if (collab.role === 'MEDICO') {
+            // Para médicos, enviar medicoRole e shiftHours que já estão definidos no colaborador global
+            await onAdd(collab.id!, collab.role, collab.medicoRole, collab.shiftHours);
+        } else {
+            // Para outros tipos, enviar apenas id e role
+            await onAdd(collab.id!, collab.role);
+        }
+    };
 
+    // Verificar se o botão de adicionar deve estar desabilitado para médicos sem medicoRole ou shiftHours
+    const isAddButtonDisabled = (collab: GlobalCollaborator) => {
+        if (loading) return true;
+
+        if (collab.role === 'MEDICO') {
+            return !collab.medicoRole || !collab.shiftHours;
+        }
+
+        return false;
+    };
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -54,8 +72,8 @@ export default function AddExistingCollaboratorModal({
                                     <IconButton
                                         edge="end"
                                         aria-label="add"
-                                        onClick={() => onAdd(collab.id!, collab.role)}
-                                        disabled={loading}
+                                        onClick={() => handleAddCollaborator(collab)}
+                                        disabled={isAddButtonDisabled(collab)}
                                     >
                                         <Add color="primary" />
                                     </IconButton>
@@ -63,7 +81,17 @@ export default function AddExistingCollaboratorModal({
                             >
                                 <ListItemText
                                     primary={collab.nome}
-                                    secondary={collab.role}
+                                    secondary={
+                                        <>
+                                            {collab.role}
+                                            {collab.role === 'MEDICO' && collab.medicoRole && collab.shiftHours &&
+                                                ` (${collab.medicoRole} - ${collab.shiftHours})`
+                                            }
+                                            {collab.role === 'MEDICO' && (!collab.medicoRole || !collab.shiftHours) &&
+                                                ' (Faltam dados de papel médico ou turno)'
+                                            }
+                                        </>
+                                    }
                                 />
                             </ListItem>
                         ))}

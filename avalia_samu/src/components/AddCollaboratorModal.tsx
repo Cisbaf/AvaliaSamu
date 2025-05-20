@@ -127,9 +127,7 @@ export default function CollaboratorModal({
                         ...medicoFields,
                     };
 
-                    console.log('DTO enviado no update:', dto);
-                    console.log('ID do colaborador:', (initialData as CombinedCollaboratorData).id);
-
+                    console.log('DTO enviado no update:', dto); // debug opcional
 
                     await updateProjectCollaborator(
                         projectId,
