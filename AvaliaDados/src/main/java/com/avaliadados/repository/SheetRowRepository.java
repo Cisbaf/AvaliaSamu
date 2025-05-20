@@ -12,4 +12,6 @@ public interface SheetRowRepository extends MongoRepository<SheetRow, String> {
     void deleteByProjectIdAndType(String projectId, TypeAv type);
 
     List<SheetRow> findByProjectIdAndType(String projectId, TypeAv typeAv);
+
+    SheetRow findByCollaboratorIdAndProjectId(String collaboratorId, String projectId);
 }

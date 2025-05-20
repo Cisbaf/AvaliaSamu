@@ -11,6 +11,7 @@ import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
+import com.avaliadados.repository.SheetRowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,9 +21,11 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static com.avaliadados.service.utils.CollabParams.*;
+import static com.avaliadados.service.utils.SheetsUtils.parseTimeToSeconds;
 
 
 @Slf4j
@@ -33,6 +36,7 @@ public class ProjectCollabService {
     private final ProjetoRepository projetoRepo;
     private final CollaboratorRepository collaboratorRepo;
     private final ScoringService scoringService;
+    private final SheetRowRepository rowRepository;
 
     @Transactional
     public ProjetoEntity addCollaborator(String projectId, ProjectCollabRequest dto) {
@@ -61,8 +65,6 @@ public class ProjectCollabService {
             dto.setMedicoRole(MedicoRole.NENHUM);
         }
 
-        log.info("Pontuação calculada para colaborador [{}]", dto.getCollaboratorId());
-
         ProjectCollaborator pc = ProjectCollaborator.builder()
                 .collaboratorId(dto.getCollaboratorId())
                 .nome(collab.getNome())
@@ -74,9 +76,28 @@ public class ProjectCollabService {
                 .medicoRole(dto.getMedicoRole())
                 .shiftHours(dto.getShiftHours())
                 .build();
+        var sheetColab = rowRepository.findByCollaboratorIdAndProjectId(dto.getCollaboratorId(), projectId);
+
+        if (sheetColab != null) {
+            if (Objects.equals(pc.getRole(), "TARM ")){
+                pc.setParametros(NestedScoringParameters.builder().tarm(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(parseTimeToSeconds(sheetColab.getData().get("TEMPO_REGULACAO_TARM"))).build())).build()).build());
+            }
+            if (Objects.equals(pc.getRole(), "FROTA ")){
+                pc.setParametros(NestedScoringParameters.builder().frota(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(parseTimeToSeconds(sheetColab.getData().get("TEMPO_REGULACAO_FROTA"))).build())).build()).build());
+
+            }
+            if (Objects.equals(pc.getRole(), "MEDICO") && pc.getMedicoRole().equals(MedicoRole.REGULADOR)){
+                pc.setParametros(NestedScoringParameters.builder().medico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(parseTimeToSeconds(sheetColab.getData().get("MEDICO_REGULADOR"))).build())).build()).build());
+
+            }
+            if (Objects.equals(pc.getRole(), "MEDICO") && pc.getMedicoRole().equals(MedicoRole.LIDER)){
+                pc.setParametros(NestedScoringParameters.builder().medico(ScoringSectionParams.builder().regulacaoLider(List.of(ScoringRule.builder().duration(parseTimeToSeconds(sheetColab.getData().get("CRITICOS"))).build())).build()).build());
+            }
+        }
 
         projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(dto.getCollaboratorId()));
         projeto.getCollaborators().add(pc);
+        log.debug("Dados do COllaborador {}", pc);
         return projetoRepo.save(projeto);
     }
 
@@ -89,12 +110,17 @@ public class ProjectCollabService {
                     CollaboratorEntity collab = collaboratorRepo.findById(pc.getCollaboratorId())
                             .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
 
+                    int pontuacao = 0;
+                    if (pc.getPontuacao() != null) {
+                        pontuacao = pc.getPontuacao();
+                    }
+
                     return new CollaboratorsResponse(
                             pc.getCollaboratorId(),
                             pc.getNome(),
                             collab.getCpf(),
                             collab.getIdCallRote(),
-                            pc.getPontuacao(),
+                            pontuacao,
                             pc.getRole(),
                             pc.getShiftHours(),
                             pc.getMedicoRole()
@@ -151,11 +177,6 @@ public class ProjectCollabService {
 
         return projetoRepo.save(projeto);
     }
-
-//--- Métodos Auxiliares ---//
-
-
-
 
     @Transactional
     public void removeCollaborator(String projectId, String collaboratorId) {

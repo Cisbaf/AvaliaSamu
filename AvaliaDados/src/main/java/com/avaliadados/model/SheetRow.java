@@ -17,6 +17,7 @@ public class SheetRow {
     @Id
     private String id;
     private String projectId;
+    private String collaboratorId;
     private TypeAv type;
     @Builder.Default
     private Map<String, String> data = new HashMap<>();

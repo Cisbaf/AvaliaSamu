@@ -1,5 +1,6 @@
 package com.avaliadados.service;
 
+import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.SheetRow;
@@ -8,6 +9,7 @@ import com.avaliadados.model.enums.TypeAv;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
+import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.MedicoEntityRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import com.avaliadados.repository.SheetRowRepository;
@@ -38,6 +40,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
     private final MedicoEntityRepository medicoRepo;
     private final SheetRowRepository sheetRowRepo;
     private final ScoringService scoringService;
+    private final CollaboratorRepository colaboradorRepository;
+
 
     @Transactional
     public void processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
@@ -67,8 +71,11 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 String tempoReg = getCellStringValue(row, idxTempoMed);
                 if (nomeMed == null || tempoReg == null) continue;
 
+                var id = colaboradorRepository.findByNome(nomeMed).map(CollaboratorEntity::getId).orElse(null);
+
                 SheetRow sr = new SheetRow();
                 sr.setProjectId(projectId);
+                if (id != null) {sr.setCollaboratorId(id);}
                 sr.setType(TypeAv.MEDICO);
                 sr.getData().put("MEDICO.REGULADOR", nomeMed);
                 sr.getData().put("TEMPO.REGULACAO", tempoReg);

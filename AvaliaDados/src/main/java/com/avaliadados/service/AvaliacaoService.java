@@ -76,8 +76,13 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                     continue;
                 }
 
+                var id = colaboradorRepository.findByNome(name).map(CollaboratorEntity::getId).orElse(null);
+
+
                 SheetRow sr = new SheetRow();
                 sr.setProjectId(projectId);
+
+                if (id != null) {sr.setCollaboratorId(id);}
                 sr.setType(TypeAv.TARM_FROTA);
                 sr.getData().put("COLABORADOR", name);
                 if (tarmVal != null) sr.getData().put("TEMPO_REGULACAO_TARM", tarmVal);
