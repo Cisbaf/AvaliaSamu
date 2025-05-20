@@ -15,6 +15,7 @@ public class ScoringService {
 
     public int calculateCollaboratorScore(
             String role,
+            String medicRole,
             Long durationSeconds,
             Integer quantity,
             Long pausaMensalSeconds,
@@ -28,8 +29,7 @@ public class ScoringService {
             return 0;
         }
 
-        String roleType = role.split("_")[0].toUpperCase();
-        ScoringSectionParams sectionParams = switch (roleType) {
+        ScoringSectionParams sectionParams = switch (role) {
             case "TARM" -> params.getTarm();
             case "FROTA" -> params.getFrota();
             case "MEDICO" -> params.getMedico();
@@ -38,11 +38,11 @@ public class ScoringService {
         };
 
         if (sectionParams == null) {
-            log.warn("Nenhuma configuração encontrada para roleType: {}", roleType);
+            log.warn("Nenhuma configuração encontrada para roleType: {}", role);
             return 0;
         }
 
-        int total = switch (roleType) {
+        int total = switch (role) {
             case "TARM" -> {
                 var tarm = calculateTarmScore(durationSeconds, quantity, pausaMensalSeconds, sectionParams);
                 var colab = calculateColb(pausaMensalSeconds, sectionParams);
@@ -55,14 +55,14 @@ public class ScoringService {
 
             }
             case "MEDICO" -> {
-                var medico = calculateMedicoScore(role, durationSeconds, quantity, sectionParams);
+                var medico = calculateMedicoScore(medicRole, durationSeconds, quantity, sectionParams);
                 var colab = calculateColb(pausaMensalSeconds, sectionParams);
                 yield medico + colab;
             }
             default -> 0;
         };
 
-        log.info("Score final para role {}: {}", roleType, total);
+        log.info("Score final para role {}: {}", role, total);
         return total;
     }
 
@@ -92,13 +92,19 @@ public class ScoringService {
     }
 
     private int calculateMedicoScore(String role, Long duration, Integer quantity, ScoringSectionParams params) {
+
+        if(role == null || params == null) {
+            log.error("Parâmetros nulos: role={}, params={}", role, params);
+            return 0;
+        }
+
         log.info(">> calculateMedicoScore ENTRY: role='{}', duration={}s, quantity={}, params={}",
                 role, duration, quantity, params);
 
         int score = 0;
 
         int qtyPoints = matchQuantityRule(quantity, params.getRemovidos());
-        log.info("   matchQuantityRule: quantity={} ➔ pointsFromQty={} (rules={})",
+        log.info("matchQuantityRule: quantity={} ➔ pointsFromQty={} (rules={})",
                 quantity, qtyPoints, params.getRemovidos());
         score += qtyPoints;
 
@@ -107,9 +113,8 @@ public class ScoringService {
                 : params.getRegulacao();
         log.info("   Selected durationRules for role='{}': {}", role, durationRules);
 
-        // 3) Regra de duração
         int durPoints = matchDurationRule(duration, durationRules);
-        log.info("   matchDurationRule: duration={}s ➔ pointsFromDuration={} (rules={})",
+        log.info(" matchDurationRule: duration={}s ➔ pointsFromDuration={} (rules={})",
                 duration, durPoints, durationRules);
         score += durPoints;
 
@@ -170,7 +175,6 @@ public class ScoringService {
             }
         }
 
-        // 3) Se não casar nenhuma
         log.info("Nenhuma regra satisfeita para seconds={}, retornando 0", seconds);
         return 0;
     }

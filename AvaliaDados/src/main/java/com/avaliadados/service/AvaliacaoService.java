@@ -6,6 +6,7 @@ import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.SheetRow;
 import com.avaliadados.model.enums.TypeAv;
 import com.avaliadados.model.params.NestedScoringParameters;
+import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
@@ -21,6 +22,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -38,7 +41,6 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
     @Transactional
     public void processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
-        // limpa apenas as linhas deste tipo
         sheetRowRepository.deleteByProjectIdAndType(projectId, TypeAv.TARM_FROTA);
 
         try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
@@ -46,16 +48,15 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             Map<String, Integer> cols = getColumnMapping(sheet.getRow(0));
             log.info("Colunas disponíveis na sheet: {}", cols.keySet());
 
-            // índices fuzzy para COLABORADOR, TARM e FROTA
             Integer idxColab = cols.entrySet().stream()
                     .filter(e -> e.getKey().startsWith("COLABORADOR"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
             Integer idxTarm = cols.entrySet().stream()
-                    .filter(e -> e.getKey().contains("TEMPO_REGULACAO_TARM")
+                    .filter(e -> e.getKey().contains("TEMPO REGULAO TARM")
                             || e.getKey().contains("TARM"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
             Integer idxFrota = cols.entrySet().stream()
-                    .filter(e -> e.getKey().contains("FROTA"))
+                    .filter(e -> e.getKey().contains("OP FROTA REGULAO MDICA"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
 
             log.info("Índices fuzzy → COLAB: {}, TARM: {}, FROTA: {}", idxColab, idxTarm, idxFrota);
@@ -69,7 +70,6 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                 String frotaVal = idxFrota != null ? getCellStringValue(row, idxFrota) : null;
                 log.debug("Linha {} → COLAB='{}', TARM='{}', FROTA='{}'", i, name, tarmVal, frotaVal);
 
-                // somente se COLABORADOR existe e ao menos um valor de duração
                 if (name == null || (tarmVal == null && frotaVal == null)) {
                     log.debug("  → descartando linha {}", i);
                     continue;
@@ -89,17 +89,14 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         log.info("Planilha TARM/FROTA do projeto {} salva com {} linhas específicas", projectId,
                 sheetRowRepository.findByProjectIdAndType(projectId, TypeAv.TARM_FROTA).size());
 
-        // atualiza colaboradores com base nas linhas filtradas
         atualizarColaboradoresDoProjeto(projectId);
     }
 
-    /**
-     * Atualiza colaboradores no projeto com base nos dados filtrados (TARM/FROTA).
-     */
     @Transactional
     public void atualizarColaboradoresDoProjeto(String projectId) {
         ProjetoEntity projeto = projetoRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado: " + projectId));
+
 
         Map<String, CollaboratorEntity> colaboradores = colaboradorRepository.findAll().stream()
                 .collect(Collectors.toMap(
@@ -116,7 +113,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                         projeto.getCollaborators().stream()
                                 .filter(pc -> pc.getCollaboratorId().equals(colEnt.getId()))
                                 .findFirst()
-                                .ifPresent(pc -> atualizarDadosColaborador(pc, sr.getData(), colEnt));
+                                .ifPresent(pc -> atualizarDadosColaborador(pc, sr.getData(), colEnt, projeto));
                     });
         }
         projetoRepository.save(projeto);
@@ -125,26 +122,59 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
     private void atualizarDadosColaborador(ProjectCollaborator pc,
                                            Map<String, String> data,
-                                           CollaboratorEntity collab) {
-        Map<String, String> map = Map.of(
-                "TARM", "TEMPO_REGULACAO_TARM",
-                "FROTA", "TEMPO_REGULACAO_FROTA"
-        );
-        String colKey = map.get(pc.getRole());
-        if (colKey != null && data.containsKey(colKey)) {
-            Long secs = parseTimeToSeconds(data.get(colKey));
-            pc.setDurationSeconds(secs);
-            log.info("Duração para {} ({}): {}s", collab.getNome(), pc.getRole(), secs);
-        }
-        NestedScoringParameters params = pc.getParametros();
-        if (params == null) params = convertMapToNested(collab.getParametros());
+                                           CollaboratorEntity collab, ProjetoEntity projeto) {
+        NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
+                .orElseGet(() -> {
+                    NestedScoringParameters newParams = convertMapToNested(collab.getParametros());
+                    if (newParams == null) {
+                        newParams = new NestedScoringParameters();
+                        newParams.setTarm(new ScoringSectionParams());
+                        newParams.setFrota(new ScoringSectionParams());
+                        newParams.setMedico(new ScoringSectionParams());
+                        newParams.setColab(new ScoringSectionParams());
+                    }
+                    pc.setParametros(newParams);
+                    return newParams;
+                });
+
         if (params.getTarm() == null) params.setTarm(new ScoringSectionParams());
         if (params.getFrota() == null) params.setFrota(new ScoringSectionParams());
 
+        // 3. Processamento seguro dos dados
+        Map<String, String> map = Map.of(
+                "TARM", "TEMPO.REGULACAO.TARM",
+                "FROTA", "TEMPO.REGULACAO.FROTA"
+        );
+
+        log.info("Data vinda do Sheet {}", data);
+        String colKey = map.get(pc.getRole());
+
+        if (colKey != null && data.containsKey(colKey)) {
+            Long secs = parseTimeToSeconds(data.get(colKey));
+            pc.setDurationSeconds(secs);
+
+            // 4. Atualização segura das regras
+            ScoringSectionParams section = pc.getRole().equals("TARM")
+                    ? params.getTarm()
+                    : params.getFrota();
+
+            if (section.getRegulacao() == null) {
+                section.setRegulacao(new ArrayList<>());
+            }
+
+            section.getRegulacao().add(ScoringRule.builder().duration(secs).build());
+            log.info("Duração para {} ({}): {}s", collab.getNome(), pc.getRole(), secs);
+        }
+
         int pontos = scoringService.calculateCollaboratorScore(
-                pc.getRole(), pc.getDurationSeconds(), pc.getQuantity(), pc.getPausaMensalSeconds(), params);
+                pc.getRole(),
+                null,
+                pc.getDurationSeconds(),
+                pc.getQuantity(),
+                pc.getPausaMensalSeconds(),
+                projeto.getParameters()
+        );
         pc.setPontuacao(pontos);
-        pc.setParametros(params);
     }
 
     private Map<String, Integer> getColumnMapping(Row headerRow) {
@@ -169,10 +199,24 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
     private Long parseTimeToSeconds(String s) {
         if (s == null || s.isBlank()) return null;
+        s = s.trim();
         try {
-            LocalTime lt = LocalTime.parse(s.length() == 5 ? s + ":00" : s);
-            return (long) lt.toSecondOfDay();
-        } catch (Exception e) {
+            if (s.matches("\\d+")) {
+                return Long.parseLong(s);
+            }
+            // 2) Horário com AM/PM (e.g. "12:01:33 AM")
+            if (s.toUpperCase().matches("\\d{1,2}:\\d{2}:\\d{2}\\s*(AM|PM)")) {
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("hh:mm:ss a", Locale.US);
+                return (long) LocalTime.parse(s.toUpperCase(), fmt).toSecondOfDay();
+            }
+            // 3) Horário 24h sem AM/PM (e.g. "00:03:15" ou "0:03:15")
+            if (s.matches("\\d{1,2}:\\d{2}:\\d{2}")) {
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("H:mm:ss", Locale.US);
+                return (long) LocalTime.parse(s, fmt).toSecondOfDay();
+            }
+            log.error("Formato de tempo não reconhecido: '{}'", s);
+            return null;
+        } catch (DateTimeParseException e) {
             log.error("Erro convertendo tempo '{}': {}", s, e.getMessage());
             return null;
         }
