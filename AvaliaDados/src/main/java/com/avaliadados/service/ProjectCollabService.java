@@ -3,14 +3,13 @@ package com.avaliadados.service;
 import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.DTO.ProjectCollabRequest;
-import com.avaliadados.model.DTO.ProjectCollaborator;
+import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
-import com.avaliadados.repository.MedicoEntityRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,8 +20,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static com.avaliadados.service.utils.CollabParams.*;
 
 
 @Slf4j
@@ -33,7 +33,6 @@ public class ProjectCollabService {
     private final ProjetoRepository projetoRepo;
     private final CollaboratorRepository collaboratorRepo;
     private final ScoringService scoringService;
-    private final MedicoEntityRepository medicoRepo;
 
     @Transactional
     public ProjetoEntity addCollaborator(String projectId, ProjectCollabRequest dto) {
@@ -62,16 +61,7 @@ public class ProjectCollabService {
             dto.setMedicoRole(MedicoRole.NENHUM);
         }
 
-        int pontos = scoringService.calculateCollaboratorScore(
-                dto.getRole(),
-                dto.getMedicoRole().name(),
-                dto.getDurationSeconds(),
-                dto.getQuantity(),
-                dto.getPausaMensalSeconds(),
-                scoringParams
-        );
-
-        log.info("Pontuação calculada para colaborador [{}]: {}", dto.getCollaboratorId(), pontos);
+        log.info("Pontuação calculada para colaborador [{}]", dto.getCollaboratorId());
 
         ProjectCollaborator pc = ProjectCollaborator.builder()
                 .collaboratorId(dto.getCollaboratorId())
@@ -81,7 +71,6 @@ public class ProjectCollabService {
                 .quantity(dto.getQuantity())
                 .pausaMensalSeconds(dto.getPausaMensalSeconds())
                 .parametros(scoringParams)
-                .pontuacao(pontos)
                 .medicoRole(dto.getMedicoRole())
                 .shiftHours(dto.getShiftHours())
                 .build();
@@ -130,35 +119,42 @@ public class ProjectCollabService {
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
-                    syncCollaboratorData(collaboratorId);
+                    // Atualiza campos básicos
                     pc.setNome(dto.getNome());
                     pc.setRole(dto.getRole());
                     pc.setDurationSeconds(dto.getDurationSeconds());
                     pc.setQuantity(dto.getQuantity());
                     pc.setPausaMensalSeconds(dto.getPausaMensalSeconds());
-                    log.info("Atualizando MedicoRole para: {}", dto.getMedicoRole());
                     pc.setMedicoRole(dto.getMedicoRole() != null ? dto.getMedicoRole() : MedicoRole.NENHUM);
                     pc.setShiftHours(dto.getShiftHours());
+
+                    NestedScoringParameters params = projeto.getParameters();
+                    ScoringSectionParams section = getSection(pc.getRole(), params);
+
+                    String tipoRegulacao = determinarTipoRegulacao(pc);
+                    long duration = getLastDuration(section, tipoRegulacao);
+                    long pausas = getLastDuration(section, "pausas");
+                    int removidos = getLastQuantity(section, "removidos");
 
                     int pontos = scoringService.calculateCollaboratorScore(
                             pc.getRole(),
                             pc.getMedicoRole().name(),
-                            pc.getDurationSeconds(),
-                            pc.getQuantity(),
-                            pc.getPausaMensalSeconds(),
-                            projeto.getParameters()
+                            duration,
+                            removidos,
+                            pausas,
+                            params
                     );
-                    pc.setPontuacao(pontos);
-                });
-        log.info("Colaborador [{}] atualizado no projeto [{}], Colaborador: {}", collaboratorId, projectId, projeto.getCollaborators()
-                .stream()
-                .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
-                .findFirst());
-        log.info("Projeto atualizado com sucesso: {}", projeto);
 
+                    pc.setPontuacao(pontos);
+                    syncCollaboratorData(collaboratorId);
+                });
 
         return projetoRepo.save(projeto);
     }
+
+//--- Métodos Auxiliares ---//
+
+
 
 
     @Transactional

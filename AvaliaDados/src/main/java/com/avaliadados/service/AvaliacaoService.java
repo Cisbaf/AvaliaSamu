@@ -1,7 +1,7 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.DTO.ProjectCollaborator;
+import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.SheetRow;
 import com.avaliadados.model.enums.TypeAv;
@@ -123,38 +123,31 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
     private void atualizarDadosColaborador(ProjectCollaborator pc,
                                            Map<String, String> data,
-                                           CollaboratorEntity collab, ProjetoEntity projeto) {
+                                           CollaboratorEntity collab,
+                                           ProjetoEntity projeto) {
+
         NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
                 .orElseGet(() -> {
-                    NestedScoringParameters newParams = convertMapToNested(collab.getParametros());
-                    if (newParams == null) {
-                        newParams = new NestedScoringParameters();
-                        newParams.setTarm(new ScoringSectionParams());
-                        newParams.setFrota(new ScoringSectionParams());
-                        newParams.setMedico(new ScoringSectionParams());
-                        newParams.setColab(new ScoringSectionParams());
-                    }
-                    pc.setParametros(newParams);
-                    return newParams;
-                });
+                    NestedScoringParameters np = convertMapToNested(collab.getParametros());
 
+                    pc.setParametros(np);
+                    return np;
+                });
         if (params.getTarm() == null) params.setTarm(new ScoringSectionParams());
         if (params.getFrota() == null) params.setFrota(new ScoringSectionParams());
 
-        // 3. Processamento seguro dos dados
         Map<String, String> map = Map.of(
                 "TARM", "TEMPO.REGULACAO.TARM",
                 "FROTA", "TEMPO.REGULACAO.FROTA"
         );
-
-        log.info("Data vinda do Sheet {}", data);
         String colKey = map.get(pc.getRole());
-
         if (colKey != null && data.containsKey(colKey)) {
-            Long secs = parseTimeToSeconds(data.get(colKey));
-            pc.setDurationSeconds(secs);
+            Long secs = SheetsUtils.parseTimeToSeconds(data.get(colKey));
 
-            // 4. Atualização segura das regras
+            ScoringRule rule = ScoringRule.builder()
+                    .duration(secs)
+                    .build();
+
             ScoringSectionParams section = pc.getRole().equals("TARM")
                     ? params.getTarm()
                     : params.getFrota();
@@ -162,17 +155,46 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             if (section.getRegulacao() == null) {
                 section.setRegulacao(new ArrayList<>());
             }
+            section.getRegulacao().add(rule);
 
-            section.getRegulacao().add(ScoringRule.builder().duration(secs).build());
-            log.info("Duração para {} ({}): {}s", collab.getNome(), pc.getRole(), secs);
+            log.info("Adicionada regra de duração para {} ({}): {}s",
+                    collab.getNome(), pc.getRole(), secs);
         }
+
+        long lastDuration = Optional.ofNullable(
+                        "TARM".equals(pc.getRole())
+                                ? params.getTarm()
+                                : params.getFrota()
+                )
+                .map(ScoringSectionParams::getRegulacao)
+                .filter(l -> !l.isEmpty())
+                .map(l -> l.getLast().getDuration())
+                .orElse(0L);
+        long lastPausas = Optional.ofNullable(
+                        "TARM".equals(pc.getRole())
+                                ? params.getTarm()
+                                : params.getFrota()
+                )
+                .map(ScoringSectionParams::getPausas)
+                .filter(l -> !l.isEmpty())
+                .map(l -> l.getLast().getDuration())
+                .orElse(0L);
+        int lastRemovidos = Optional.ofNullable(
+                        "TARM".equals(pc.getRole())
+                                ? params.getTarm()
+                                : params.getFrota()
+                )
+                .map(ScoringSectionParams::getRemovidos)
+                .filter(list -> !list.isEmpty())
+                .map(list -> list.getLast().getQuantity())
+                .orElse(0);
 
         int pontos = scoringService.calculateCollaboratorScore(
                 pc.getRole(),
                 null,
-                pc.getDurationSeconds(),
-                pc.getQuantity(),
-                pc.getPausaMensalSeconds(),
+                lastDuration,
+                lastRemovidos,
+                lastPausas,
                 projeto.getParameters()
         );
         pc.setPontuacao(pontos);

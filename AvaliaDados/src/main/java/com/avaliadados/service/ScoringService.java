@@ -93,11 +93,6 @@ public class ScoringService {
 
     private int calculateMedicoScore(String role, Long duration, Integer quantity, ScoringSectionParams params) {
 
-        if(role == null || params == null) {
-            log.error("Parâmetros nulos: role={}, params={}", role, params);
-            return 0;
-        }
-
         log.info(">> calculateMedicoScore ENTRY: role='{}', duration={}s, quantity={}, params={}",
                 role, duration, quantity, params);
 

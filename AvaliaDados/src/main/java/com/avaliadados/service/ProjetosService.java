@@ -1,7 +1,7 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.DTO.ProjectCollaborator;
+import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.params.NestedScoringParameters;

@@ -1,4 +1,4 @@
-package com.avaliadados.model.DTO;
+package com.avaliadados.model;
 
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;

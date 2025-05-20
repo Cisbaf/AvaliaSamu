@@ -50,7 +50,7 @@ public class CollaboratorsService {
                 .ifPresentOrElse(
                         entity -> {
                             collaboratorRepository.delete(entity);
-                            collaboratorRepository.flush(); 
+                            collaboratorRepository.flush();
                             log.info("Colaborador com ID {} deletado.", id);
                         },
                         () -> {

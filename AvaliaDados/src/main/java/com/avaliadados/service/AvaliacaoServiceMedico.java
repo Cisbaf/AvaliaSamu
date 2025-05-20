@@ -1,7 +1,6 @@
 package com.avaliadados.service;
 
-import com.avaliadados.model.DTO.ProjectCollaborator;
-import com.avaliadados.model.MedicoEntity;
+import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.SheetRow;
 import com.avaliadados.model.enums.MedicoRole;
@@ -15,8 +14,6 @@ import com.avaliadados.repository.SheetRowRepository;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.stereotype.Service;
@@ -106,9 +103,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
             medicos.entrySet().stream()
                     .filter(e -> similarity(e.getKey(), nomeNorm) >= 0.85)
-                    .max((e1, e2) -> Double.compare(
-                            similarity(e1.getKey(), nomeNorm), similarity(e2.getKey(), nomeNorm)
-                    ))
+                    .max(Comparator.comparingDouble(e -> similarity(e.getKey(), nomeNorm)))
                     .ifPresent(entry -> {
                         var med = entry.getValue();
                         String collabId = med.getId();
@@ -139,19 +134,30 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         NestedScoringParameters params = pc.getParametros();
         if (params == null) params = new NestedScoringParameters();
 
+        long regulacao = 0L;
+
         if (pc.getMedicoRole().equals(MedicoRole.REGULADOR) && data.containsKey("TEMPO.REGULACAO")) {
             Long secs = parseTimeToSeconds(data.get("TEMPO.REGULACAO"));
             pc.setDurationSeconds(secs);
-            params.setMedico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(secs).build())).build());
+              params.setMedico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(secs).build())).build());
+            regulacao = params.getMedico().getRegulacao().getLast().getDuration();
         }
         if (pc.getMedicoRole().equals(MedicoRole.LIDER) && data.containsKey("CRITICOS")) {
             Long crit = parseTimeToSeconds(data.get("CRITICOS"));
             pc.setDurationSeconds(crit);
             params.setMedico(ScoringSectionParams.builder().regulacaoLider(List.of(ScoringRule.builder().duration(crit).build())).build());
+            regulacao = params.getMedico().getRegulacaoLider().getLast().getDuration();
         }
 
+
         int pontos = scoringService.calculateCollaboratorScore(
-                pc.getRole(), pc.getMedicoRole().name(), pc.getDurationSeconds(), pc.getQuantity(), pc.getPausaMensalSeconds(), projeto.getParameters());
+                pc.getRole(),
+                pc.getMedicoRole().name(),
+                regulacao,
+                params.getMedico().getRemovidos().getLast().getQuantity(),
+                params.getMedico().getPausas().getLast().getDuration(),
+                projeto.getParameters());
+
         pc.setPontuacao(pontos);
         pc.setParametros(params);
     }
