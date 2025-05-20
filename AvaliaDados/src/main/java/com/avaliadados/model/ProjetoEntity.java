@@ -1,6 +1,5 @@
 package com.avaliadados.model;
 
-import com.avaliadados.model.DTO.ProjectCollaborator;
 import com.avaliadados.model.params.NestedScoringParameters;
 import jakarta.persistence.Id;
 import lombok.AllArgsConstructor;
