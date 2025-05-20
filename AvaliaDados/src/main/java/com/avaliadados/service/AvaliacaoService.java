@@ -12,22 +12,23 @@ import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import com.avaliadados.repository.SheetRowRepository;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
+import com.avaliadados.service.utils.SheetsUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.text.similarity.LevenshteinDistance;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.avaliadados.service.ProjectCollabService.convertMapToNested;
+import static com.avaliadados.service.utils.SheetsUtils.*;
 
 @Service
 @Slf4j
@@ -100,14 +101,14 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
         Map<String, CollaboratorEntity> colaboradores = colaboradorRepository.findAll().stream()
                 .collect(Collectors.toMap(
-                        c -> normalizarNome(c.getNome()), c -> c, (a, b) -> a));
+                        c -> normalizeName(c.getNome()), c -> c, (a, b) -> a));
 
         List<SheetRow> rows = sheetRowRepository.findByProjectIdAndType(projectId, TypeAv.TARM_FROTA);
         for (SheetRow sr : rows) {
-            String nomeNorm = normalizarNome(sr.getData().get("COLABORADOR"));
+            String nomeNorm = normalizeName(sr.getData().get("COLABORADOR"));
             colaboradores.entrySet().stream()
-                    .filter(e -> similaridade(e.getKey(), nomeNorm) >= 0.85)
-                    .max(Comparator.comparingDouble(e -> similaridade(e.getKey(), nomeNorm)))
+                    .filter(e -> similarity(e.getKey(), nomeNorm) >= 0.85)
+                    .max(Comparator.comparingDouble(e -> similarity(e.getKey(), nomeNorm)))
                     .ifPresent(match -> {
                         CollaboratorEntity colEnt = match.getValue();
                         projeto.getCollaborators().stream()
@@ -177,58 +178,5 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         pc.setPontuacao(pontos);
     }
 
-    private Map<String, Integer> getColumnMapping(Row headerRow) {
-        Map<String, Integer> columnMap = new HashMap<>();
-        DataFormatter fmt = new DataFormatter();
-        for (Cell cell : headerRow) {
-            String raw = fmt.formatCellValue(cell);
-            String normalized = raw.trim().toUpperCase().replaceAll("[^A-Z0-9 ]", "");
-            columnMap.put(normalized, cell.getColumnIndex());
-        }
-        return columnMap;
-    }
 
-    private String getCellStringValue(Row row, Integer colIndex) {
-        if (colIndex == null) return null;
-        Cell cell = row.getCell(colIndex);
-        if (cell == null) return null;
-        if (cell.getCellType() == CellType.STRING) return cell.getStringCellValue();
-        if (cell.getCellType() == CellType.NUMERIC) return new DataFormatter().formatCellValue(cell);
-        return null;
-    }
-
-    private Long parseTimeToSeconds(String s) {
-        if (s == null || s.isBlank()) return null;
-        s = s.trim();
-        try {
-            if (s.matches("\\d+")) {
-                return Long.parseLong(s);
-            }
-            // 2) Horário com AM/PM (e.g. "12:01:33 AM")
-            if (s.toUpperCase().matches("\\d{1,2}:\\d{2}:\\d{2}\\s*(AM|PM)")) {
-                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("hh:mm:ss a", Locale.US);
-                return (long) LocalTime.parse(s.toUpperCase(), fmt).toSecondOfDay();
-            }
-            // 3) Horário 24h sem AM/PM (e.g. "00:03:15" ou "0:03:15")
-            if (s.matches("\\d{1,2}:\\d{2}:\\d{2}")) {
-                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("H:mm:ss", Locale.US);
-                return (long) LocalTime.parse(s, fmt).toSecondOfDay();
-            }
-            log.error("Formato de tempo não reconhecido: '{}'", s);
-            return null;
-        } catch (DateTimeParseException e) {
-            log.error("Erro convertendo tempo '{}': {}", s, e.getMessage());
-            return null;
-        }
-    }
-
-    private String normalizarNome(String nome) {
-        return nome == null ? null : nome.trim().toUpperCase().replaceAll("[^A-Z0-9 ]", "");
-    }
-
-    private double similaridade(String a, String b) {
-        if (a == null || b == null) return 0;
-        int dist = LevenshteinDistance.getDefaultInstance().apply(a, b);
-        return 1.0 - (double) dist / Math.max(a.length(), b.length());
-    }
 }
