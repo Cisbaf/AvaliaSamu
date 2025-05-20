@@ -80,9 +80,8 @@ public class CollaboratorsService {
     }
 
     private void updateMedicoFields(MedicoEntity entity, CollaboratorRequest request) {
-        String[] parts = request.role().split("_");
-        entity.setMedicoRole(MedicoRole.valueOf(parts[1]));
-        entity.setShiftHours(ShiftHours.valueOf(parts[2]));
+        entity.setMedicoRole(request.medicoRole());
+        entity.setShiftHours(request.shiftHours());
     }
 
     private void updateCommonFields(CollaboratorEntity entity, CollaboratorRequest request) {

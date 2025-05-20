@@ -4,10 +4,8 @@ import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.DTO.ProjectCollabRequest;
 import com.avaliadados.model.DTO.ProjectCollaborator;
-import com.avaliadados.model.DTO.UpdateProjectCollabRequest;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.enums.MedicoRole;
-import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
@@ -20,7 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 
@@ -57,8 +58,13 @@ public class ProjectCollabService {
         log.debug("Valores recebidos para cálculo: duração={}, quantidade={}, pausa={}",
                 regDur, quantity, pauseDur);
 
+        if (dto.getMedicoRole() == null) {
+            dto.setMedicoRole(MedicoRole.NENHUM);
+        }
+
         int pontos = scoringService.calculateCollaboratorScore(
                 dto.getRole(),
+                dto.getMedicoRole().name(),
                 dto.getDurationSeconds(),
                 dto.getQuantity(),
                 dto.getPausaMensalSeconds(),
@@ -93,18 +99,10 @@ public class ProjectCollabService {
                 .map(pc -> {
                     CollaboratorEntity collab = collaboratorRepo.findById(pc.getCollaboratorId())
                             .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
-                    if (Objects.equals(collab.getRole(), "MEDICO")) {
-                        var medico = medicoRepo.findById(collab.getId());
-                        if (medico.isPresent()) {
-                            pc.setMedicoRole(medico.get().getMedicoRole());
-                            pc.setShiftHours(medico.get().getShiftHours());
-                        } else {
-                            throw new RuntimeException("Médico não encontrado");
-                        }
-                    }
+
                     return new CollaboratorsResponse(
                             pc.getCollaboratorId(),
-                            collab.getNome(),
+                            pc.getNome(),
                             collab.getCpf(),
                             collab.getIdCallRote(),
                             pc.getPontuacao(),
@@ -120,9 +118,9 @@ public class ProjectCollabService {
     public ProjetoEntity updateProjectCollaborator(
             String projectId,
             String collaboratorId,
-            UpdateProjectCollabRequest dto
+            ProjectCollabRequest dto
     ) {
-        log.info("Atualizando colaborador [{}] no projeto [{}]", collaboratorId, projectId);
+        log.info("Atualizando colaborador [{}] no projeto [{}]", dto, projectId);
 
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -132,76 +130,36 @@ public class ProjectCollabService {
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
+                    syncCollaboratorData(collaboratorId);
+                    pc.setNome(dto.getNome());
                     pc.setRole(dto.getRole());
                     pc.setDurationSeconds(dto.getDurationSeconds());
                     pc.setQuantity(dto.getQuantity());
                     pc.setPausaMensalSeconds(dto.getPausaMensalSeconds());
-                    pc.setMedicoRole(dto.getMedicoRole());
+                    log.info("Atualizando MedicoRole para: {}", dto.getMedicoRole());
+                    pc.setMedicoRole(dto.getMedicoRole() != null ? dto.getMedicoRole() : MedicoRole.NENHUM);
                     pc.setShiftHours(dto.getShiftHours());
 
                     int pontos = scoringService.calculateCollaboratorScore(
                             pc.getRole(),
+                            pc.getMedicoRole().name(),
                             pc.getDurationSeconds(),
                             pc.getQuantity(),
                             pc.getPausaMensalSeconds(),
                             projeto.getParameters()
                     );
                     pc.setPontuacao(pontos);
-
-
-                    syncCollaboratorData(collaboratorId);
                 });
+        log.info("Colaborador [{}] atualizado no projeto [{}], Colaborador: {}", collaboratorId, projectId, projeto.getCollaborators()
+                .stream()
+                .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
+                .findFirst());
+        log.info("Projeto atualizado com sucesso: {}", projeto);
+
 
         return projetoRepo.save(projeto);
     }
 
-    public void updateProjectCollaborator(
-            String projectId,
-            String collaboratorId,
-            ProjectCollaborator dto
-    ) {
-        log.info("Atualizando colaborador [{}] no projeto [{}]", collaboratorId, projectId);
-
-        ProjetoEntity projeto = projetoRepo.findById(projectId)
-                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
-
-
-        projeto.getCollaborators()
-                .stream()
-                .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
-                .findFirst()
-                .ifPresent(pc -> {
-                    if (pc.getRole().startsWith("MEDICO_")) {
-                        String[] parts = pc.getRole().split("_");
-                        MedicoRole medicoRole = MedicoRole.valueOf(parts[1]);
-                        ShiftHours shiftHours = ShiftHours.valueOf(parts[2]);
-                        pc.setRole("MEDICO");
-                        pc.setMedicoRole(medicoRole);
-                        pc.setShiftHours(shiftHours);
-                    } else {
-                        pc.setRole(dto.getRole());
-                    }
-                    pc.setRole(dto.getRole());
-                    pc.setDurationSeconds(dto.getDurationSeconds());
-                    pc.setQuantity(dto.getQuantity());
-                    pc.setPausaMensalSeconds(dto.getPausaMensalSeconds());
-                    pc.setMedicoRole(dto.getMedicoRole());
-                    pc.setShiftHours(dto.getShiftHours());
-                    int pontos = scoringService.calculateCollaboratorScore(
-                            pc.getRole(),
-                            pc.getDurationSeconds(),
-                            pc.getQuantity(),
-                            pc.getPausaMensalSeconds(),
-                            projeto.getParameters()
-                    );
-                    pc.setPontuacao(pontos);
-
-
-                    syncCollaboratorData(collaboratorId);
-                });
-
-        projetoRepo.save(projeto);
-    }
 
     @Transactional
     public void removeCollaborator(String projectId, String collaboratorId) {
@@ -212,19 +170,13 @@ public class ProjectCollabService {
         projetoRepo.save(projeto);
     }
 
+    @Transactional
     public void syncCollaboratorData(String collaboratorId) {
-        CollaboratorEntity collaborator = collaboratorRepo.findById(collaboratorId)
-                .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
+        log.info("Sincronizando (apenas) IDs do colaborador [{}]", collaboratorId);
 
         List<ProjetoEntity> projetos = projetoRepo.findByCollaboratorsCollaboratorId(collaboratorId);
 
-        projetos.forEach(projeto -> {
-            projeto.getCollaborators().stream()
-                    .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
-                    .findFirst()
-                    .ifPresent(pc -> pc.setNome(collaborator.getNome()));
-            projetoRepo.save(projeto);
-        });
+        projetoRepo.saveAll(projetos);
     }
 
     public static NestedScoringParameters convertMapToNested(Map<String, Integer> flatParams) {

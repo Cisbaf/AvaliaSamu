@@ -17,18 +17,43 @@ export function useProjectActions() {
 
             const { data: globals } = await fetchGlobalCollaboratorsApi();
 
-            await Promise.all(
-                globals.map(g =>
-                    addCollaboratorToProjectApi(
-                        newProject.id!,
-                        g.id!,
-                        g.role
-                    )
-                )
+            // Filtra e mapeia apenas colaboradores médicos completos
+            const medicosCompletos = globals.filter(g =>
+                g.role === 'MEDICO' &&
+                g.medicoRole &&
+                g.shiftHours
             );
 
-            await fetchProjects();
+            // Adiciona outros tipos de colaboradores
+            const outrosColabs = globals.filter(g => g.role !== 'MEDICO');
 
+            await Promise.all([
+                ...medicosCompletos.map(m =>
+                    addCollaboratorToProjectApi(
+                        newProject.id!,
+                        m.id!,
+                        m.role,
+                        m.durationSeconds,
+                        m.quantity,
+                        m.pausaMensalSeconds,
+                        undefined,
+                        m.medicoRole, // Garantido pelo filtro
+                        m.shiftHours   // Garantido pelo filtro
+                    )
+                ),
+                ...outrosColabs.map(o =>
+                    addCollaboratorToProjectApi(
+                        newProject.id!,
+                        o.id!,
+                        o.role,
+                        o.durationSeconds,
+                        o.quantity,
+                        o.pausaMensalSeconds
+                    )
+                )
+            ]);
+
+            await fetchProjects();
             return newProject;
         },
         [fetchProjects]

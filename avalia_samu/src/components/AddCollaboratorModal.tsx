@@ -72,14 +72,15 @@ export default function CollaboratorModal({
 
     useEffect(() => {
         if (initialData) {
-            const isMedico = initialData.role.startsWith('MEDICO');
+            const isMedicoRelated = initialData.role.toUpperCase().startsWith('MEDICO');
+
             setFormData({
                 nome: initialData.nome,
                 cpf: initialData.cpf,
                 idCallRote: initialData.idCallRote,
-                baseRole: isMedico ? 'MEDICO' : initialData.role,
-                medicoRole: isMedico ? (initialData as any).medicoRole : undefined,
-                shiftHours: isMedico ? (initialData as any).shiftHours : undefined,
+                baseRole: isMedicoRelated ? 'MEDICO' : initialData.role,
+                medicoRole: isMedicoRelated ? (initialData as any).medicoRole : undefined,
+                shiftHours: isMedicoRelated ? (initialData as any).shiftHours : undefined,
                 durationSeconds: (initialData as any).durationSeconds,
                 quantity: (initialData as any).quantity,
                 pausaMensalSeconds: (initialData as any).pausaMensalSeconds
@@ -99,42 +100,57 @@ export default function CollaboratorModal({
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
+
         try {
-            const finalRole = formData.baseRole === 'MEDICO' && formData.medicoRole && formData.shiftHours
-                ? `MEDICO_${formData.medicoRole}_${formData.shiftHours}`
-                : formData.baseRole;
+            const finalRole = formData.baseRole;
 
             if (projectId) {
                 if (isEdit) {
-                    const dto: UpdateProjectCollabDto = {
+                    const baseDto = {
+                        nome: formData.nome,
                         role: finalRole,
                         durationSeconds: formData.durationSeconds,
                         quantity: formData.quantity,
-                        pausaMensalSeconds: formData.pausaMensalSeconds
+                        pausaMensalSeconds: formData.pausaMensalSeconds,
                     };
-                    if (formData.medicoRole) dto.medicoRole = formData.medicoRole;
-                    if (formData.shiftHours) dto.shiftHours = formData.shiftHours;
+
+                    const medicoFields =
+                        formData.baseRole === 'MEDICO'
+                            ? {
+                                medicoRole: formData.medicoRole ?? undefined,
+                                shiftHours: formData.shiftHours ?? undefined,
+                            }
+                            : {};
+
+                    const dto: UpdateProjectCollabDto = {
+                        ...baseDto,
+                        ...medicoFields,
+                    };
+
+                    console.log('DTO enviado no update:', dto);
+                    console.log('ID do colaborador:', (initialData as CombinedCollaboratorData).id);
+
 
                     await updateProjectCollaborator(
                         projectId,
                         (initialData as CombinedCollaboratorData).id!,
                         dto
                     );
-                    console.log("Enviado " + JSON.stringify(dto));
                 } else {
-                    await addCollaboratorToProject(
-                        projectId,
-                        {
-                            id: (initialData as GlobalCollaborator)?.id || '',
-                            role: finalRole,
-                            durationSeconds: formData.durationSeconds,
-                            quantity: formData.quantity,
-                            pausaMensalSeconds: formData.pausaMensalSeconds,
-                            ...(formData.medicoRole && { medicoRole: formData.medicoRole }),
-                            ...(formData.shiftHours && { shiftHours: formData.shiftHours }),
-                            parametros: {}
-                        }
-                    );
+                    const payloadForAdd = {
+                        id: (initialData as GlobalCollaborator)?.id || '',
+                        role: finalRole,
+                        durationSeconds: formData.durationSeconds,
+                        quantity: formData.quantity,
+                        pausaMensalSeconds: formData.pausaMensalSeconds,
+                        ...(formData.baseRole === 'MEDICO' && {
+                            medicoRole: formData.medicoRole ?? undefined,
+                            shiftHours: formData.shiftHours ?? undefined,
+                        }),
+                        parametros: {},
+                    };
+
+                    await addCollaboratorToProject(projectId, payloadForAdd);
                 }
             } else {
                 const payload: Partial<GlobalCollaborator> = {
@@ -144,9 +160,12 @@ export default function CollaboratorModal({
                     role: finalRole,
                     pontuacao: isEdit ? (initialData as GlobalCollaborator).pontuacao : 0,
                     isGlobal: true,
-                    ...(formData.medicoRole && { medicoRole: formData.medicoRole }),
-                    ...(formData.shiftHours && { shiftHours: formData.shiftHours })
+                    ...(formData.baseRole === 'MEDICO' && {
+                        medicoRole: formData.medicoRole !== undefined ? formData.medicoRole : undefined,
+                        shiftHours: formData.shiftHours !== undefined ? formData.shiftHours : undefined,
+                    }),
                 };
+
                 if (isEdit) {
                     await updateGlobalCollaboratorApi(
                         (initialData as GlobalCollaborator).id!,
@@ -187,7 +206,7 @@ export default function CollaboratorModal({
                         <TextField label="ID Call Rote" fullWidth margin="dense"
                             value={formData.idCallRote} onChange={e => handleChange('idCallRote', e.target.value)} />
                         <FormControl fullWidth margin="dense">
-                            <InputLabel>Função</InputLabel>
+                            <InputLabel>Função Base</InputLabel>
                             <Select value={formData.baseRole || ' '} onChange={e => handleChange('baseRole', e.target.value as string)}>
                                 <MenuItem value="TARM">TARM</MenuItem>
                                 <MenuItem value="FROTA">FROTA</MenuItem>

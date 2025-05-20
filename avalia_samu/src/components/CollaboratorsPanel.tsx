@@ -20,12 +20,13 @@ import {
 import { Edit, Delete, Add } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
 import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ProjectCollaborator, ShiftHours } from '@/types/project';
-import CollaboratorModal from './AddCollaboratorModal';
+import CollaboratorModal from './AddCollaboratorModal'; // Este é o modal de edição/criação
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
 
-export type CombinedCollaboratorData = GlobalCollaborator & {
+export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
+  isGlobal: boolean;
   projectId?: string;
   medicoRole?: MedicoRole;
   shiftHours?: ShiftHours;
@@ -71,10 +72,10 @@ export default function CollaboratorsPanel() {
   const combinedProjectGlobalCollaborators: CombinedCollaboratorData[] = useMemo(() => {
     const pcs = projectCollaborators[selectedProject || ''] || [];
     return pcs.map(pc => {
-      const gc = globalCollaborators?.find(g => g.id === pc.id)!;
+      const gc = globalCollaborators?.find(g => g.id === pc.id);
       return {
         id: pc.id,
-        nome: gc?.nome || '—',
+        nome: pc?.nome || pc.nome || '—',
         cpf: gc?.cpf || '',
         idCallRote: gc?.idCallRote || '',
         role: pc.role,
@@ -121,16 +122,36 @@ export default function CollaboratorsPanel() {
   const handleOpenAddExisting = () => setIsAddExistingModalOpen(true);
   const handleCloseAddExisting = () => setIsAddExistingModalOpen(false);
 
-  const handleAddExisting = useCallback(async (id: string, role: string) => {
+  const handleAddExisting = useCallback(async (
+    id: string,
+    role: string,
+    medicoRole?: MedicoRole,
+    shiftHours?: ShiftHours
+  ) => {
     if (!selectedProject) return;
     setPanelLoading(true);
     setError(null);
     try {
-      await addCollaboratorToProject(selectedProject, { id, role });
+      const payload: {
+        id: string;
+        role: string;
+        medicoRole?: MedicoRole;
+        shiftHours?: ShiftHours;
+      } = { id, role };
+
+      if (role === 'MEDICO') {
+        if (!medicoRole || !shiftHours) {
+          throw new Error('Para a função MÉDICO, o Papel Médico e o Turno são obrigatórios ao adicionar ao projeto.');
+        }
+        payload.medicoRole = medicoRole;
+        payload.shiftHours = shiftHours;
+      }
+
+      await addCollaboratorToProject(selectedProject, payload);
       await fetchProjectCollaborators(selectedProject);
       handleCloseAddExisting();
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Falha ao adicionar colaborador');
+      setError(err.response?.data?.message || err.message || 'Falha ao adicionar colaborador');
     } finally {
       setPanelLoading(false);
     }
@@ -284,10 +305,11 @@ export default function CollaboratorsPanel() {
                 ) : (
                   filtered.map(c => (
                     <TableRow key={c.id}>
-                      <TableCell>{c.nome}</TableCell>
-                      <TableCell>{c.role}</TableCell>
-                      <TableCell>{c.pontuacao}</TableCell>
-                      <TableCell>
+                      <TableCell>{c.nome}</TableCell><TableCell>
+                        {c.role} {c.role === 'MEDICO' && c.medicoRole && c.shiftHours ? `(${c.medicoRole} - ${c.shiftHours})` : ''}
+                      </TableCell><TableCell>
+                        {c.pontuacao}
+                      </TableCell><TableCell>
                         <IconButton
                           onClick={() => handleOpenEdit(c)}
                           disabled={panelLoading}

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { GlobalCollaborator, Project, ProjectCollaborator, NestedScoringParameters, UpdateProjectCollabDto } from '@/types/project';
+import { GlobalCollaborator, Project, ProjectCollaborator, NestedScoringParameters, UpdateProjectCollabDto, MedicoRole, ShiftHours } from '@/types/project';
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL + '/api',
@@ -17,6 +17,7 @@ export const deleteProjectApi = (id: string) =>
 
 export const fetchGlobalCollaboratorsApi = () =>
   api.get<GlobalCollaborator[]>('/collaborator');
+
 export async function createGlobalCollaboratorApi(
   data: Omit<GlobalCollaborator, 'id'>
 ): Promise<GlobalCollaborator> {
@@ -38,11 +39,13 @@ export const addCollaboratorToProjectApi = (
   durationSeconds?: number,
   quantity?: number,
   pausaMensalSeconds?: number,
-  parametros?: Record<string, number>
+  parametros?: Record<string, number>,
+  medicoRole?: MedicoRole,
+  shiftHours?: ShiftHours
 ) =>
   api.post<void>(
     `/projetos/${projectId}/collaborator`,
-    { collaboratorId, role, durationSeconds, quantity, pausaMensalSeconds, parametros } // Include all parameters
+    { collaboratorId, role, durationSeconds, quantity, pausaMensalSeconds, parametros, medicoRole, shiftHours } // Include all parameters
   );
 
 
