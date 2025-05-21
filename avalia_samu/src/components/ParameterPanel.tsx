@@ -98,23 +98,31 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
   }
 
   function normalizeParams(params: NestedScoringParameters): NestedScoringParameters {
-    // percorre cada seção (colab, tarm, frota, medico) e cada array de regras
     const sections: (keyof NestedScoringParameters)[] = ["colab", "tarm", "frota", "medico"];
-    const normalized = { ...params } as any;
+    const normalized = JSON.parse(JSON.stringify(params)) as NestedScoringParameters;
 
     for (const sec of sections) {
-      const fields = Object.keys(normalized[sec]) as (keyof ScoringSectionParams)[];
+      const fields: (keyof ScoringSectionParams)[] = ["removidos", "regulacao", "pausas", "saidaVtr", "regulacaoLider"];
+
       for (const field of fields) {
+        if (!normalized[sec][field]) {
+          normalized[sec][field] = [];
+        }
+
         const rules = normalized[sec][field] as ScoringRule[] | undefined;
-        if (!Array.isArray(rules)) continue;
-        normalized[sec][field] = rules.map(r => ({
-          quantity: r.quantity,
-          points: r.points,
-          duration:
-            typeof r.duration === "string"
-              ? timeStringToSeconds(r.duration)
-              : r.duration
-        }));
+
+        if (Array.isArray(rules) && rules.length === 0) {
+          normalized[sec][field] = [{ points: 0, duration: 0 }];
+        } else if (Array.isArray(rules)) {
+          normalized[sec][field] = rules.map(r => ({
+            quantity: r.quantity,
+            points: r.points,
+            duration:
+              typeof r.duration === "string"
+                ? timeStringToSeconds(r.duration)
+                : r.duration
+          }));
+        }
       }
     }
 
@@ -133,8 +141,6 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
       const s = (seconds % 60).toString().padStart(2, '0');
       return `${h}:${m}:${s}`;
     }
-
-
 
 
 
@@ -252,8 +258,8 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
           variant="contained"
           onClick={() => {
             const clean = normalizeParams(params);
+            console.log("Dados que serão salvos:", clean);
             onSave(clean);
-            console.log(clean);
           }}
         >
           Salvar
