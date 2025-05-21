@@ -35,7 +35,6 @@ public class ProjetosService {
             NestedScoringParameters newParams = objectMapper.convertValue(
                     updates.get("parameters"), NestedScoringParameters.class);
 
-            // Mesclar com parâmetros existentes
             NestedScoringParameters mergedParams = mergeParameters(p.getParameters(), newParams);
             p.setParameters(mergedParams);
 
@@ -52,11 +51,9 @@ public class ProjetosService {
         if (existing == null) existing = new NestedScoringParameters();
         if (updates == null) return existing;
 
-        // Mesclar seção TARM
+        existing.setColab(mergeSection(existing.getColab(), updates.getColab()));
         existing.setTarm(mergeSection(existing.getTarm(), updates.getTarm()));
-        // Mesclar seção FROTA
         existing.setFrota(mergeSection(existing.getFrota(), updates.getFrota()));
-        // Mesclar seção MEDICO
         existing.setMedico(mergeSection(existing.getMedico(), updates.getMedico()));
 
         return existing;
@@ -66,24 +63,40 @@ public class ProjetosService {
         if (existing == null) existing = new ScoringSectionParams();
         if (updates == null) return existing;
 
-        // Mesclar lista de regras
+        existing.setPausas(mergeRules(existing.getPausas(), updates.getPausas()));
         existing.setRegulacao(mergeRules(existing.getRegulacao(), updates.getRegulacao()));
-        // Repetir para outras listas (removidos, pausas, etc.)
+        existing.setRemovidos(mergeRules(existing.getRemovidos(), updates.getRemovidos()));
+        existing.setSaidaVtr(mergeRules(existing.getSaidaVtr(), updates.getSaidaVtr()));
+        existing.setRegulacaoLider(mergeRules(existing.getRegulacaoLider(), updates.getRegulacaoLider()));
 
         return existing;
     }
 
     private List<ScoringRule> mergeRules(List<ScoringRule> existing, List<ScoringRule> updates) {
+        if (existing == null) existing = new ArrayList<>();
+        if (updates == null) return existing;
+
+        if (updates.isEmpty()) return existing;
+
         Map<Long, ScoringRule> ruleMap = existing.stream()
-                .collect(Collectors.toMap(ScoringRule::getDuration, r -> r));
+                .collect(Collectors.toMap(
+                        rule -> rule.getDuration() != null ? rule.getDuration() : 0L,
+                        r -> r,
+                        (r1, r2) -> r1
+                ));
 
         updates.forEach(update -> {
-            if (ruleMap.containsKey(update.getDuration())) {
-                ScoringRule existingRule = ruleMap.get(update.getDuration());
-                existingRule.setPoints(update.getPoints() != null ?
-                        update.getPoints() : existingRule.getPoints());
+            Long key = update.getDuration() != null ? update.getDuration() : 0L;
+            if (ruleMap.containsKey(key)) {
+                ScoringRule existingRule = ruleMap.get(key);
+                if (update.getPoints() != null) {
+                    existingRule.setPoints(update.getPoints());
+                }
+                if (update.getQuantity() != null) {
+                    existingRule.setQuantity(update.getQuantity());
+                }
             } else {
-                ruleMap.put(update.getDuration(), update);
+                ruleMap.put(key, update);
             }
         });
 
