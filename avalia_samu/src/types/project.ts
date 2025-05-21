@@ -1,4 +1,3 @@
-// project.ts
 export interface BaseCollaborator {
   id?: string;
   nome: string;
