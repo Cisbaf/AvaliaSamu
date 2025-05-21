@@ -75,8 +75,8 @@ export interface Project {
 }
 
 export interface UpdateProjectCollabDto {
-  nome: string;
-  role: string;
+  nome?: string;
+  role?: string;
   durationSeconds?: number;
   quantity?: number;
   pausaMensalSeconds?: number;
