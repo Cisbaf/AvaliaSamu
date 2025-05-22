@@ -66,21 +66,21 @@ export default function CollaboratorModal({
     const [formData, setFormData] = useState<FormData>({
         nome: '', cpf: '', idCallRote: '', baseRole: '',
         medicoRole: undefined, shiftHours: undefined,
+        durationSeconds: undefined, quantity: undefined, pausaMensalSeconds: undefined
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
         if (initialData) {
-            const isMedicoRelated = initialData.role.toUpperCase().startsWith('MEDICO');
-
+            const isMedico = initialData.role.toUpperCase().startsWith('MEDICO');
             setFormData({
                 nome: initialData.nome,
                 cpf: initialData.cpf,
                 idCallRote: initialData.idCallRote,
-                baseRole: isMedicoRelated ? 'MEDICO' : initialData.role,
-                medicoRole: isMedicoRelated ? (initialData as any).medicoRole : undefined,
-                shiftHours: isMedicoRelated ? (initialData as any).shiftHours : undefined,
+                baseRole: isMedico ? 'MEDICO' : initialData.role,
+                medicoRole: isMedico ? (initialData as any).medicoRole : undefined,
+                shiftHours: isMedico ? (initialData as any).shiftHours : undefined,
                 durationSeconds: (initialData as any).durationSeconds,
                 quantity: (initialData as any).quantity,
                 pausaMensalSeconds: (initialData as any).pausaMensalSeconds
@@ -94,13 +94,12 @@ export default function CollaboratorModal({
     const isEdit = Boolean(initialData && 'id' in initialData && initialData.id);
 
     const handleChange = (key: keyof FormData, value: any) => {
-        setFormData(f => ({ ...f, [key]: value }));
+        setFormData(prev => ({ ...prev, [key]: value }));
     };
 
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
-
         try {
             const finalRole = formData.baseRole;
 
@@ -114,20 +113,15 @@ export default function CollaboratorModal({
                         pausaMensalSeconds: formData.pausaMensalSeconds,
                     };
 
-                    const medicoFields =
-                        formData.baseRole === 'MEDICO'
-                            ? {
-                                medicoRole: formData.medicoRole ?? undefined,
-                                shiftHours: formData.shiftHours ?? undefined,
-                            }
-                            : {};
+                    const medicoFields = finalRole === 'MEDICO' ? {
+                        medicoRole: formData.medicoRole,
+                        shiftHours: formData.shiftHours,
+                    } : {};
 
                     const dto: UpdateProjectCollabDto = {
                         ...baseDto,
                         ...medicoFields,
                     };
-
-                    console.log('DTO enviado no update:', dto); // debug opcional
 
                     await updateProjectCollaborator(
                         projectId,
@@ -141,11 +135,11 @@ export default function CollaboratorModal({
                         durationSeconds: formData.durationSeconds,
                         quantity: formData.quantity,
                         pausaMensalSeconds: formData.pausaMensalSeconds,
-                        ...(formData.baseRole === 'MEDICO' && {
-                            medicoRole: formData.medicoRole ?? undefined,
-                            shiftHours: formData.shiftHours ?? undefined,
+                        ...(finalRole === 'MEDICO' && {
+                            medicoRole: formData.medicoRole,
+                            shiftHours: formData.shiftHours,
                         }),
-                        parametros: {},
+                        parametros: {}
                     };
 
                     await addCollaboratorToProject(projectId, payloadForAdd);
@@ -158,16 +152,16 @@ export default function CollaboratorModal({
                     role: finalRole,
                     pontuacao: isEdit ? (initialData as GlobalCollaborator).pontuacao : 0,
                     isGlobal: true,
-                    ...(formData.baseRole === 'MEDICO' && {
-                        medicoRole: formData.medicoRole !== undefined ? formData.medicoRole : undefined,
-                        shiftHours: formData.shiftHours !== undefined ? formData.shiftHours : undefined,
+                    ...(finalRole === 'MEDICO' && {
+                        medicoRole: formData.medicoRole,
+                        shiftHours: formData.shiftHours,
                     }),
                 };
 
                 if (isEdit) {
                     await updateGlobalCollaboratorApi(
                         (initialData as GlobalCollaborator).id!,
-                        payload
+                        payload as any
                     );
                 } else {
                     await createGlobalCollaboratorApi(payload as any);
@@ -204,8 +198,14 @@ export default function CollaboratorModal({
                         <TextField label="ID Call Rote" fullWidth margin="dense"
                             value={formData.idCallRote} onChange={e => handleChange('idCallRote', e.target.value)} />
                         <FormControl fullWidth margin="dense">
-                            <InputLabel>Função Base</InputLabel>
-                            <Select value={formData.baseRole || ' '} onChange={e => handleChange('baseRole', e.target.value as string)}>
+                            <InputLabel id="base-role-label">Função Base</InputLabel>
+                            <Select
+                                labelId="base-role-label"
+                                label="Função Base"
+                                value={formData.baseRole}
+                                onChange={e => handleChange('baseRole', e.target.value)}
+                            >
+                                <MenuItem value="" disabled>Selecione uma função</MenuItem>
                                 <MenuItem value="TARM">TARM</MenuItem>
                                 <MenuItem value="FROTA">FROTA</MenuItem>
                                 <MenuItem value="MEDICO">MÉDICO</MenuItem>
@@ -215,15 +215,31 @@ export default function CollaboratorModal({
                         {formData.baseRole === 'MEDICO' && (
                             <>
                                 <FormControl fullWidth margin="dense">
-                                    <InputLabel>Papel Médico</InputLabel>
-                                    <Select value={formData.medicoRole || " "} onChange={e => handleChange('medicoRole', e.target.value as MedicoRole)}>
-                                        {Object.values(MedicoRole).map(mr => <MenuItem key={mr} value={mr}>{mr}</MenuItem>)}
+                                    <InputLabel id="medico-role-label">Papel Médico</InputLabel>
+                                    <Select
+                                        labelId="medico-role-label"
+                                        label="Papel Médico"
+                                        value={formData.medicoRole ?? ''}
+                                        onChange={e => handleChange('medicoRole', e.target.value as MedicoRole)}
+                                    >
+                                        <MenuItem value="" disabled>Selecione um papel</MenuItem>
+                                        {Object.values(MedicoRole).map(mr => (
+                                            <MenuItem key={mr} value={mr}>{mr}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                                 <FormControl fullWidth margin="dense">
-                                    <InputLabel>Turno</InputLabel>
-                                    <Select value={formData.shiftHours || " "} onChange={e => handleChange('shiftHours', e.target.value as ShiftHours)}>
-                                        {Object.values(ShiftHours).map(sh => <MenuItem key={sh} value={sh}>{sh}</MenuItem>)}
+                                    <InputLabel id="shift-hours-label">Turno</InputLabel>
+                                    <Select
+                                        labelId="shift-hours-label"
+                                        label="Turno"
+                                        value={formData.shiftHours ?? ''}
+                                        onChange={e => handleChange('shiftHours', e.target.value as ShiftHours)}
+                                    >
+                                        <MenuItem value="" disabled>Selecione um turno</MenuItem>
+                                        {Object.values(ShiftHours).map(sh => (
+                                            <MenuItem key={sh} value={sh}>{sh}</MenuItem>
+                                        ))}
                                     </Select>
                                 </FormControl>
                             </>

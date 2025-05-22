@@ -63,7 +63,7 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
       if (key === 'points' || key === 'quantity') rule[key] = Number(val);
       else if (key === 'duration') {
         const parts = val.split(':').map(v => Number(v));
-        const seconds = (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+        const seconds = (parts[0]) * 3600 + (parts[1]) * 60 + (parts[2]);
         rule.duration = seconds;
       }
       return next;
@@ -105,22 +105,26 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
       const fields: (keyof ScoringSectionParams)[] = ["removidos", "regulacao", "pausas", "saidaVtr", "regulacaoLider"];
 
       for (const field of fields) {
+        // Garantir que a seção existe
+        if (!normalized[sec]) {
+          normalized[sec] = {};
+        }
+
+        // Garantir que o campo existe como array
         if (!normalized[sec][field]) {
           normalized[sec][field] = [];
         }
 
         const rules = normalized[sec][field] as ScoringRule[] | undefined;
 
-        if (Array.isArray(rules) && rules.length === 0) {
-          normalized[sec][field] = [{ points: 0, duration: 0 }];
-        } else if (Array.isArray(rules)) {
+
+        if (Array.isArray(rules) && rules.length > 0) {
           normalized[sec][field] = rules.map(r => ({
-            quantity: r.quantity,
-            points: r.points,
-            duration:
-              typeof r.duration === "string"
-                ? timeStringToSeconds(r.duration)
-                : r.duration
+            quantity: r.quantity !== undefined ? r.quantity : undefined,
+            points: r.points !== undefined ? r.points : 0,
+            duration: r.duration !== undefined
+              ? (typeof r.duration === "string" ? timeStringToSeconds(r.duration) : r.duration)
+              : 0
           }));
         }
       }

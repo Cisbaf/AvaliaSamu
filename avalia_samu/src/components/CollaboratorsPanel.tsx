@@ -17,7 +17,7 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
-import { Edit, Delete, Add } from '@mui/icons-material';
+import { Edit, Delete, Add, EditNote } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
 import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ProjectCollaborator, ShiftHours } from '@/types/project';
 import CollaboratorModal from './AddCollaboratorModal'; // Este é o modal de edição/criação
@@ -25,6 +25,7 @@ import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
 import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
+import DataForPointsModal from './DataForPointsModal';
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
   isGlobal: boolean;
@@ -53,6 +54,7 @@ export default function CollaboratorsPanel() {
   const [filterRole, setFilterRole] = useState<'all' | string>('all');
   const [roles, setRoles] = useState<string[]>([]);
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>(undefined);
+  const [editingCollaboratorPointsData, setEditingCollaboratorPointsData] = useState<CombinedCollaboratorData | undefined>(undefined);
   const [isAddExistingModalOpen, setIsAddExistingModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +72,7 @@ export default function CollaboratorsPanel() {
   useEffect(() => {
     const inProject = projectCollaborators[selectedProject || ''] || [];
     setRoles(Array.from(new Set(inProject.map(c => c.role))));
+    console.log('Colaboradores do projeto:', inProject);
   }, [projectCollaborators, selectedProject]);
 
   const combinedProjectGlobalCollaborators: CombinedCollaboratorData[] = useMemo(() => {
@@ -92,6 +95,7 @@ export default function CollaboratorsPanel() {
         shiftHours: pc.shiftHours || gc?.shiftHours,
       };
     });
+
   }, [projectCollaborators, globalCollaborators, selectedProject]);
 
   const filtered = useMemo(() => {
@@ -135,20 +139,31 @@ export default function CollaboratorsPanel() {
     setPanelLoading(true);
     setError(null);
     try {
-      const payload: {
-        id: string;
-        role: string;
-        medicoRole?: MedicoRole;
-        shiftHours?: ShiftHours;
-      } = { id, role, medicoRole, shiftHours };
+      // Find the collaborator in globalCollaborators to get the 'nome'
+      const globalCollab = globalCollaborators?.find(gc => gc.id === id);
+      if (!globalCollab) {
+        throw new Error('Colaborador global não encontrado');
+      }
 
       if (role === 'MEDICO') {
         if (!medicoRole || !shiftHours) {
           throw new Error('Para a função MEDICO, o Papel Médico e o Turno são obrigatórios ao adicionar ao projeto.');
         }
-        payload.medicoRole = medicoRole;
-        payload.shiftHours = shiftHours;
       }
+
+      const payload: {
+        id: string;
+        nome: string;
+        role: string;
+        medicoRole: MedicoRole;
+        shiftHours: ShiftHours;
+      } = {
+        id,
+        nome: globalCollab.nome,
+        role,
+        medicoRole: medicoRole as MedicoRole,
+        shiftHours: shiftHours as ShiftHours
+      };
 
       await addCollaboratorToProject(selectedProject, payload);
       await fetchProjectCollaborators(selectedProject);
@@ -158,7 +173,7 @@ export default function CollaboratorsPanel() {
     } finally {
       setPanelLoading(false);
     }
-  }, [selectedProject, addCollaboratorToProject, fetchProjectCollaborators]);
+  }, [selectedProject, addCollaboratorToProject, fetchProjectCollaborators, globalCollaborators]);
 
   const handleOpenEdit = (collab: CombinedCollaboratorData) => {
     setEditingCollaboratorInitialData(collab);
@@ -173,6 +188,20 @@ export default function CollaboratorsPanel() {
       }
     }
     handleCloseEdit();
+  };
+  const handleOpenEditDataForm = (collab: CombinedCollaboratorData) => {
+    setEditingCollaboratorPointsData(collab);
+  };
+  const handleCloseEditDataForm = () => setEditingCollaboratorPointsData(undefined);
+  const handleEditSuccessDataForm = async () => {
+    if (selectedProject) {
+      try {
+        await fetchProjectCollaborators(selectedProject);
+      } catch (err: any) {
+        setError('Falha ao atualizar colaborador');
+      }
+    }
+    handleCloseEditDataForm();
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -333,6 +362,12 @@ export default function CollaboratorsPanel() {
                           <Edit color='primary' />
                         </IconButton>
                         <IconButton
+                          onClick={() => handleOpenEditDataForm(c)}
+                          disabled={panelLoading}
+                        >
+                          <EditNote color='success' />
+                        </IconButton>
+                        <IconButton
                           onClick={() => handleDelete(c.id!)}
                           disabled={panelLoading}
                         >
@@ -345,6 +380,14 @@ export default function CollaboratorsPanel() {
               </TableBody>
             </Table>
           </TableContainer>
+
+          <DataForPointsModal
+            open={!!editingCollaboratorPointsData}
+            onClose={handleCloseEditDataForm}
+            onSuccess={handleEditSuccessDataForm}
+            initialData={editingCollaboratorPointsData}
+            projectId={selectedProject}
+          />
 
           <CollaboratorModal
             open={!!editingCollaboratorInitialData}

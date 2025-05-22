@@ -15,9 +15,7 @@ import java.util.*;
 @Service
 @Slf4j
 public class SheetsUtils {
-    /**
-     * Mapeia cabeçalho de planilha para índice de colunas, normalizando texto.
-     */
+
     public static Map<String, Integer> getColumnMapping(Row headerRow) {
         Map<String, Integer> map = new HashMap<>();
         for (int i = 0; i < headerRow.getLastCellNum(); i++) {
