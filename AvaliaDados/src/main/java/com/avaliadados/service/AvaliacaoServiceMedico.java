@@ -5,6 +5,7 @@ import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.SheetRow;
 import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.enums.TypeAv;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
@@ -55,7 +56,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                     .filter(e -> e.getKey().startsWith("MEDICO REGULADOR"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
             Integer idxTempoMed = cols.entrySet().stream()
-                    .filter(e -> e.getKey().contains("TEMPO MEDIO REGULACAO MEDICA"))
+                    .filter(e -> e.getKey().contains("TEMPO MEDIO REGULAÇÃO MEDICA"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
             Integer idxCrit = cols.entrySet().stream()
                     .filter(e -> e.getKey().startsWith("CRITICOS"))
@@ -63,6 +64,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
             log.info("Índices fuzzy → MEDICO_REGULADOR: {}, TEMPO_MED: {}, CRITICOS: {}",
                     idxMedReg, idxTempoMed, idxCrit);
+            log.info("Índices sheets : {}", cols.keySet());
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 var row = sheet.getRow(i);
@@ -163,10 +165,16 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             pausas =  params.getMedico().getPausas().getLast().getDuration();
         }
 
+        if (pc.getShiftHours() == null){
+            pc.setShiftHours(ShiftHours.valueOf("H12"));
+            log.info("Definindo turno padrão H12 para colaborador {}", pc.getNome());
+        }
+
 
         int pontos = scoringService.calculateCollaboratorScore(
                 pc.getRole(),
                 pc.getMedicoRole().name(),
+                pc.getShiftHours().name(),
                 regulacao,
                 quantity,
                 pausas,

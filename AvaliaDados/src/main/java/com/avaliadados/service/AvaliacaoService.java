@@ -40,6 +40,10 @@ public class AvaliacaoService implements AvaliacaoProcessor {
     private final SheetRowRepository sheetRowRepository;
     private final ScoringService scoringService;
 
+    // Constantes para as chaves de dados
+    private static final String KEY_TEMPO_REGULACAO_TARM = "TEMPO_REGULACAO_TARM";
+    private static final String KEY_TEMPO_REGULACAO_FROTA = "TEMPO_REGULACAO_FROTA";
+
     @Transactional
     public void processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
         sheetRowRepository.deleteByProjectIdAndType(projectId, TypeAv.TARM_FROTA);
@@ -49,26 +53,25 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             Map<String, Integer> cols = getColumnMapping(sheet.getRow(0));
             log.info("Colunas disponíveis na sheet: {}", cols.keySet());
 
-            Integer idxColab = cols.entrySet().stream()
-                    .filter(e -> e.getKey().startsWith("COLABORADOR"))
-                    .map(Map.Entry::getValue).findFirst().orElse(null);
-            Integer idxTarm = cols.entrySet().stream()
-                    .filter(e -> e.getKey().contains("TEMPO REGULAO TARM")
-                            || e.getKey().contains("TARM"))
-                    .map(Map.Entry::getValue).findFirst().orElse(null);
-            Integer idxFrota = cols.entrySet().stream()
-                    .filter(e -> e.getKey().contains("OP FROTA REGULAO MDICA"))
-                    .map(Map.Entry::getValue).findFirst().orElse(null);
+            Integer idxColab = encontrarIndiceColuna(cols, "COLABORADOR");
+            Integer idxTarm = encontrarIndiceColuna(cols,  "TEMPO REGULAÇÃO TARM", "TEMPO.REGULACAO.TARM");
+            Integer idxFrota = encontrarIndiceColuna(cols, "OP. FROTA REGULAÇÃO MÉDICA", "TEMPO.REGULACAO.FROTA");
 
-            log.info("Índices fuzzy → COLAB: {}, TARM: {}, FROTA: {}", idxColab, idxTarm, idxFrota);
+            log.info("Índices encontrados → COLAB: {}, TARM: {}, FROTA: {}", idxColab, idxTarm, idxFrota);
+
+            if (idxColab == null) {
+                log.error("Coluna de colaborador não encontrada na planilha");
+                throw new RuntimeException("Coluna de colaborador não encontrada na planilha");
+            }
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
 
-                String name = idxColab != null ? getCellStringValue(row, idxColab) : null;
+                String name = getCellStringValue(row, idxColab);
                 String tarmVal = idxTarm != null ? getCellStringValue(row, idxTarm) : null;
                 String frotaVal = idxFrota != null ? getCellStringValue(row, idxFrota) : null;
+
                 log.debug("Linha {} → COLAB='{}', TARM='{}', FROTA='{}'", i, name, tarmVal, frotaVal);
 
                 if (name == null || (tarmVal == null && frotaVal == null)) {
@@ -78,15 +81,24 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
                 var id = colaboradorRepository.findByNome(name).map(CollaboratorEntity::getId).orElse(null);
 
-
                 SheetRow sr = new SheetRow();
                 sr.setProjectId(projectId);
 
                 if (id != null) {sr.setCollaboratorId(id);}
                 sr.setType(TypeAv.TARM_FROTA);
                 sr.getData().put("COLABORADOR", name);
-                if (tarmVal != null) sr.getData().put("TEMPO_REGULACAO_TARM", tarmVal);
-                if (frotaVal != null) sr.getData().put("TEMPO_REGULACAO_FROTA", frotaVal);
+
+                // Salvar com múltiplas chaves para garantir compatibilidade
+                if (tarmVal != null) {
+                    sr.getData().put(KEY_TEMPO_REGULACAO_TARM, tarmVal);
+                    sr.getData().put("TEMPO.REGULACAO.TARM", tarmVal);
+                }
+
+                if (frotaVal != null) {
+                    sr.getData().put(KEY_TEMPO_REGULACAO_FROTA, frotaVal);
+                    sr.getData().put("TEMPO.REGULACAO.FROTA", frotaVal);
+                    sr.getData().put("OP FROTA REGULAO MDICA", frotaVal);
+                }
 
                 sheetRowRepository.save(sr);
                 log.debug("  → salvou linha {}: {}", i, sr.getData());
@@ -98,17 +110,38 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         atualizarColaboradoresDoProjeto(projectId);
     }
 
+    private Integer encontrarIndiceColuna(Map<String, Integer> cols, String... possiveisNomes) {
+        for (String nome : possiveisNomes) {
+            // Busca exata
+            if (cols.containsKey(nome)) {
+                return cols.get(nome);
+            }
+
+            // Busca por substring
+            Optional<Map.Entry<String, Integer>> coluna = cols.entrySet().stream()
+                    .filter(e -> e.getKey().toUpperCase().contains(nome.toUpperCase()))
+                    .findFirst();
+
+            if (coluna.isPresent()) {
+                return coluna.get().getValue();
+            }
+        }
+
+        return null;
+    }
+
     @Transactional
     public void atualizarColaboradoresDoProjeto(String projectId) {
         ProjetoEntity projeto = projetoRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado: " + projectId));
-
 
         Map<String, CollaboratorEntity> colaboradores = colaboradorRepository.findAll().stream()
                 .collect(Collectors.toMap(
                         c -> normalizeName(c.getNome()), c -> c, (a, b) -> a));
 
         List<SheetRow> rows = sheetRowRepository.findByProjectIdAndType(projectId, TypeAv.TARM_FROTA);
+        log.info("Encontradas {} linhas de SheetRow para o projeto {}", rows.size(), projectId);
+
         for (SheetRow sr : rows) {
             String nomeNorm = normalizeName(sr.getData().get("COLABORADOR"));
             colaboradores.entrySet().stream()
@@ -116,10 +149,16 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                     .max(Comparator.comparingDouble(e -> similarity(e.getKey(), nomeNorm)))
                     .ifPresent(match -> {
                         CollaboratorEntity colEnt = match.getValue();
+                        log.info("Encontrado match para colaborador: {} -> {}", sr.getData().get("COLABORADOR"), colEnt.getNome());
+
                         projeto.getCollaborators().stream()
                                 .filter(pc -> pc.getCollaboratorId().equals(colEnt.getId()))
                                 .findFirst()
-                                .ifPresent(pc -> atualizarDadosColaborador(pc, sr.getData(), colEnt, projeto));
+                                .ifPresent(pc -> {
+                                    log.info("Atualizando dados do colaborador {} ({})", colEnt.getNome(), pc.getRole());
+                                    atualizarDadosColaborador(pc, sr.getData(), colEnt, projeto);
+                                    log.info("Dados do SheetRow: {}", sr.getData());
+                                });
                     });
         }
         projetoRepository.save(projeto);
@@ -141,31 +180,41 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         if (params.getTarm() == null) params.setTarm(new ScoringSectionParams());
         if (params.getFrota() == null) params.setFrota(new ScoringSectionParams());
 
-        Map<String, String> map = Map.of(
-                "TARM", "TEMPO.REGULACAO.TARM",
-                "FROTA", "TEMPO.REGULACAO.FROTA"
-        );
-        String colKey = map.get(pc.getRole());
-        if (colKey != null && data.containsKey(colKey)) {
-            Long secs = SheetsUtils.parseTimeToSeconds(data.get(colKey));
+        // Mapa com múltiplas possíveis chaves para cada tipo
+        Map<String, List<String>> keyMap = new HashMap<>();
+        keyMap.put("TARM", Arrays.asList(KEY_TEMPO_REGULACAO_TARM, "TEMPO.REGULACAO.TARM"));
+        keyMap.put("FROTA", Arrays.asList(KEY_TEMPO_REGULACAO_FROTA, "TEMPO.REGULACAO.FROTA", "OP FROTA REGULAO MDICA"));
 
-            ScoringRule rule = ScoringRule.builder()
-                    .duration(secs)
-                    .build();
+        // Obter as chaves possíveis para o papel atual
+        List<String> possiveisChaves = keyMap.getOrDefault(pc.getRole(), Collections.emptyList());
 
-            ScoringSectionParams section = pc.getRole().equals("TARM")
-                    ? params.getTarm()
-                    : params.getFrota();
+        // Tentar cada chave possível
+        for (String chave : possiveisChaves) {
+            if (data.containsKey(chave)) {
+                Long secs = SheetsUtils.parseTimeToSeconds(data.get(chave));
 
-            if (section.getRegulacao() == null) {
-                section.setRegulacao(new ArrayList<>());
+                ScoringRule rule = ScoringRule.builder()
+                        .duration(secs)
+                        .build();
+
+                ScoringSectionParams section = pc.getRole().equals("TARM")
+                        ? params.getTarm()
+                        : params.getFrota();
+
+                if (section.getRegulacao() == null) {
+                    section.setRegulacao(new ArrayList<>());
+                }
+                section.getRegulacao().add(rule);
+
+                log.info("Adicionada regra de duração para {} ({}): {}s usando chave {}",
+                        collab.getNome(), pc.getRole(), secs, chave);
+
+                // Encontrou uma chave válida, não precisa continuar tentando
+                break;
             }
-            section.getRegulacao().add(rule);
-
-            log.info("Adicionada regra de duração para {} ({}): {}s",
-                    collab.getNome(), pc.getRole(), secs);
         }
 
+        // Obter a última duração para cálculo de pontuação
         long lastDuration = Optional.ofNullable(
                         "TARM".equals(pc.getRole())
                                 ? params.getTarm()
@@ -173,8 +222,12 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                 )
                 .map(ScoringSectionParams::getRegulacao)
                 .filter(l -> !l.isEmpty())
-                .map(l -> l.getLast().getDuration())
+                .map(l -> {
+                    pc.setDurationSeconds(l.getLast().getDuration());
+                    return l.getLast().getDuration();
+                })
                 .orElse(0L);
+
         long lastPausas = Optional.ofNullable(
                         "TARM".equals(pc.getRole())
                                 ? params.getTarm()
@@ -182,8 +235,12 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                 )
                 .map(ScoringSectionParams::getPausas)
                 .filter(l -> !l.isEmpty())
-                .map(l -> l.getLast().getDuration())
+                .map(l -> {
+                    pc.setPausaMensalSeconds(l.getLast().getDuration());
+                    return l.getLast().getDuration();
+                })
                 .orElse(0L);
+
         int lastRemovidos = Optional.ofNullable(
                         "TARM".equals(pc.getRole())
                                 ? params.getTarm()
@@ -191,19 +248,22 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                 )
                 .map(ScoringSectionParams::getRemovidos)
                 .filter(list -> !list.isEmpty())
-                .map(list -> list.getLast().getQuantity())
+                .map(list -> {
+                    pc.setQuantity(list.getLast().getQuantity());
+                    return list.getLast().getQuantity();
+                })
                 .orElse(0);
 
         int pontos = scoringService.calculateCollaboratorScore(
                 pc.getRole(),
                 null,
-                lastDuration,
+                "H12", lastDuration,
                 lastRemovidos,
                 lastPausas,
                 projeto.getParameters()
         );
         pc.setPontuacao(pontos);
+
+        log.info("Pontuação calculada para {} ({}): {}", collab.getNome(), pc.getRole(), pontos);
     }
-
-
 }
