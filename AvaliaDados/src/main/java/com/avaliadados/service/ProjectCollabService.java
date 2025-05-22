@@ -66,10 +66,37 @@ public class ProjectCollabService {
                 .shiftHours(dto.getShiftHours())
                 .build();
 
-        SheetRow sheetColab = rowRepository.findByCollaboratorIdAndProjectId(dto.getCollaboratorId(), projectId);
+        SheetRow sheetColab = getSheetRowForCollaborator(dto.getCollaboratorId(), projectId, collab.getNome());
+
+        if (sheetColab != null) {
+            processSheetRowData(pc, sheetColab);
+
+            int pontos = scoringService.calculateCollaboratorScore(
+                    pc.getRole(),
+                    pc.getMedicoRole().name(),
+                    "H12",
+                    pc.getDurationSeconds() != null ? pc.getDurationSeconds() : null,
+                    pc.getQuantity() != null ? pc.getQuantity() : 0,
+                    pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : null,
+                    projeto.getParameters()
+            );
+            pc.setPontuacao(pontos);
+            log.debug("Pontuação calculada para o colaborador: {}", pontos);
+        } else {
+            log.warn("Nenhum dado de planilha encontrado para o colaborador [{}]", dto.getCollaboratorId());
+        }
+
+        projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(dto.getCollaboratorId()));
+        projeto.getCollaborators().add(pc);
+        log.debug("Dados do Collaborador {}", pc);
+        return projetoRepo.save(projeto);
+    }
+
+    private SheetRow getSheetRowForCollaborator(String collaboratorId, String projectId, String collaboratorName) {
+        SheetRow sheetColab = rowRepository.findByCollaboratorIdAndProjectId(collaboratorId, projectId);
 
         if (sheetColab == null) {
-            String nomeNormalizado = normalizeName(collab.getNome());
+            String nomeNormalizado = normalizeName(collaboratorName);
             List<SheetRow> todasLinhas = rowRepository.findByProjectId(projectId);
 
             Optional<SheetRow> melhorCorrespondencia = todasLinhas.stream()
@@ -87,92 +114,76 @@ public class ProjectCollabService {
             if (melhorCorrespondencia.isPresent()) {
                 sheetColab = melhorCorrespondencia.get();
 
-                sheetColab.setCollaboratorId(dto.getCollaboratorId());
+                sheetColab.setCollaboratorId(collaboratorId);
                 rowRepository.save(sheetColab);
 
-                log.info("Associado colaborador [{}] à linha da planilha por similaridade de nome", dto.getCollaboratorId());
+                log.info("Associado colaborador [{}] à linha da planilha por similaridade de nome", collaboratorId);
             }
         }
 
-        if (sheetColab != null) {
-            log.info("Dados da planilha encontrados para o colaborador [{}]", dto.getCollaboratorId());
+        return sheetColab;
+    }
 
-            if (Objects.equals(pc.getRole(), "TARM")) {
-                String tempoRegulacaoTarm = sheetColab.getData().get("TEMPO.REGULACAO.TARM");
-                if (tempoRegulacaoTarm != null) {
-                    Long segundos = parseTimeToSeconds(tempoRegulacaoTarm);
-                    pc.setDurationSeconds(segundos);
-                    pc.setParametros(NestedScoringParameters.builder()
-                            .tarm(ScoringSectionParams.builder()
-                                    .regulacao(List.of(ScoringRule.builder().duration(segundos).build()))
-                                    .build())
-                            .build());
-                    log.debug("Tempo de regulação TARM definido: {} segundos", segundos);
-                }
-            }
 
-            if (Objects.equals(pc.getRole(), "FROTA")) {
-                String tempoRegulacaoFrota = sheetColab.getData().get("TEMPO.REGULACAO.FROTA");
-                if (tempoRegulacaoFrota != null) {
-                    Long segundos = parseTimeToSeconds(tempoRegulacaoFrota);
-                    pc.setDurationSeconds(segundos);
-                    pc.setParametros(NestedScoringParameters.builder()
-                            .frota(ScoringSectionParams.builder()
-                                    .regulacao(List.of(ScoringRule.builder().duration(segundos).build()))
-                                    .build())
-                            .build());
-                    log.debug("Tempo de regulação FROTA definido: {} segundos", segundos);
-                }
-            }
+    private void processSheetRowData(ProjectCollaborator pc, SheetRow sheetRow) {
+        log.info("Dados da planilha encontrados para o colaborador [{}]", pc.getCollaboratorId());
+        Map<String, String> data = sheetRow.getData();
 
-            if (Objects.equals(pc.getRole(), "MEDICO")) {
-                if (pc.getMedicoRole().equals(MedicoRole.REGULADOR)) {
-                    String tempoRegulacao = sheetColab.getData().get("TEMPO.REGULACAO");
-                    if (tempoRegulacao != null) {
-                        Long segundos = parseTimeToSeconds(tempoRegulacao);
-                        pc.setDurationSeconds(segundos);
-                        pc.setParametros(NestedScoringParameters.builder()
-                                .medico(ScoringSectionParams.builder()
-                                        .regulacao(List.of(ScoringRule.builder().duration(segundos).build()))
-                                        .build())
-                                .build());
-                        log.debug("Tempo de regulação MÉDICO REGULADOR definido: {} segundos", segundos);
-                    }
-                } else if (pc.getMedicoRole().equals(MedicoRole.LIDER)) {
-                    String criticos = sheetColab.getData().get("CRITICOS");
-                    if (criticos != null) {
-                        Long segundos = parseTimeToSeconds(criticos);
-                        pc.setDurationSeconds(segundos);
-                        pc.setParametros(NestedScoringParameters.builder()
-                                .medico(ScoringSectionParams.builder()
-                                        .regulacaoLider(List.of(ScoringRule.builder().duration(segundos).build()))
-                                        .build())
-                                .build());
-                        log.debug("Tempo de críticos MÉDICO LÍDER definido: {} segundos", segundos);
-                    }
-                }
+        if (Objects.equals(pc.getRole(), "TARM")) {
+            String tempoRegulacaoTarm = data.get("TEMPO.REGULACAO.TARM");
+            if (tempoRegulacaoTarm != null) {
+                Long segundos = parseTimeToSeconds(tempoRegulacaoTarm);
+                pc.setDurationSeconds(segundos);
+                pc.setParametros(NestedScoringParameters.builder()
+                        .tarm(ScoringSectionParams.builder()
+                                .regulacao(List.of(ScoringRule.builder().duration(segundos).build()))
+                                .build())
+                        .build());
+                log.debug("Tempo de regulação TARM definido: {} segundos", segundos);
             }
-
-            if (pc.getParametros() != null) {
-                int pontos = scoringService.calculateCollaboratorScore(
-                        pc.getRole(),
-                        pc.getMedicoRole().name(),
-                        pc.getDurationSeconds() != null ? pc.getDurationSeconds() : 0,
-                        pc.getQuantity() != null ? pc.getQuantity() : 0,
-                        pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0,
-                        projeto.getParameters()
-                );
-                pc.setPontuacao(pontos);
-                log.debug("Pontuação calculada para o colaborador: {}", pontos);
-            }
-        } else {
-            log.warn("Nenhum dado de planilha encontrado para o colaborador [{}]", dto.getCollaboratorId());
         }
 
-        projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(dto.getCollaboratorId()));
-        projeto.getCollaborators().add(pc);
-        log.debug("Dados do Collaborador {}", pc);
-        return projetoRepo.save(projeto);
+        if (Objects.equals(pc.getRole(), "FROTA")) {
+            String tempoRegulacaoFrota = data.get("TEMPO.REGULACAO.FROTA");
+            if (tempoRegulacaoFrota != null) {
+                Long segundos = parseTimeToSeconds(tempoRegulacaoFrota);
+                pc.setDurationSeconds(segundos);
+                pc.setParametros(NestedScoringParameters.builder()
+                        .frota(ScoringSectionParams.builder()
+                                .regulacao(List.of(ScoringRule.builder().duration(segundos).build()))
+                                .build())
+                        .build());
+                log.debug("Tempo de regulação FROTA definido: {} segundos", segundos);
+            }
+        }
+
+        if (Objects.equals(pc.getRole(), "MEDICO")) {
+            if (pc.getMedicoRole().equals(MedicoRole.REGULADOR)) {
+                String tempoRegulacao = data.get("TEMPO.REGULACAO");
+                if (tempoRegulacao != null) {
+                    Long segundos = parseTimeToSeconds(tempoRegulacao);
+                    pc.setDurationSeconds(segundos);
+                    pc.setParametros(NestedScoringParameters.builder()
+                            .medico(ScoringSectionParams.builder()
+                                    .regulacao(List.of(ScoringRule.builder().duration(segundos).build()))
+                                    .build())
+                            .build());
+                    log.debug("Tempo de regulação MÉDICO REGULADOR definido: {} segundos", segundos);
+                }
+            } else if (pc.getMedicoRole().equals(MedicoRole.LIDER)) {
+                String criticos = data.get("CRITICOS");
+                if (criticos != null) {
+                    Long segundos = parseTimeToSeconds(criticos);
+                    pc.setDurationSeconds(segundos);
+                    pc.setParametros(NestedScoringParameters.builder()
+                            .medico(ScoringSectionParams.builder()
+                                    .regulacaoLider(List.of(ScoringRule.builder().duration(segundos).build()))
+                                    .build())
+                            .build());
+                    log.debug("Tempo de críticos MÉDICO LÍDER definido: {} segundos", segundos);
+                }
+            }
+        }
     }
 
     public List<CollaboratorsResponse> getAllProjectCollaborators(String projectId) {
@@ -214,12 +225,14 @@ public class ProjectCollabService {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
 
+        CollaboratorEntity collab = collaboratorRepo.findById(collaboratorId)
+                .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
+
         projeto.getCollaborators()
                 .stream()
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
-                    // Atualiza campos básicos
                     pc.setNome(dto.getNome());
                     pc.setRole(dto.getRole());
                     pc.setDurationSeconds(dto.getDurationSeconds());
@@ -227,6 +240,12 @@ public class ProjectCollabService {
                     pc.setPausaMensalSeconds(dto.getPausaMensalSeconds());
                     pc.setMedicoRole(dto.getMedicoRole() != null ? dto.getMedicoRole() : MedicoRole.NENHUM);
                     pc.setShiftHours(dto.getShiftHours());
+
+                    SheetRow sheetColab = getSheetRowForCollaborator(collaboratorId, projectId, collab.getNome());
+
+                    if (sheetColab != null) {
+                        processSheetRowData(pc, sheetColab);
+                    }
 
                     NestedScoringParameters params = projeto.getParameters();
                     ScoringSectionParams section = getSection(pc.getRole(), params);
@@ -239,7 +258,7 @@ public class ProjectCollabService {
                     int pontos = scoringService.calculateCollaboratorScore(
                             pc.getRole(),
                             pc.getMedicoRole().name(),
-                            duration,
+                            "H12", duration,
                             removidos,
                             pausas,
                             params

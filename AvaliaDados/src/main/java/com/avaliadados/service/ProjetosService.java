@@ -1,6 +1,7 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
+import com.avaliadados.model.MedicoEntity;
 import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.enums.MedicoRole;
@@ -8,6 +9,7 @@ import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
+import com.avaliadados.repository.MedicoRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +19,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +30,7 @@ public class ProjetosService {
 
     private final ProjetoRepository projetoRepo;
     private final CollaboratorRepository collaboratorRepo;
+    private final MedicoRepository medicoRepository;
     private final ScoringService scoringService;
     private final ObjectMapper objectMapper;
 
@@ -109,7 +115,7 @@ public class ProjetosService {
         int pontos = scoringService.calculateCollaboratorScore(
                 collaborator.getRole(),
                 collaborator.getMedicoRole().name(),
-                collaborator.getDurationSeconds(),
+                "H12", collaborator.getDurationSeconds(),
                 collaborator.getQuantity(),
                 collaborator.getPausaMensalSeconds(),
                 projeto.getParameters()
@@ -121,12 +127,28 @@ public class ProjetosService {
         projeto.setCreatedAt(Instant.now());
         ProjetoEntity novo = projetoRepo.save(projeto);
         List<CollaboratorEntity> globais = collaboratorRepo.findAll();
-        var collabs = globais.stream().map(g ->
-                ProjectCollaborator.builder()
-                        .collaboratorId(g.getId())
-                        .role(g.getRole())
-                        .pontuacao(0)
-                        .build()
+        List<MedicoEntity> medicos = medicoRepository.findAll();
+
+        var collabs = globais.stream().map(g -> {
+                    if (!Objects.equals(g.getRole(), "MEDICO")) {
+                        return ProjectCollaborator.builder()
+                                .nome(g.getNome())
+                                .collaboratorId(g.getId())
+                                .role(g.getRole())
+                                .build();
+                    }
+                    return medicos.stream()
+                            .filter(m -> m.getId().equals(g.getId()))
+                            .map(m -> ProjectCollaborator.builder()
+                                    .nome(m.getNome())
+                                    .collaboratorId(m.getId())
+                                    .role(g.getRole())
+                                    .medicoRole(m.getMedicoRole())
+                                    .shiftHours(m.getShiftHours())
+                                    .build())
+                            .findFirst()
+                            .orElse(null);
+                }
         ).toList();
         novo.setCollaborators(collabs);
         return projetoRepo.save(novo);
