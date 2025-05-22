@@ -4,8 +4,6 @@ import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import lombok.*;
 
-import java.util.Map;
-
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,6 +14,7 @@ public class UpdateProjectCollabRequest {
     private Long durationSeconds;
     private Integer quantity;
     private Long pausaMensalSeconds;
+    private Long saidaVtrSeconds;
 
     private MedicoRole medicoRole;
     private ShiftHours shiftHours;

@@ -140,6 +140,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
     private void atualizarDadosMedico(ProjectCollaborator pc,
                                       Map<String, String> data,
                                       ProjetoEntity projeto) {
+
+        if (pc.getWasEdited()) return;
         NestedScoringParameters params = pc.getParametros();
         if (params == null) params = new NestedScoringParameters();
 

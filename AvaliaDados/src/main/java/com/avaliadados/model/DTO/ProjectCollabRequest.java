@@ -20,5 +20,7 @@ public class ProjectCollabRequest {
     private Integer pontuacao;
     private Map<String, Integer> parametros;
     private Long pausaMensalSeconds;
+    private Long saidaVtr;
     private MedicoRole medicoRole;
-    private ShiftHours shiftHours;}
+    private ShiftHours shiftHours;
+}

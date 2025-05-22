@@ -53,10 +53,11 @@ export const addCollaboratorToProjectApi = (
 export const updateProjectCollaboratorApi = (
   projectId: string,
   collaboratorId: string,
-  dto: UpdateProjectCollabDto
+  dto: UpdateProjectCollabDto,
+  wasEdited: boolean,
 ) =>
   api.put<void>(
-    `/projetos/${projectId}/collaborator/${collaboratorId}`,
+    `/projetos/${projectId}/collaborator/${collaboratorId}?wasEdited=${wasEdited}`,
     dto
   );
 export const deleteProjectCollaboratorApi = (

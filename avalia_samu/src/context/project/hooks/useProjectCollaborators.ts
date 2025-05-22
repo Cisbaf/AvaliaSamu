@@ -49,9 +49,10 @@ export function useProjectCollaborators() {
     const updateProjectCollaborator = useCallback(async (
         projectId: string,
         collabId: string,
-        data: UpdateProjectCollabDto
+        data: UpdateProjectCollabDto,
+        wasEdited?: boolean
     ) => {
-        await updateProjectCollaboratorApi(projectId, collabId, data);
+        await updateProjectCollaboratorApi(projectId, collabId, data, wasEdited || false);
         await fetchProjectCollaborators(projectId);
     }, [fetchProjectCollaborators]);
 

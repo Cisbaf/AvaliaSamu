@@ -13,6 +13,7 @@ import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import com.avaliadados.repository.SheetRowRepository;
+import com.avaliadados.service.utils.CollabParams;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,7 +23,6 @@ import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.avaliadados.service.utils.CollabParams.*;
 import static com.avaliadados.service.utils.SheetsUtils.*;
 
 
@@ -35,6 +35,7 @@ public class ProjectCollabService {
     private final CollaboratorRepository collaboratorRepo;
     private final ScoringService scoringService;
     private final SheetRowRepository rowRepository;
+    private final CollabParams collabParams;
 
     @Transactional
     public ProjetoEntity addCollaborator(String projectId, ProjectCollabRequest dto) {
@@ -207,7 +208,7 @@ public class ProjectCollabService {
                             collab.getIdCallRote(),
                             pontuacao,
                             pc.getRole(),
-                            pc.getShiftHours(),
+                            pc.getShiftHours() ,
                             pc.getMedicoRole()
                     );
                 })
@@ -218,9 +219,10 @@ public class ProjectCollabService {
     public ProjetoEntity updateProjectCollaborator(
             String projectId,
             String collaboratorId,
-            ProjectCollabRequest dto
+            ProjectCollabRequest dto,
+            boolean wasEdited
     ) {
-        log.info("Atualizando colaborador [{}] no projeto [{}]", dto, projectId);
+        log.info("Atualizando colaborador [{}] no projeto [{}] em {} tal {}", dto, projectId, wasEdited, dto);
 
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -233,36 +235,29 @@ public class ProjectCollabService {
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
+                    if (!wasEdited || !pc.getWasEdited() ) {
+                        SheetRow sheetColab = getSheetRowForCollaborator(collaboratorId, projectId, collab.getNome());
+                        if (sheetColab != null) {
+                            processSheetRowData(pc, sheetColab);
+                        }
+                    }
                     pc.setNome(dto.getNome());
                     pc.setRole(dto.getRole());
-                    pc.setDurationSeconds(dto.getDurationSeconds());
-                    pc.setQuantity(dto.getQuantity());
-                    pc.setPausaMensalSeconds(dto.getPausaMensalSeconds());
                     pc.setMedicoRole(dto.getMedicoRole() != null ? dto.getMedicoRole() : MedicoRole.NENHUM);
                     pc.setShiftHours(dto.getShiftHours());
+                    pc.setWasEdited(wasEdited);
+                    pc.setSaidaVtrSeconds(dto.getSaidaVtr() != null ? dto.getSaidaVtr() : pc.getSaidaVtrSeconds());
+                    pc.setDurationSeconds(dto.getDurationSeconds() != null ? dto.getDurationSeconds() : pc.getDurationSeconds());
+                    pc.setQuantity(dto.getQuantity() != null ? dto.getQuantity() : pc.getQuantity());
+                    pc.setPausaMensalSeconds(dto.getPausaMensalSeconds() != null ? dto.getPausaMensalSeconds() : pc.getPausaMensalSeconds());
 
-                    SheetRow sheetColab = getSheetRowForCollaborator(collaboratorId, projectId, collab.getNome());
+                    log.info("Colaborador tal {}", pc);
 
-                    if (sheetColab != null) {
-                        processSheetRowData(pc, sheetColab);
+                    int pontos = pc.getPontuacao();
+                    if (pc.getDurationSeconds() != null) {
+                         pontos = collabParams.setParams(pc, projeto, pc.getDurationSeconds(), pc.getQuantity(), pc.getPausaMensalSeconds(), pc.getSaidaVtrSeconds());
                     }
 
-                    NestedScoringParameters params = projeto.getParameters();
-                    ScoringSectionParams section = getSection(pc.getRole(), params);
-
-                    String tipoRegulacao = determinarTipoRegulacao(pc);
-                    long duration = getLastDuration(section, tipoRegulacao);
-                    long pausas = getLastDuration(section, "pausas");
-                    int removidos = getLastQuantity(section, "removidos");
-
-                    int pontos = scoringService.calculateCollaboratorScore(
-                            pc.getRole(),
-                            pc.getMedicoRole().name(),
-                            "H12", duration,
-                            removidos,
-                            pausas,
-                            params
-                    );
 
                     pc.setPontuacao(pontos);
                     syncCollaboratorData(collaboratorId);

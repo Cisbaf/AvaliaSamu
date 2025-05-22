@@ -6,14 +6,13 @@ import {
     DialogActions,
     Button,
     TextField,
-    CircularProgress,
     Alert,
     Grid
 } from '@mui/material';
 import styles from './styles/Modal.module.css';
 import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
 import { CombinedCollaboratorData } from './CollaboratorsPanel';
-import { UpdateProjectCollabDto, GlobalCollaborator } from '@/types/project';
+import { UpdateProjectCollabDto, GlobalCollaborator, ShiftHours } from '@/types/project';
 
 interface DataForPointsModalProps {
     open: boolean;
@@ -27,6 +26,7 @@ type FormData = {
     durationSeconds: number;
     quantity: number;
     pausaMensalSeconds: number;
+    saidaVtrSeconds: number;
 };
 
 export default function DataForPointsModal({
@@ -36,27 +36,27 @@ export default function DataForPointsModal({
     initialData,
     projectId
 }: DataForPointsModalProps) {
-    const { actions: { addCollaboratorToProject, updateProjectCollaborator } } = useProjectCollaborators();
+    const { actions: { updateProjectCollaborator } } = useProjectCollaborators();
 
     const [formData, setFormData] = useState<FormData>({
         durationSeconds: 0,
         quantity: 0,
-        pausaMensalSeconds: 0
+        pausaMensalSeconds: 0,
+        saidaVtrSeconds: 0
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-
-    const isEdit = Boolean(initialData && 'id' in initialData && initialData.id);
 
     useEffect(() => {
         if (initialData) {
             setFormData({
                 durationSeconds: (initialData as any).durationSeconds ?? 0,
                 quantity: (initialData as any).quantity ?? 0,
-                pausaMensalSeconds: (initialData as any).pausaMensalSeconds ?? 0
+                pausaMensalSeconds: (initialData as any).pausaMensalSeconds ?? 0,
+                saidaVtrSeconds: (initialData as any).saidaVtr ?? 0
             });
         } else {
-            setFormData({ durationSeconds: 0, quantity: 0, pausaMensalSeconds: 0 });
+            setFormData({ durationSeconds: 0, quantity: 0, pausaMensalSeconds: 0, saidaVtrSeconds: 0 });
         }
         setError('');
     }, [initialData]);
@@ -76,27 +76,22 @@ export default function DataForPointsModal({
                 const dto: UpdateProjectCollabDto = {
                     durationSeconds: formData.durationSeconds,
                     quantity: formData.quantity,
-                    pausaMensalSeconds: formData.pausaMensalSeconds
+                    pausaMensalSeconds: formData.pausaMensalSeconds,
+                    saidaVtr: formData.saidaVtrSeconds,
+                    role: initialData!.role,
+                    nome: initialData!.nome,
+                    medicoRole: initialData!.medicoRole,
+                    shiftHours: initialData!.shiftHours as ShiftHours,
                 };
 
-                if (isEdit) {
-                    await updateProjectCollaborator(
-                        projectId,
-                        (initialData as CombinedCollaboratorData).id!,
-                        dto
-                    );
-                } else {
-                    await addCollaboratorToProject(projectId, {
-                        id: (initialData as GlobalCollaborator)?.id || '',
-                        role: initialData?.role || '',
-                        ...dto,
-                        parametros: {}
-                    });
-                }
-            } else {
-                // Global collaborator fallback
-                // assume createGlobalCollaboratorApi handles pontos
-                // removed for brevity
+
+                await updateProjectCollaborator(
+                    projectId,
+                    (initialData as CombinedCollaboratorData).id!,
+                    dto,
+                    true
+                );
+
             }
 
             onSuccess();
@@ -112,10 +107,10 @@ export default function DataForPointsModal({
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-            <DialogTitle>{isEdit ? 'Editar Pontos' : 'Cadastrar Pontos'}</DialogTitle>
+            <DialogTitle> 'Editar Pontos'</DialogTitle>
             <DialogContent className={styles.modalContent}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-                <Grid container spacing={2}>
+                <Grid container spacing={2} marginTop={2}>
                     <Grid size={{ xs: 12, sm: 4 }}>
                         <TextField
                             label="Duração (s)"
@@ -123,7 +118,6 @@ export default function DataForPointsModal({
                             fullWidth
                             value={formData.durationSeconds}
                             onChange={handleChange('durationSeconds')}
-                            InputProps={{ inputProps: { min: 0 } }}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -133,7 +127,6 @@ export default function DataForPointsModal({
                             fullWidth
                             value={formData.quantity}
                             onChange={handleChange('quantity')}
-                            InputProps={{ inputProps: { min: 0 } }}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -143,7 +136,15 @@ export default function DataForPointsModal({
                             fullWidth
                             value={formData.pausaMensalSeconds}
                             onChange={handleChange('pausaMensalSeconds')}
-                            InputProps={{ inputProps: { min: 0 } }}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                            label="Saida Vtr (s)"
+                            type="number"
+                            fullWidth
+                            value={formData.saidaVtrSeconds}
+                            onChange={handleChange('saidaVtrSeconds')}
                         />
                     </Grid>
                 </Grid>
@@ -151,7 +152,7 @@ export default function DataForPointsModal({
             <DialogActions>
                 <Button onClick={onClose} disabled={loading}>Cancelar</Button>
                 <Button onClick={handleSubmit} variant="contained" disabled={isSubmitDisabled}>
-                    {loading ? <CircularProgress size={24} /> : isEdit ? 'Salvar' : 'Cadastrar'}
+                    Salvar
                 </Button>
             </DialogActions>
         </Dialog>

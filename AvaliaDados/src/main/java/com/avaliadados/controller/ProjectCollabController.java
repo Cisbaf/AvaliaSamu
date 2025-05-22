@@ -41,12 +41,13 @@ public class ProjectCollabController {
     }
 
     @PutMapping("/{collaboratorId}")
-    public ResponseEntity<ProjetoEntity> update(@PathVariable String projectId, @PathVariable String collaboratorId, @RequestBody ProjectCollabRequest dto) {
+    public ResponseEntity<ProjetoEntity> update(@PathVariable String projectId, @PathVariable String collaboratorId, @RequestBody ProjectCollabRequest dto, @RequestParam  Boolean wasEdited) {
 
         return ResponseEntity.ok(service.updateProjectCollaborator(
                         projectId,
                         collaboratorId,
-                        dto
+                        dto,
+                        wasEdited
                 )
         );
     }

@@ -169,6 +169,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                                            Map<String, String> data,
                                            CollaboratorEntity collab,
                                            ProjetoEntity projeto) {
+        if (pc.getWasEdited()) return;
 
         NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
                 .orElseGet(() -> {

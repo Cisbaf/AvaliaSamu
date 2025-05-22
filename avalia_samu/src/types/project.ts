@@ -10,6 +10,7 @@ export interface BaseCollaborator {
   quantity?: number;
   durationSeconds?: number;
   pausaMensalSeconds?: number;
+  saidaVtr?: number;
 }
 
 export enum MedicoRole {
@@ -82,4 +83,5 @@ export interface UpdateProjectCollabDto {
   pausaMensalSeconds?: number;
   medicoRole?: MedicoRole;
   shiftHours?: ShiftHours;
+  saidaVtr?: number;
 }

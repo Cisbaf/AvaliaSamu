@@ -1,62 +1,83 @@
 package com.avaliadados.service.utils;
 
 import com.avaliadados.model.ProjectCollaborator;
+import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
+import com.avaliadados.repository.CollaboratorRepository;
+import com.avaliadados.service.ScoringService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+
+import static com.avaliadados.service.ProjectCollabService.convertMapToNested;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class CollabParams {
+    private final CollaboratorRepository collabRepository;
+    private final ScoringService scoringService;
 
-    public static ScoringSectionParams getSection(String role, NestedScoringParameters params) {
-        if (role == null) return null;
 
-        return switch (role) {
-            case "TARM" -> params.getTarm();
-            case "FROTA" -> params.getFrota();
-            case "MEDICO" -> params.getMedico();
-            default -> {
-                log.warn("Role desconhecida: {}", role);
-                yield null;
-            }
+
+
+    public int setParams(ProjectCollaborator pc, ProjetoEntity project, long duration, int quantity, long pausaMensal, long saidaVtr) {
+        if (pc.getRole() == null)  return 0;
+        var collab = collabRepository.findById(pc.getCollaboratorId());
+
+
+        NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
+                .orElseGet(() -> {
+                    NestedScoringParameters np = convertMapToNested(collab.get().getParametros());
+
+                    pc.setParametros(np);
+                    return np;
+                });
+        var section = params.getColab();
+
+         switch (pc.getRole()) {
+            case "TARM" -> section = params.getTarm();
+            case "FROTA" -> section = params.getFrota();
+            case "MEDICO" -> section = params.getMedico();
+            default -> log.warn("Role não informada: {}", pc.getRole());
         };
-    }
+        section.setPausas(List.of(ScoringRule.builder().duration(pausaMensal).build()));
+        section.setRegulacao(List.of(ScoringRule.builder().duration(duration).build()));
+        section.setRemovidos((List.of(ScoringRule.builder().quantity(quantity).build())));
 
-    public static String determinarTipoRegulacao(ProjectCollaborator pc) {
-        if ("MEDICO".equals(pc.getRole())) {
-            return pc.getMedicoRole() == MedicoRole.LIDER ? "regulacaoLider" : "regulacao";
+        var pausas = section.getPausas().getLast().getDuration();
+        var regulacao = section.getRegulacao().getLast().getDuration();
+        var removidos = section.getRemovidos().getLast().getQuantity();
+
+        if (pc.getMedicoRole().equals(MedicoRole.LIDER)) {
+            section.setRegulacaoLider((List.of(ScoringRule.builder().duration(duration).build())));
+            regulacao = section.getRegulacaoLider().getLast().getDuration();
         }
-        return "regulacao";
+        if (pc.getRole().equals("FROTA")) {
+           section.setSaidaVtr((List.of(ScoringRule.builder().duration(saidaVtr).build())));
+            var saida = section.getSaidaVtr().getLast().getDuration();
+        }
+
+
+
+
+        return scoringService.calculateCollaboratorScore(
+                pc.getRole(),
+                pc.getMedicoRole().name(),
+                pc.getShiftHours() != null ? pc.getShiftHours().name() : "H12",
+                regulacao,
+                removidos,
+                pausas,
+                project.getParameters()
+        );
+
     }
 
-    public static long getLastDuration(ScoringSectionParams section, String tipo) {
-        if (section == null) return 0L;
-
-        List<ScoringRule> rules = switch (tipo) {
-            case "regulacao" -> section.getRegulacao();
-            case "regulacaoLider" -> section.getRegulacaoLider();
-            case "pausas" -> section.getPausas();
-            default -> Collections.emptyList();
-        };
-
-        return !rules.isEmpty() ? rules.getLast().getDuration() : 0L;
-    }
-
-    public static int getLastQuantity(ScoringSectionParams section, String tipo) {
-        if (section == null) return 0;
-
-        List<ScoringRule> rules = switch (tipo) {
-            case "removidos" -> section.getRemovidos();
-            default -> Collections.emptyList();
-        };
-
-        return !rules.isEmpty() ? rules.getLast().getQuantity() : 0;
-    }
 }

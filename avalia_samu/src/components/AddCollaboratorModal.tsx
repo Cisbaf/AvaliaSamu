@@ -244,13 +244,7 @@ export default function CollaboratorModal({
                                 </FormControl>
                             </>
                         )}
-                        <TextField label="Duração (s)" type="number" fullWidth margin="dense"
-                            value={formData.durationSeconds ?? ''} onChange={e => handleChange('durationSeconds', Number(e.target.value))} />
-                        <TextField label="Quantidade" type="number" fullWidth margin="dense"
-                            value={formData.quantity ?? ''} onChange={e => handleChange('quantity', Number(e.target.value))} />
-                        <TextField label="Pausa Mensal (s)" type="number" fullWidth margin="dense"
-                            value={formData.pausaMensalSeconds ?? ''}
-                            onChange={e => handleChange('pausaMensalSeconds', Number(e.target.value))} />
+
                     </div>
                 </DialogContent>
                 <DialogActions>
