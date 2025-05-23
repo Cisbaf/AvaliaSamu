@@ -22,22 +22,6 @@ export function Header() {
   } = useProjects();
 
 
-  const handleSave = async (data: Collaborator) => {
-    try {
-      await createGlobalCollaborator({
-        nome: data.nome,
-        role: data.role,
-        cpf: data.cpf,
-        pontuacao: data.pontuacao ?? 0,
-        idCallRote: data.idCallRote ?? '',
-        isGlobal: true,
-      });
-      setLoading(true);
-      setModalOpen(false);
-    } catch (error) {
-      console.error('Erro ao criar colaborador:', error);
-    }
-  };
 
   return (
     <header className={styles.header}>
