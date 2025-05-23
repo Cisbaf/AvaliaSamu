@@ -6,8 +6,6 @@ import com.avaliadados.model.params.ScoringSectionParams;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @Slf4j
@@ -23,8 +21,8 @@ public class ScoringService {
             Long pausaMensalSeconds,
             NestedScoringParameters params
     ) {
-        log.info("Iniciando cálculo de score para role={}, shiftHour={}, duration={}s, quantity={}, pausa={}s",
-                role, shiftHour, durationSeconds, quantity, pausaMensalSeconds);
+        log.info("Iniciando cálculo de score para role={}, medicRole={}, shiftHour={}, duration={}s, quantity={}, pausa={}s",
+                role, medicRole, shiftHour, durationSeconds, quantity, pausaMensalSeconds);
 
         if (params == null || role == null) {
             log.error("Parâmetros nulos: role={}, params={}", role, params);
@@ -35,163 +33,186 @@ public class ScoringService {
             case "TARM" -> params.getTarm();
             case "FROTA" -> params.getFrota();
             case "MEDICO" -> params.getMedico();
-            case "COLAB" -> params.getColab();
             default -> null;
         };
 
-        if (sectionParams == null) {
-            log.warn("Nenhuma configuração encontrada para roleType: {}", role);
-            return 0;
+        ScoringSectionParams colabParams = params.getColab();
+
+        if (sectionParams == null && !"COLAB".equals(role)) {
+            log.warn("Nenhuma configuração específica encontrada para roleType: {}", role);
+        }
+        if (colabParams == null) {
+            log.warn("Nenhuma configuração de COLAB (pausas) encontrada.");
         }
 
-        boolean shouldApplyMultiplier = "H24".equals(shiftHour) &&
-                ("MEDICO".equals(role) || "COLAB".equals(role));
+        boolean shouldApplyMultiplier = "H24".equals(shiftHour) && ("MEDICO".equals(role));
 
-        int total = switch (role) {
-            case "TARM" -> {
-                var tarm = calculateTarmScore(durationSeconds, quantity, pausaMensalSeconds, sectionParams);
-                var colab = calculateColb(pausaMensalSeconds, sectionParams, false);
-                yield tarm + colab;
-            }
-            case "FROTA" -> {
-                var frota = matchDurationRule(durationSeconds, sectionParams.getRegulacao(), false);
-                var colab = calculateColb(pausaMensalSeconds, sectionParams, false);
-                yield frota + colab;
-            }
-            case "MEDICO" -> {
-                var medico = calculateMedicoScore(medicRole, durationSeconds, quantity, sectionParams, shouldApplyMultiplier);
-                var colab = calculateColb(pausaMensalSeconds, sectionParams, shouldApplyMultiplier);
-                yield medico + colab;
-            }
-            default -> 0;
-        };
+        int totalScore = 0;
 
-        log.info("Score final para role {}: {} (shiftHour={})", role, total, shiftHour);
-        return total;
+        switch (role) {
+            case "TARM":
+                if (sectionParams != null) {
+                    totalScore += calculateTarmScore(durationSeconds, quantity, sectionParams);
+                } else {
+                    log.warn("Parâmetros TARM não encontrados para cálculo específico.");
+                }
+                break;
+            case "FROTA":
+                if (sectionParams != null) {
+                    totalScore += calculateFrotaScore(durationSeconds, pausaMensalSeconds, sectionParams);
+                } else {
+                    log.warn("Parâmetros FROTA não encontrados para cálculo específico.");
+                }
+                break;
+            case "MEDICO":
+                if (sectionParams != null) {
+                    totalScore += calculateMedicoScore(medicRole, durationSeconds, quantity, sectionParams, shouldApplyMultiplier);
+                } else {
+                    log.warn("Parâmetros MEDICO não encontrados para cálculo específico.");
+                }
+                break;
+            default:
+                log.warn("Role desconhecido ou não pontuável especificamente: {}", role);
+                break;
+        }
+
+        if (colabParams != null) {
+            totalScore += calculateColabPausasScore(pausaMensalSeconds, colabParams, shouldApplyMultiplier);
+        } else {
+            log.warn("Parâmetros COLAB (pausas) não encontrados, pontuação de pausa será 0.");
+        }
+
+        log.info("Score final para role {}: {} (shiftHour={})", role, totalScore, shiftHour);
+        return totalScore;
     }
 
-    private int calculateTarmScore(Long duration, Integer quantity, Long pausa, ScoringSectionParams params) {
-        log.info("Calculando TARM: duration={}s, quantity={}, pausa={}s", duration, quantity, pausa);
+    private int calculateTarmScore(Long duration, Integer quantity, ScoringSectionParams params) {
+        log.info("Calculando TARM: duration={}s, quantity={}", duration, quantity);
         int score = 0;
-
         if (quantity != null && quantity > 0 && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
             score += matchQuantityRule(quantity, params.getRemovidos());
         }
-
         if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
             score += matchDurationRule(duration, params.getRegulacao(), false);
         }
-
-        if (pausa != null && pausa > 0 && params.getPausas() != null && !params.getPausas().isEmpty()) {
-            score += matchDurationRule(pausa, params.getPausas(), false);
-        }
-
-        log.info("TARM partial score: {}", score);
+        log.info("TARM specific score: {}", score);
         return score;
     }
 
-    private int calculateColb(Long pausa, ScoringSectionParams params, boolean applyMultiplier) {
-        log.info("Calculando Colab: pausa={}s, applyMultiplier={}", pausa, applyMultiplier);
+    private int calculateFrotaScore(Long durationRegulacao, Long durationSaidaVtr, ScoringSectionParams params) {
+        log.info("Calculando FROTA: durationRegulacao={}s, durationSaidaVtr={}s", durationRegulacao, durationSaidaVtr);
         int score = 0;
-
-        if (pausa != null && pausa > 0 && params.getPausas() != null && !params.getPausas().isEmpty()) {
-            score += matchDurationRule(pausa, params.getPausas(), applyMultiplier);
+        if (durationRegulacao != null && durationRegulacao > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
+            score += matchDurationRule(durationRegulacao, params.getRegulacao(), false);
         }
-
+        if (durationSaidaVtr != null && durationSaidaVtr > 0 && params.getSaidaVtr() != null && !params.getSaidaVtr().isEmpty()) {
+            score += matchDurationRule(durationSaidaVtr, params.getSaidaVtr(), false);
+        }
+        log.info("FROTA specific score: {}", score);
         return score;
     }
 
-    private int calculateMedicoScore(String role, Long duration, Integer quantity, ScoringSectionParams params, boolean applyMultiplier) {
-        log.info("calculateMedicoScore: role='{}', duration={}s, quantity={}, applyMultiplier={}",
-                role, duration, quantity, applyMultiplier);
-
+    private int calculateColabPausasScore(Long pausaSeconds, ScoringSectionParams colabParams, boolean applyMultiplier) {
+        log.info("Calculando Pausas (COLAB): pausa={}s, applyMultiplier={}", pausaSeconds, applyMultiplier);
         int score = 0;
+        if (pausaSeconds != null && pausaSeconds > 0 && colabParams.getPausas() != null && !colabParams.getPausas().isEmpty()) {
+            score += matchDurationRule(pausaSeconds, colabParams.getPausas(), applyMultiplier);
+        }
+        log.info("COLAB Pausas score: {}", score);
+        return score;
+    }
 
+    private int calculateMedicoScore(String medicRole, Long duration, Integer quantity, ScoringSectionParams params, boolean applyMultiplier) {
+        log.info("calculateMedicoScore: medicRole=\"{}\", duration={}s, quantity={}, applyMultiplier={}",
+                medicRole, duration, quantity, applyMultiplier);
+        int score = 0;
         if (quantity != null && quantity > 0 && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
-            int qtyPoints = matchQuantityRule(quantity, params.getRemovidos());
-            score += qtyPoints;
+            score += matchQuantityRule(quantity, params.getRemovidos());
         }
-
-        if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty() && "REGULADOR".equals(role)) {
-            int durPoints = matchDurationRule(duration, params.getRegulacao(), applyMultiplier);
-            score += durPoints;
-        }else{
-            int durPoints = matchDurationRule(duration, params.getRegulacaoLider(), applyMultiplier);
-            score += durPoints;
+        List<ScoringRule> durationRules = null;
+        if ("LIDER".equals(medicRole)) {
+            if (params.getRegulacaoLider() != null && !params.getRegulacaoLider().isEmpty()) {
+                durationRules = params.getRegulacaoLider();
+                log.info("Usando regras de Regulação LIDER para médico {}", medicRole);
+            } else {
+                log.warn("Regras de Regulação LIDER não encontradas para médico {}", medicRole);
+            }
+        } else {
+            if (params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
+                durationRules = params.getRegulacao();
+                log.info("Usando regras de Regulação padrão para médico {}", medicRole);
+            } else {
+                log.warn("Regras de Regulação padrão não encontradas para médico {}", medicRole);
+            }
         }
-
-        log.info("calculateMedicoScore result: {}", score);
+        if (duration != null && duration > 0 && durationRules != null) {
+            score += matchDurationRule(duration, durationRules, applyMultiplier);
+        }
+        log.info("MEDICO specific score result: {}", score);
         return score;
     }
 
     private int matchQuantityRule(Integer value, List<ScoringRule> rules) {
-        if (value == null || value == 0 || rules == null || rules.isEmpty()) {
-            log.info("matchQuantityRule: valor zero ou nulo, retornando 0 pontos");
+        if (value == null || value <= 0 || rules == null || rules.isEmpty()) {
+            log.debug("matchQuantityRule: valor zero, nulo ou regras vazias. Retornando 0 pontos.");
             return 0;
         }
 
-        List<ScoringRule> validRules = rules.stream()
-                .filter(r -> r.getQuantity() != null && r.getPoints() != null)
+        List<ScoringRule> applicableRules = rules.stream()
+                .filter(r -> r.getQuantity() != null && r.getPoints() != null && value <= r.getQuantity())
                 .toList();
 
-        if (validRules.isEmpty()) {
+        if (applicableRules.isEmpty()) {
+            log.info("matchQuantityRule: Nenhuma regra aplicável encontrada para quantidade={}. Retornando 0 pontos.", value);
             return 0;
         }
 
-        return validRules.stream()
-                .filter(r -> value <= r.getQuantity())
-                .findFirst()
-                .map(ScoringRule::getPoints)
+        int maxPoints = applicableRules.stream()
+                .mapToInt(ScoringRule::getPoints)
+                .max()
                 .orElse(0);
+
+        log.info("matchQuantityRule: Maior pontuação encontrada para quantidade={} entre {} regras aplicáveis: {} pontos",
+                value, applicableRules.size(), maxPoints);
+        return maxPoints;
     }
 
     private int matchDurationRule(Long seconds, List<ScoringRule> rules, boolean applyMultiplier) {
-        if (seconds == null || seconds == 0 || rules == null || rules.isEmpty()) {
-            log.info("matchDurationRule: valor zero ou nulo, retornando 0 pontos");
+        if (seconds == null || seconds <= 0 || rules == null || rules.isEmpty()) {
+            log.debug("matchDurationRule: valor zero, nulo ou regras vazias. Retornando 0 pontos.");
             return 0;
         }
 
-        log.info("matchDurationRule: seconds={}s, applyMultiplier={}", seconds, applyMultiplier);
+        log.debug("matchDurationRule: seconds={}s, applyMultiplier={}", seconds, applyMultiplier);
 
-        List<ScoringRule> validRules = rules.stream()
+        List<ScoringRule> applicableRules = rules.stream()
                 .filter(r -> r.getDuration() != null && r.getPoints() != null)
+                .map(originalRule -> {
+                    ScoringRule adjustedRule = new ScoringRule();
+                    adjustedRule.setPoints(originalRule.getPoints());
+                    long duration = originalRule.getDuration();
+                    if (applyMultiplier) {
+                        duration = duration / 2;
+                        log.debug("Regra ajustada para H24: {}s -> {}s (Pontos: {})", originalRule.getDuration(), duration, adjustedRule.getPoints());
+                    }
+                    adjustedRule.setDuration(duration);
+                    return adjustedRule;
+                })
+                .filter(adjustedRule -> seconds <= adjustedRule.getDuration())
                 .toList();
 
-        if (validRules.isEmpty()) {
+        if (applicableRules.isEmpty()) {
+            log.info("matchDurationRule: Nenhuma regra aplicável encontrada para seconds={}. Retornando 0 pontos.", seconds);
             return 0;
         }
 
-        List<ScoringRule> adjustedRules = new ArrayList<>();
+        int maxPoints = applicableRules.stream()
+                .mapToInt(ScoringRule::getPoints)
+                .max()
+                .orElse(0);
 
-        for (ScoringRule originalRule : validRules) {
-            ScoringRule adjustedRule = new ScoringRule();
-            adjustedRule.setPoints(originalRule.getPoints());
-
-
-            if (applyMultiplier) {
-                long adjustedDuration = originalRule.getDuration() / 2;
-                adjustedRule.setDuration(adjustedDuration);
-                log.info("Regra ajustada para H24: {}s -> {}s", originalRule.getDuration(), adjustedDuration);
-            } else {
-                adjustedRule.setDuration(originalRule.getDuration());
-            }
-
-            adjustedRules.add(adjustedRule);
-        }
-
-        List<ScoringRule> sorted = adjustedRules.stream()
-                .sorted(Comparator.comparingLong(ScoringRule::getDuration))
-                .toList();
-
-        for (ScoringRule rule : sorted) {
-            if (seconds <= rule.getDuration()) {
-                log.info("Regra encontrada: {}s <= {}s -> {} pontos",
-                        seconds, rule.getDuration(), rule.getPoints());
-                return rule.getPoints();
-            }
-        }
-
-        log.info("Nenhuma regra satisfeita para seconds={}", seconds);
-        return 0;
+        log.info("matchDurationRule: Maior pontuação encontrada para seconds={} entre {} regras aplicáveis: {} pontos",
+                seconds, applicableRules.size(), maxPoints);
+        return maxPoints;
     }
 }

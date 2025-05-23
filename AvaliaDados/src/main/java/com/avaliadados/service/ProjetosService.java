@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static java.util.stream.Collectors.toList;
 
 @Service
 @RequiredArgsConstructor
@@ -71,7 +70,10 @@ public class ProjetosService {
 
         existing.setPausas(mergeRules(existing.getPausas(), updates.getPausas()));
         existing.setRegulacao(mergeRules(existing.getRegulacao(), updates.getRegulacao()));
-        existing.setRemovidos(mergeRules(existing.getRemovidos(), updates.getRemovidos()));
+
+        if (updates.getRemovidos() != null) {
+            existing.setRemovidos(new ArrayList<>(updates.getRemovidos()));
+        }
         existing.setSaidaVtr(mergeRules(existing.getSaidaVtr(), updates.getSaidaVtr()));
         existing.setRegulacaoLider(mergeRules(existing.getRegulacaoLider(), updates.getRegulacaoLider()));
 
