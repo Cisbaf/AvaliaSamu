@@ -231,28 +231,35 @@ export default function CollaboratorsPanel() {
 
           <div className={styles.actionButtons}>
             <Button
+              className={styles.chromeButton}
               variant="contained"
-              color="warning"
+              color="inherit"
               startIcon={<Add />}
               onClick={() => updateState({ isAddExistingModalOpen: true })}
+              sx={{ borderRadius: '20px' }}
               disabled={state.panelLoading}
             >
               Adicionar Existente
             </Button>
 
             <Button
+              className={styles.chromeButton}
+
               variant="contained"
-              color="warning"
+              color="inherit"
               onClick={() => updateState({ scoringParamsModalOpen: true })}
+              sx={{ borderRadius: '20px' }}
               disabled={state.panelLoading}
             >
               Configurar Parâmetros
             </Button>
 
             <Button
+              className={styles.chromeButton}
               variant="contained"
-              color="success"
+              color="inherit"
               component="label"
+              sx={{ borderRadius: '20px' }}
               disabled={state.loading}
             >
               {state.loading ? 'Enviando...' : 'Enviar Planilha'}
