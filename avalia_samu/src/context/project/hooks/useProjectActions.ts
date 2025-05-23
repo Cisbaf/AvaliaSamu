@@ -1,5 +1,5 @@
 import { addCollaboratorToProjectApi, createProjectApi, deleteProjectApi, fetchGlobalCollaboratorsApi, fetchProjectsApi, updateProjectApi } from "@/lib/api";
-import { Project } from "@/types/project";
+import { NestedScoringParameters, Project } from "@/types/project";
 import { useCallback, useEffect, useState } from "react";
 
 export function useProjectActions() {
@@ -12,32 +12,71 @@ export function useProjectActions() {
     }, []);
 
     const createProject = useCallback(
-        async (data: { name: string; month: string; parameters: Record<string, number> }) => {
+        async (data: { name: string; month: string; parameters: NestedScoringParameters }) => {
             const { data: newProject } = await createProjectApi(data);
 
             const { data: globals } = await fetchGlobalCollaboratorsApi();
 
-            await Promise.all(
-                globals.map(g =>
-                    addCollaboratorToProjectApi(
-                        newProject.id!,
-                        g.id!,
-                        g.role
-                    )
-                )
+            // Filtra e mapeia apenas colaboradores médicos completos
+            const medicosCompletos = globals.filter(g =>
+                g.role === 'MEDICO' &&
+                g.medicoRole &&
+                g.shiftHours
             );
 
-            await fetchProjects();
+            // Adiciona outros tipos de colaboradores
+            const outrosColabs = globals.filter(g => g.role !== 'MEDICO');
 
+            await Promise.all([
+                ...medicosCompletos.map(m =>
+                    addCollaboratorToProjectApi(
+                        newProject.id!,
+                        m.id!,
+                        m.role,
+                        m.durationSeconds,
+                        m.quantity,
+                        m.pausaMensalSeconds,
+                        undefined,
+                        m.medicoRole, // Garantido pelo filtro
+                        m.shiftHours   // Garantido pelo filtro
+                    )
+                ),
+                ...outrosColabs.map(o =>
+                    addCollaboratorToProjectApi(
+                        newProject.id!,
+                        o.id!,
+                        o.role,
+                        o.durationSeconds,
+                        o.quantity,
+                        o.pausaMensalSeconds
+                    )
+                )
+            ]);
+
+            await fetchProjects();
             return newProject;
         },
         [fetchProjects]
     );
 
     const updateProject = useCallback(
-        async (id: string, updates: { name?: string; month?: string; parameters?: Record<string, number> }) => {
+        async (id: string, updates: { name?: string; month?: string; parameters?: NestedScoringParameters }) => {
             await updateProjectApi(id, updates);
             await fetchProjects();
+        },
+        [fetchProjects]
+    );
+
+    const updateProjectParameters = useCallback(
+        async (projectId: string, parameters: NestedScoringParameters) => {
+            try {
+                const resp = await updateProjectApi(projectId, { parameters });
+                setProjects(prev =>
+                    prev.map(p => (p.id === projectId ? resp.data : p))
+                );
+            } finally {
+                await fetchProjects();
+            }
         },
         [fetchProjects]
     );
@@ -59,6 +98,6 @@ export function useProjectActions() {
         projects,
         selectedProject,
         setSelectedProject,
-        actions: { createProject, updateProject, deleteProject }
+        actions: { createProject, updateProject, deleteProject, updateProjectParameters },
     };
 }

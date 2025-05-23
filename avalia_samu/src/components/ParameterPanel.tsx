@@ -1,224 +1,272 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  Typography,
-  Select,
-  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
   TextField,
-  Input,
-  Button
+  Typography,
+  Tabs,
+  Tab,
+  Box
 } from '@mui/material';
-import { useProjects } from '@/context/ProjectContext';
-import styles from './styles/ParametersPanel.module.css';
-import api from '@/lib/api';
-import { Project } from '@/types/project';
+import { NestedScoringParameters, ScoringRule, ScoringSectionParams } from '@/types/project';
+import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
 
-const roleParametersConfig: Record<string, { key: string; label: string }[]> = {
-  TARM: [
-    { key: 'removidos', label: 'Quantidade de Removidos' },
-    { key: 'tempoRegulacao', label: 'Tempo de Regulação TARM (segundos)' },
-    { key: 'pausasMensal', label: 'Pausas Mensais (segundos)' },
-  ],
-  FROTA: [
-    { key: 'tempoSaidaVTR', label: 'Saída VTR - Empenho (segundos)' },
-    { key: 'tempoRegulacaoFrota', label: 'Tempo de Regulação Frota (segundos)' },
-    { key: 'pausasMensal', label: 'Pausas Mensais (segundos)' },
-  ],
-  MEDICO_REGULADOR_12H: [
-    { key: 'tempoRegulacaoMedica', label: 'Tempo de Regulação Médica (segundos)' },
-  ],
-  MEDICO_REGULADOR_24H: [
-    { key: 'tempoRegulacaoMedica', label: 'Tempo de Regulação Médica (segundos)' },
-  ],
-  MEDICO_LIDER_12H: [
-    { key: 'tempoRegulacaoLider', label: 'Tempo de Regulação Médica Líder (segundos)' },
-  ],
-  MEDICO_LIDER_24H: [
-    { key: 'tempoRegulacaoLider', label: 'Tempo de Regulação Médica Líder (segundos)' },
-  ],
-};
+interface ScoringParamsModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSave: (params: NestedScoringParameters) => void;
+  initialParams?: NestedScoringParameters;
+}
 
-export default function ParametersPanel() {
-  const {
-    projects,
-    selectedProject,
-    actions: { updateProject }
-  } = useProjects();
+function TabPanel({ children, value, index }: { children?: React.ReactNode; value: number; index: number }) {
+  return (
+    <div hidden={value !== index}>
+      {value === index && <Box sx={{ p: 2 }}>{children}</Box>}
+    </div>
+  );
+}
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [project, setProject] = useState<Project>();
-  const [selectedRole, setSelectedRole] = useState('TARM');
-  const [formValues, setFormValues] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(false);
+function a11yProps(idx: number) {
+  return { id: `tab-${idx}`, 'aria-controls': `tabpanel-${idx}` };
+}
 
-  const roles = useMemo(() => Object.keys(roleParametersConfig), []);
+export default function ScoringParamsModal({ open, onClose, onSave, initialParams }: ScoringParamsModalProps) {
+  const [tabIndex, setTabIndex] = useState(0);
+  const [params, setParams] = useState<NestedScoringParameters>(() =>
+    initialParams
+      ? JSON.parse(JSON.stringify(initialParams))
+      : JSON.parse(JSON.stringify(DEFAULT_PARAMS))
+  );
 
-  // carrega projeto atual
-  useEffect(() => {
-    if (selectedProject) {
-      const proj = projects.find(p => p.id === selectedProject);
-      setProject(proj);
-    }
-  }, [projects, selectedProject]);
-
-  // inicializa formValues quando muda role ou project
-  useEffect(() => {
-    if (!project) return;
-    const existingParams = project.parameters || {};
-    const initial: Record<string, number> = {};
-
-    roleParametersConfig[selectedRole]?.forEach(({ key }) => {
-      const paramKey = `${selectedRole}_${key}`;
-      initial[key] = existingParams[paramKey] ?? 0;
+  const handleParamChange = (
+    section: keyof NestedScoringParameters,
+    field: keyof ScoringSectionParams,
+    idx: number,
+    key: 'duration' | 'quantity' | 'points',
+    val: string
+  ) => {
+    setParams(prev => {
+      const next = JSON.parse(JSON.stringify(prev)) as NestedScoringParameters;
+      const rule = (next[section][field] as ScoringRule[])[idx];
+      if (key === 'points' || key === 'quantity') rule[key] = Number(val);
+      else if (key === 'duration') {
+        const parts = val.split(':').map(v => Number(v));
+        const seconds = (parts[0]) * 3600 + (parts[1]) * 60 + (parts[2]);
+        rule.duration = seconds;
+      }
+      return next;
     });
-
-    setFormValues(initial);
-  }, [project, selectedRole]);
-
-  const handleInputChange = (key: string, value: string) => {
-    const num = Number(value);
-    if (isNaN(num)) return;
-    setFormValues(prev => ({ ...prev, [key]: num }));
   };
 
-
-  const handleFileUpload = async () => {
-    if (!selectedFile || !selectedProject) {
-      alert('Selecione um arquivo e um projeto primeiro!');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append('arquivo', selectedFile);
-
-      await api.post("/" + project?.id + '/processar', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      alert('Planilha enviada e processada com sucesso!');
-    } catch (error) {
-      console.error('Erro ao enviar planilha:', error);
-      alert('Erro ao enviar ou processar a planilha.');
-    } finally {
-      setLoading(false);
-    }
+  const handleAddRule = (section: keyof NestedScoringParameters, field: keyof ScoringSectionParams) => {
+    setParams(prev => {
+      const next = JSON.parse(JSON.stringify(prev)) as NestedScoringParameters;
+      const arr = next[section][field] as ScoringRule[];
+      arr.push({ ...arr[arr.length - 1] });
+      return next;
+    });
   };
 
-  const normalizeParams = (params: Record<string, number>) => {
-    return Object.fromEntries(
-      Object.entries(params).map(([key, value]) => [
-        key.replace('.', '_'),
-        value
-      ])
+  const handleRemoveRule = (
+    section: keyof NestedScoringParameters,
+    field: keyof ScoringSectionParams,
+    idx: number
+  ) => {
+    setParams(prev => {
+      const next = JSON.parse(JSON.stringify(prev)) as NestedScoringParameters;
+      const arr = next[section][field] as ScoringRule[];
+      if (arr.length > 1) arr.splice(idx, 1);
+      return next;
+    });
+  };
+
+  function timeStringToSeconds(val: string): number {
+    const [h = "0", m = "0", s = "0"] = val.split(":");
+    return Number(h) * 3600 + Number(m) * 60 + Number(s);
+  }
+
+  function normalizeParams(params: NestedScoringParameters): NestedScoringParameters {
+    const sections: (keyof NestedScoringParameters)[] = ["colab", "tarm", "frota", "medico"];
+    const normalized = JSON.parse(JSON.stringify(params)) as NestedScoringParameters;
+
+    for (const sec of sections) {
+      const fields: (keyof ScoringSectionParams)[] = ["removidos", "regulacao", "pausas", "saidaVtr", "regulacaoLider"];
+
+      for (const field of fields) {
+        if (!normalized[sec]) {
+          normalized[sec] = {};
+        }
+
+        if (!normalized[sec][field]) {
+          normalized[sec][field] = [];
+        }
+
+        const rules = normalized[sec][field] as ScoringRule[] | undefined;
+
+
+        if (Array.isArray(rules) && rules.length > 0) {
+          normalized[sec][field] = rules.map(r => ({
+            quantity: r.quantity !== undefined ? r.quantity : undefined,
+            points: r.points !== undefined ? r.points : 0,
+            duration: r.duration !== undefined
+              ? (typeof r.duration === "string" ? timeStringToSeconds(r.duration) : r.duration)
+              : 0
+          }));
+        }
+      }
+    }
+
+    return normalized;
+  }
+
+  const renderTable = (
+    section: keyof NestedScoringParameters,
+    field: keyof ScoringSectionParams,
+    columns: string[]
+  ) => {
+    const arr = params[section][field] as ScoringRule[];
+    function formatTime(seconds: number) {
+      const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+      const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+      const s = (seconds % 60).toString().padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+
+
+    return (
+      <>
+        <TableContainer component={Paper} sx={{ my: 1 }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                {columns.map(c => (
+                  <TableCell key={c}>{c}</TableCell>
+                ))}
+                <TableCell>Ações</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {arr.map((r, i) => (
+                <TableRow key={i}>
+                  {columns.map(c => {
+                    const isQty = c.toLowerCase().includes('quantidade');
+                    const isDur = c.toLowerCase().includes('duração');
+                    const fieldKey: 'quantity' | 'duration' | 'points' = isQty
+                      ? 'quantity'
+                      : isDur
+                        ? 'duration'
+                        : 'points';
+                    const val = (r as any)[fieldKey];
+                    return (
+                      <TableCell key={c}>
+                        <TextField
+                          size="small"
+                          type={isDur ? 'time' : 'number'}
+                          inputProps={isDur ? { step: 1 } : {}}
+                          value={isDur && typeof val === 'number' ? formatTime(val) : String(val)}
+                          onChange={e =>
+                            handleParamChange(section, field, i, fieldKey, e.target.value)
+                          }
+                        />
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell>
+                    <Button
+                      size="small"
+                      onClick={() => handleRemoveRule(section, field, i)}
+                    >
+                      Remover
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <Button onClick={() => handleAddRule(section, field)} sx={{ mb: 2 }}>
+          + Adicionar Regra
+        </Button>
+      </>
     );
   };
 
-
-  const handleSubmit = async () => {
-    if (!project || !selectedProject) return;
-    setLoading(true);
-
-    try {
-      const flat: Record<string, number> = {};
-      Object.entries(formValues).forEach(([key, value]) => {
-        flat[`${selectedRole}_${key}`] = value;
-      });
-
-      const normalizedExisting = normalizeParams(project.parameters || {});
-      const newParameters = { ...normalizedExisting, ...flat };
-
-
-      await updateProject(selectedProject, { parameters: newParameters });
-      alert('Parâmetros salvos com sucesso!');
-    } catch (err) {
-      console.error('Erro ao salvar parâmetros:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className={styles.panel}>
-      <Typography variant="h4" className={styles.title}>
-        Parâmetros do Projeto
-      </Typography>
-
-      <div className={styles.uploadSection}>
-        <Input
-          type="file"
-          inputProps={{ accept: '.xlsx, .xls' }}
-          onChange={(e) => setSelectedFile((e.target as HTMLInputElement).files?.[0] || null)}
-          style={{ display: 'none' }}
-          id="file-upload"
-        />
-
-        <label htmlFor="file-upload">
-          <Button variant="contained" component="span" color="primary">
-            Selecionar Arquivo
-          </Button>
-        </label>
-
-        {selectedFile && (
-          <>
-            <Typography variant="caption" sx={{ ml: 2 }}>{selectedFile.name}</Typography>
-            <Button
-              variant="contained"
-              color="success"
-              onClick={handleFileUpload}
-              disabled={loading}
-              sx={{ ml: 2 }}
-            >
-              {loading ? 'Enviando...' : 'Enviar Planilha'}
-            </Button>
-          </>
-        )}
-      </div>
-
-      <div className={styles.inputContainer}>
-        <Typography>Função:</Typography>
-        <Select
-          fullWidth
-          size="small"
-          value={selectedRole}
-          onChange={e => setSelectedRole(e.target.value)}
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+      <DialogTitle>Configuração de Parâmetros de Pontuação</DialogTitle>
+      <DialogContent>
+        <Tabs
+          value={tabIndex}
+          onChange={(_, v) => setTabIndex(v)}
+          sx={{ mb: 2 }}
         >
-          {roles.map(role => (
-            <MenuItem key={role} value={role}>
-              {role}
-            </MenuItem>
-          ))}
-        </Select>
-      </div>
+          <Tab label="COLAB" {...a11yProps(0)} />
+          <Tab label="TARM" {...a11yProps(1)} />
+          <Tab label="FROTA" {...a11yProps(2)} />
+          <Tab label="MÉDICO" {...a11yProps(3)} />
 
-      {roleParametersConfig[selectedRole]?.map(({ key, label }) => (
-        <div key={key} className={styles.inputContainer}>
-          <TextField
-            type="number"
-            size="small"
-            variant="outlined"
-            label={label}
-            fullWidth
-            value={formValues[key] ?? ''}
-            onChange={e => handleInputChange(key, e.target.value)}
-          />
-        </div>
-      ))}
+        </Tabs>
+        <TabPanel value={tabIndex} index={0}>
+          <Typography variant="subtitle1">Pausas Mensais</Typography>
+          {renderTable('colab', 'pausas', ['Duração', 'Pontuação'])}
+        </TabPanel>
 
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleSubmit}
-        disabled={loading}
-        sx={{ mt: 2 }}
-      >
-        {loading ? 'Salvando...' : 'Salvar Parâmetros'}
-      </Button>
-    </div>
+        <TabPanel value={tabIndex} index={1}>
+          <Typography variant="subtitle1">Removidos TARM</Typography>
+          {renderTable('tarm', 'removidos', ['Quantidade', 'Pontuação'])}
+
+          <Typography variant="subtitle1">Tempo de Regulação TARM</Typography>
+          {renderTable('tarm', 'regulacao', ['Duração', 'Pontuação'])}
+
+
+        </TabPanel>
+        <TabPanel value={tabIndex} index={2}>
+          <Typography variant="subtitle1">Saída VTR</Typography>
+          {renderTable('frota', 'saidaVtr', ['Duração', 'Pontuação'])}
+
+          <Typography variant="subtitle1">Tempo de Regulação Frota</Typography>
+          {renderTable('frota', 'regulacao', ['Duração', 'Pontuação'])}
+        </TabPanel>
+        <TabPanel value={tabIndex} index={3}>
+          <Typography variant="subtitle1">Removidos Médico</Typography>
+          {renderTable('medico', 'removidos', ['Quantidade', 'Pontuação'])}
+
+          <Typography variant="subtitle1">Tempo de Regulação Médica</Typography>
+          {renderTable('medico', 'regulacao', ['Duração', 'Pontuação'])}
+
+          <Typography variant="subtitle1">Tempo de Regulação Líder</Typography>
+          {renderTable('medico', 'regulacaoLider', ['Duração', 'Pontuação'])}
+        </TabPanel>
+
+
+
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button
+          variant="contained"
+          onClick={() => {
+            const clean = normalizeParams(params);
+            console.log("Dados que serão salvos:", clean);
+            onSave(clean);
+          }}
+        >
+          Salvar
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

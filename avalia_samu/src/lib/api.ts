@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { GlobalCollaborator, Project, ProjectCollaborator } from '@/types/project';
+import { GlobalCollaborator, Project, ProjectCollaborator, NestedScoringParameters, UpdateProjectCollabDto, MedicoRole, ShiftHours } from '@/types/project';
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL + '/api',
@@ -7,16 +7,17 @@ export const api = axios.create({
 });
 
 export const fetchProjectsApi = () => api.get<Project[]>('/projetos');
-export const createProjectApi = (data: { name: string; month: string; parameters: Record<string, number> }) =>
+export const createProjectApi = (data: { name: string; month: string; parameters: NestedScoringParameters }) =>
   api.post<Project>('/projetos', data);
 
-export const updateProjectApi = (id: string, updates: { name?: string; month?: string; parameters?: Record<string, number> }) =>
+export const updateProjectApi = (id: string, updates: { name?: string; month?: string; parameters?: NestedScoringParameters }) =>
   api.put<Project>(`/projetos/${id}`, updates);
 export const deleteProjectApi = (id: string) =>
   api.delete<void>(`/projetos/${id}`);
 
 export const fetchGlobalCollaboratorsApi = () =>
   api.get<GlobalCollaborator[]>('/collaborator');
+
 export async function createGlobalCollaboratorApi(
   data: Omit<GlobalCollaborator, 'id'>
 ): Promise<GlobalCollaborator> {
@@ -29,7 +30,7 @@ export const deleteGlobalCollaboratorApi = (id: string) =>
   api.delete<void>(`/collaborator/${id}`);
 
 export const fetchProjectCollaboratorsApi = (projectId: string) =>
-  api.get<ProjectCollaborator[]>(`/projetos/${projectId}/collaborators`);
+  api.get<ProjectCollaborator[]>(`/projetos/${projectId}/collaborator`);
 
 export const addCollaboratorToProjectApi = (
   projectId: string,
@@ -38,31 +39,31 @@ export const addCollaboratorToProjectApi = (
   durationSeconds?: number,
   quantity?: number,
   pausaMensalSeconds?: number,
-  parametros?: Record<string, number>
+  parametros?: Record<string, number>,
+  medicoRole?: MedicoRole,
+  shiftHours?: ShiftHours
 ) =>
   api.post<void>(
-    `/projetos/${projectId}/collaborators`,
-    { collaboratorId, role, durationSeconds, quantity, pausaMensalSeconds, parametros } // Include all parameters
+    `/projetos/${projectId}/collaborator`,
+    { collaboratorId, role, durationSeconds, quantity, pausaMensalSeconds, parametros, medicoRole, shiftHours } // Include all parameters
   );
+
 
 
 export const updateProjectCollaboratorApi = (
   projectId: string,
-  projectCollabId: string,
-  role: string,
-  durationSeconds?: number,
-  quantity?: number,
-  pausaMensalSeconds?: number,
-  parametros?: Record<string, number>
+  collaboratorId: string,
+  dto: UpdateProjectCollabDto,
+  wasEdited: boolean,
 ) =>
   api.put<void>(
-    `/projetos/${projectId}/collaborators/${projectCollabId}`,
-    { role, durationSeconds, quantity, pausaMensalSeconds, parametros }  // Include all parameters
+    `/projetos/${projectId}/collaborator/${collaboratorId}?wasEdited=${wasEdited}`,
+    dto
   );
 export const deleteProjectCollaboratorApi = (
   projectId: string,
   projectCollabId: string
 ) =>
-  api.delete<void>(`/projetos/${projectId}/collaborators/${projectCollabId}`);
+  api.delete<void>(`/projetos/${projectId}/collaborator/${projectCollabId}`);
 
 export default api;

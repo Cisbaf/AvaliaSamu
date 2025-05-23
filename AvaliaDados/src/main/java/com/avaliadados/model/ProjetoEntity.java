@@ -1,22 +1,21 @@
 package com.avaliadados.model;
 
-import com.avaliadados.model.DTO.ProjectCollaborator;
+import com.avaliadados.model.params.NestedScoringParameters;
 import jakarta.persistence.Id;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Document
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString
 public class ProjetoEntity {
     @Id
     private String id;
@@ -24,8 +23,10 @@ public class ProjetoEntity {
     private String month;
 
     private List<ProjectCollaborator> collaborators;
-    private Map<String, Integer> parameters = new HashMap<>();
+
+    private NestedScoringParameters parameters;
 
     private Instant createdAt;
     private Instant updatedAt;
+
 }

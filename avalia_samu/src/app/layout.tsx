@@ -1,4 +1,3 @@
-// src/app/layout.tsx
 'use client';
 import { ThemeProvider } from '@mui/material/styles';
 import { ProjectProvider } from '../context/ProjectContext';
@@ -17,7 +16,7 @@ export default function RootLayout({
         <ThemeProvider theme={theme}>
           <ProjectProvider>
             <main >
-              <Header/>
+              <Header />
               {children}
             </main>
           </ProjectProvider>

@@ -4,8 +4,6 @@ import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorRequest;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.MedicoEntity;
-import com.avaliadados.model.enums.MedicoRole;
-import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.repository.CollaboratorRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -44,7 +42,7 @@ public class CollaboratorsService {
     }
 
     public List<CollaboratorEntity> findByName(String nome) {
-        return collaboratorRepository.findByNomeApproximate(nome); // Supondo que este método exista
+        return collaboratorRepository.findByNomeApproximate(nome);
     }
 
     public void deleteById(String id) {
@@ -52,7 +50,7 @@ public class CollaboratorsService {
                 .ifPresentOrElse(
                         entity -> {
                             collaboratorRepository.delete(entity);
-                            collaboratorRepository.flush(); // Para garantir a deleção imediata se necessário
+                            collaboratorRepository.flush();
                             log.info("Colaborador com ID {} deletado.", id);
                         },
                         () -> {
@@ -71,7 +69,6 @@ public class CollaboratorsService {
             return handleRoleChange(existing, request);
         }
 
-        // Atualiza campos específicos de médico
         if (existing instanceof MedicoEntity medicoEntity) {
             updateMedicoFields(medicoEntity, request);
         }
@@ -81,9 +78,8 @@ public class CollaboratorsService {
     }
 
     private void updateMedicoFields(MedicoEntity entity, CollaboratorRequest request) {
-        String[] parts = request.role().split("_");
-        entity.setMedicoRole(MedicoRole.valueOf(parts[1]));
-        entity.setShiftHours(ShiftHours.valueOf(parts[2]));
+        entity.setMedicoRole(request.medicoRole());
+        entity.setShiftHours(request.shiftHours());
     }
 
     private void updateCommonFields(CollaboratorEntity entity, CollaboratorRequest request) {

@@ -2,6 +2,7 @@ package com.avaliadados.model.DTO;
 
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
+import com.mongodb.lang.Nullable;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
@@ -25,7 +26,9 @@ public record CollaboratorRequest(
         @NotBlank
         String role,
 
+        @Nullable
         MedicoRole medicoRole,
+        @Nullable
         ShiftHours shiftHours
 
 )

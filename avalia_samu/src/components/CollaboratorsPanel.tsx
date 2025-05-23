@@ -2,234 +2,363 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  TextField,
-  Select,
-  MenuItem,
-  IconButton,
-  Button,
-  CircularProgress
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  TextField, Select, MenuItem, IconButton, Button, CircularProgress, Alert
 } from '@mui/material';
-import { Edit, Delete, Add } from '@mui/icons-material';
+import { Edit, Delete, Add, EditNote } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
-import { Collaborator, GlobalCollaborator } from '@/types/project';
+import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ShiftHours } from '@/types/project';
 import CollaboratorModal from './AddCollaboratorModal';
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
+import ScoringParamsModal from './ParameterPanel';
+import DataForPointsModal from './DataForPointsModal';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
-type CombinedCollaboratorData = GlobalCollaborator & { projectId?: string };
+export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
+  isGlobal: boolean;
+  projectId?: string;
+  medicoRole?: MedicoRole;
+  shiftHours?: ShiftHours;
+};
 
 export default function CollaboratorsPanel() {
   const {
-    projects,
     selectedProject,
+    projects,
     projectCollaborators,
     globalCollaborators,
-    actions: {
-      addCollaboratorToProject,
-      deleteCollaboratorFromProject,
-      fetchProjectCollaborators,
-      updateGlobalCollaborator,
-    }
+    actions: { addCollaboratorToProject, deleteCollaboratorFromProject, fetchProjectCollaborators, updateProjectParameters }
   } = useProjects();
 
-  const [panelLoading, setPanelLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterRole, setFilterRole] = useState<'all' | string>('all');
-  const [roles, setRoles] = useState<string[]>([]);
-  const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<GlobalCollaborator | undefined>(undefined);
-  const [isAddExistingModalOpen, setIsAddExistingModalOpen] = useState(false);
+  // Estados
+  const [state, setState] = useState({
+    searchTerm: '',
+    filterRole: 'all' as 'all' | string,
+    roles: [] as string[],
+    error: null as string | null,
+    loading: false,
+    panelLoading: false,
+    scoringParamsModalOpen: false,
+    isAddExistingModalOpen: false,
+  });
 
+  const [scoringParams, setScoringParams] = useState<NestedScoringParameters>();
+  const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>();
+  const [editingCollaboratorPointsData, setEditingCollaboratorPointsData] = useState<CombinedCollaboratorData | undefined>();
+
+  // Atualização de estado simplificada
+  const updateState = (newState: Partial<typeof state>) => setState(prev => ({ ...prev, ...newState }));
+
+  // Efeitos
   useEffect(() => {
     if (selectedProject) {
-      fetchProjectCollaborators(selectedProject);
+      fetchProjectCollaborators(selectedProject)
+        .catch(() => updateState({ error: 'Falha ao carregar colaboradores do projeto' }));
     }
   }, [selectedProject, fetchProjectCollaborators]);
 
   useEffect(() => {
-    const rolesInProject = projectCollaborators[selectedProject || '']?.map(c => c.role) || [];
-    setRoles(Array.from(new Set(rolesInProject)).filter(role => typeof role === 'string') as string[]);
+    if (selectedProject) {
+      const inProject = projectCollaborators[selectedProject] || [];
+      updateState({ roles: Array.from(new Set(inProject.map(c => c.role))) });
+    }
   }, [projectCollaborators, selectedProject]);
 
-  const selectedProjectData = useMemo(() => {
-    return selectedProject ? projects.find(p => p.id === selectedProject) : null;
-  }, [projects, selectedProject]);
+  // Dados processados
+  const combinedCollaborators = useMemo(() => {
+    if (!selectedProject) return [];
 
-  const combinedProjectGlobalCollaborators: CombinedCollaboratorData[] = useMemo(() => {
-    const projectCollabs = projectCollaborators[selectedProject || ''] || [];
-    return projectCollabs.map(pc => {
-      const globalCollab = globalCollaborators?.find(gc => gc.id === pc.id);
+    return (projectCollaborators[selectedProject] || []).map(pc => {
+      const gc = globalCollaborators?.find(g => g.id === pc.id);
       return {
         id: pc.id,
-        nome: globalCollab?.nome ?? 'Nome Desconhecido',
-        cpf: globalCollab?.cpf ?? '',
-        idCallRote: globalCollab?.idCallRote ?? '',
+        nome: pc?.nome || gc?.nome || '—',
+        cpf: gc?.cpf || '',
+        idCallRote: gc?.idCallRote || '',
         role: pc.role,
-        pontuacao: pc?.pontuacao,
-        isGlobal: globalCollab?.isGlobal ?? false,
-        projectId: selectedProject || undefined,
-      } as CombinedCollaboratorData;
-    });
-  }, [projectCollaborators, selectedProject, globalCollaborators]);
+        pontuacao: pc.pontuacao,
+        isGlobal: gc?.isGlobal ?? false,
+        projectId: selectedProject,
 
-  const filteredCollaborators = useMemo(() => {
-    return combinedProjectGlobalCollaborators.filter(c => {
-      const matchesName = c.nome.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRole = filterRole === 'all' || (typeof c.role === 'string' && c.role === filterRole);
-      return matchesName && matchesRole;
+        quantity: pc.quantity,
+        duration: pc.durationSeconds,
+        pausaMensal: pc.pausaMensalSeconds,
+        saidaVtr: pc.saidaVtr,
+
+        medicoRole: pc.medicoRole || gc?.medicoRole,
+        shiftHours: pc.shiftHours || gc?.shiftHours,
+
+      };
     });
-  }, [combinedProjectGlobalCollaborators, searchTerm, filterRole]);
+  }, [projectCollaborators, globalCollaborators, selectedProject]);
+
+  const filteredCollaborators = useMemo(() =>
+    combinedCollaborators.filter(c =>
+      c.nome.toLowerCase().includes(state.searchTerm.toLowerCase()) &&
+      (state.filterRole === 'all' || c.role === state.filterRole)
+    ),
+    [combinedCollaborators, state.searchTerm, state.filterRole]);
 
   const availableCollaborators = useMemo(() => {
     if (!globalCollaborators || !selectedProject) return [];
-    const projectCollabIds = new Set((projectCollaborators[selectedProject] || []).map(pc => pc.id));
-    return globalCollaborators.filter(gc => !projectCollabIds.has(gc.id));
-  }, [globalCollaborators, selectedProject, projectCollaborators]);
+    const inProjectIds = new Set((projectCollaborators[selectedProject] || []).map(c => c.id));
+    return globalCollaborators.filter(gc => !inProjectIds.has(gc.id));
+  }, [globalCollaborators, projectCollaborators, selectedProject]);
 
-  const handleDelete = useCallback(async (collaboratorId: string) => {
+  // Handlers
+  const handleDelete = useCallback(async (id: string) => {
     if (!selectedProject) return;
-    setPanelLoading(true);
+
+    updateState({ panelLoading: true, error: null });
+
     try {
-      await deleteCollaboratorFromProject(selectedProject, collaboratorId);
+      await deleteCollaboratorFromProject(selectedProject, id);
       await fetchProjectCollaborators(selectedProject);
-    } catch (error) {
-      console.error('Erro ao remover colaborador do projeto:', error);
+    } catch (err: any) {
+      updateState({ error: err.response?.data?.message || 'Falha ao excluir colaborador' });
     } finally {
-      setPanelLoading(false);
+      updateState({ panelLoading: false });
     }
-  }, [deleteCollaboratorFromProject, selectedProject, fetchProjectCollaborators]);
+  }, [selectedProject, deleteCollaboratorFromProject, fetchProjectCollaborators]);
 
-  const handleOpenAddExistingModal = useCallback(() => {
-    setIsAddExistingModalOpen(true);
-  }, []);
-
-  const handleCloseAddExistingModal = useCallback(() => {
-    setIsAddExistingModalOpen(false);
-  }, []);
-
-  const handleAddExistingCollaboratorToProject = useCallback(async (collaboratorId: string, role: string) => {
+  const handleAddExisting = useCallback(async (id: string, role: string, medicoRole?: MedicoRole, shiftHours?: ShiftHours) => {
     if (!selectedProject) return;
-    setPanelLoading(true);
+
+    updateState({ panelLoading: true, error: null });
+
     try {
-      await addCollaboratorToProject(selectedProject, { id: collaboratorId, role });
+      const globalCollab = globalCollaborators?.find(gc => gc.id === id);
+      if (!globalCollab) throw new Error('Colaborador global não encontrado');
+
+      if (role === 'MEDICO' && (!medicoRole || !shiftHours)) {
+        throw new Error('Para a função MEDICO, o Papel Médico e o Turno são obrigatórios.');
+      }
+
+      await addCollaboratorToProject(selectedProject, {
+        id, nome: globalCollab.nome, role,
+        medicoRole: medicoRole as MedicoRole,
+        shiftHours: shiftHours as ShiftHours
+      });
+
       await fetchProjectCollaborators(selectedProject);
-      handleCloseAddExistingModal();
-    } catch (error) {
-      console.error('Erro ao adicionar colaborador existente:', error);
+      updateState({ isAddExistingModalOpen: false });
+    } catch (err: any) {
+      updateState({ error: err.response?.data?.message || err.message || 'Falha ao adicionar colaborador' });
     } finally {
-      setPanelLoading(false);
+      updateState({ panelLoading: false });
     }
-  }, [selectedProject, addCollaboratorToProject, fetchProjectCollaborators, handleCloseAddExistingModal]);
+  }, [selectedProject, addCollaboratorToProject, fetchProjectCollaborators, globalCollaborators]);
 
-  const handleOpenEditModal = useCallback((collab: CombinedCollaboratorData) => {
-    const initialData: GlobalCollaborator = {
-      id: collab.id,
-      nome: collab.nome,
-      cpf: collab.cpf,
-      idCallRote: collab.idCallRote,
-      role: collab.role,
-      pontuacao: collab.pontuacao,
-      isGlobal: collab.isGlobal,
-    };
-    setEditingCollaboratorInitialData(initialData);
-  }, []);
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length || !selectedProject) return;
 
-  const handleCloseEditModal = useCallback(() => {
-    setEditingCollaboratorInitialData(undefined);
-  }, []);
+    updateState({ loading: true, error: null });
 
-  const handleEditModalSuccess = useCallback(async () => {
+    const formData = new FormData();
+    formData.append('arquivo', e.target.files[0]);
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/${selectedProject}/processar`, {
+        method: 'POST', body: formData
+      });
+
+      if (!response.ok) throw new Error(response.statusText);
+      await fetchProjectCollaborators(selectedProject);
+    } catch (err: any) {
+      updateState({ error: err.message || 'Falha ao processar planilha' });
+    } finally {
+      updateState({ loading: false });
+    }
+  };
+
+  const refreshCollaborators = async () => {
     if (selectedProject) {
-      await fetchProjectCollaborators(selectedProject);
+      try {
+        await fetchProjectCollaborators(selectedProject);
+      } catch {
+        updateState({ error: 'Falha ao atualizar colaboradores' });
+      }
     }
-    handleCloseEditModal();
-  }, [selectedProject, fetchProjectCollaborators, handleCloseEditModal]);
+  };
 
-  const isTableLoading = selectedProject ? !projectCollaborators[selectedProject] : false;
+  // Handlers para modais
+  const handleSaveParameters = async (params: NestedScoringParameters) => {
+    if (!selectedProject) return;
+
+    updateState({ panelLoading: true, error: null });
+
+    try {
+      await updateProjectParameters(selectedProject, params);
+      await fetchProjectCollaborators(selectedProject);
+      updateState({ scoringParamsModalOpen: false });
+    } catch (err: any) {
+      updateState({ error: err.response?.data?.message || 'Falha ao salvar parâmetros' });
+    } finally {
+      updateState({ panelLoading: false });
+    }
+  };
+
+  const exportData = useMemo(() => {
+    return filteredCollaborators.map(c => ({
+      Nome: c.nome,
+      Função:
+        c.role === 'MEDICO' && c.medicoRole && c.shiftHours
+          ? `${c.role} (${c.medicoRole} - ${c.shiftHours})`
+          : c.role,
+      Pontuação: c.pontuacao,
+    }));
+  }, [filteredCollaborators]);
+
+
+  const currentProject = projects.find(p => p.id === selectedProject);
+
+
+  const handleExport = () => {
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Colaboradores');
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const fileName = currentProject ? `${currentProject.name}_${currentProject.month}_colaboradores.xlsx` : 'colaboradores.xlsx';
+    saveAs(new Blob([wbout]), fileName);
+  };
+
+  const isTableLoading = selectedProject && !projectCollaborators[selectedProject];
 
   return (
     <div className={styles.panel}>
-      {!selectedProject && <p>Selecione um projeto para ver os colaboradores.</p>}
-
-      {selectedProject && (
+      {!selectedProject ? <p>Selecione um projeto.</p> : (
         <>
+          {state.error && (
+            <Alert severity="error" onClose={() => updateState({ error: null })} sx={{ mb: 2 }}>
+              {state.error}
+            </Alert>
+          )}
+
           <div className={styles.filters}>
             <TextField
-              placeholder="Pesquisar por nome"
+              placeholder="Pesquisar"
               size="small"
               fullWidth
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
+              value={state.searchTerm}
+              onChange={e => updateState({ searchTerm: e.target.value, error: null })}
             />
+
             <Select
-              value={filterRole}
+              value={state.filterRole}
               size="small"
-              onChange={e => setFilterRole(e.target.value)}
-              className={styles.roleSelect}
-              displayEmpty
+              onChange={e => updateState({ filterRole: e.target.value as string, error: null })}
             >
-              <MenuItem value="all">Todas as funções</MenuItem>
-              {roles.map(r => (
-                <MenuItem key={r} value={r}>{r}</MenuItem>
+              <MenuItem value="all">Todas funções</MenuItem>
+              {state.roles.map(role => (
+                <MenuItem key={role} value={role}>{role}</MenuItem>
               ))}
             </Select>
           </div>
 
-          <Button
-            variant="contained"
-            color="warning"
-            onClick={handleOpenAddExistingModal}
-            className={styles.addExistingButton}
-            startIcon={<Add />}
-            style={{ marginBottom: '16px', borderRadius: '20px' }}
-            disabled={panelLoading}
-          >
-            {panelLoading ? <CircularProgress size={24} /> : 'Adicionar Existente'}
-          </Button>
+          <div className={styles.actionButtons}>
+            <Button
+              className={styles.chromeButton}
+              variant="contained"
+              color="warning"
+              startIcon={<Add />}
+              onClick={() => updateState({ isAddExistingModalOpen: true })}
+              sx={{ borderRadius: '20px' }}
+              disabled={state.panelLoading}
+            >
+              Adicionar Existente
+            </Button>
+
+            <Button
+              className={styles.chromeButton}
+
+              variant="contained"
+              color="warning"
+              onClick={() => updateState({ scoringParamsModalOpen: true })}
+              sx={{ borderRadius: '20px' }}
+              disabled={state.panelLoading}
+            >
+              Configurar Parâmetros
+            </Button>
+
+            <Button
+              className={styles.chromeButton}
+              variant="contained"
+              color="success"
+              component="label"
+              sx={{ borderRadius: '20px' }}
+              disabled={state.loading}
+            >
+              {state.loading ? 'Enviando...' : 'Enviar Planilha'}
+              <input type="file" hidden accept=".xlsx,.xls" onChange={handleUpload} />
+            </Button>
+            <Button
+              className={styles.chromeButton}
+              variant="contained"
+              color="success"
+              component="label"
+              sx={{ borderRadius: '20px' }}
+              disabled={state.loading}
+              onClick={handleExport}
+            >
+              Exportar Excel
+            </Button>
+          </div>
 
           <TableContainer component={Paper} className={styles.tableContainer}>
-            <Table stickyHeader aria-label="project collaborators table">
+            <Table stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Nome</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Função</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Pontuação</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Ações</TableCell>
+                  <TableCell>Nome</TableCell>
+                  <TableCell>Função</TableCell>
+                  <TableCell>Pontuação</TableCell>
+                  <TableCell>Ações</TableCell>
                 </TableRow>
               </TableHead>
+
               <TableBody>
                 {isTableLoading ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">
-                      <CircularProgress size={30} />
-                    </TableCell>
+                    <TableCell colSpan={4} align="center"><CircularProgress /></TableCell>
+                  </TableRow>
+                ) : filteredCollaborators.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center">Nenhum colaborador encontrado</TableCell>
                   </TableRow>
                 ) : (
-                  filteredCollaborators.map(collab => (
-                    <TableRow key={collab.id}>
-                      <TableCell>{collab.nome}</TableCell>
-                      <TableCell>{collab.role}</TableCell>
-                      <TableCell>{collab.pontuacao}</TableCell>
+                  filteredCollaborators.map(c => (
+                    <TableRow key={c.id}>
+                      <TableCell>{c.nome}</TableCell>
+                      <TableCell>
+                        {c.role}
+                        {c.role === 'MEDICO' && c.medicoRole && c.shiftHours
+                          ? ` (${c.medicoRole} - ${c.shiftHours})` : ''}
+                      </TableCell>
+                      <TableCell>{c.pontuacao}</TableCell>
                       <TableCell>
                         <IconButton
-                          onClick={() => handleOpenEditModal(collab)}
-                          aria-label={`editar ${collab.nome}`}
-                          disabled={panelLoading}
+                          onClick={() => setEditingCollaboratorInitialData(c)}
+                          disabled={state.panelLoading}
+                          title="Editar colaborador"
                         >
-                          <Edit color="primary" />
+                          <Edit color='primary' />
                         </IconButton>
+
                         <IconButton
-                          onClick={() => handleDelete(collab.id!)}
-                          aria-label={`remover ${collab.nome} do projeto`}
-                          disabled={panelLoading}
+                          onClick={() => setEditingCollaboratorPointsData(c)}
+                          disabled={state.panelLoading}
+                          title="Editar dados para pontuação"
                         >
-                          {panelLoading ? <CircularProgress size={20} color="error" /> : <Delete color="error" />}
+                          <EditNote color='success' />
+                        </IconButton>
+
+                        <IconButton
+                          onClick={() => handleDelete(c.id!)}
+                          disabled={state.panelLoading}
+                          title="Remover colaborador"
+                        >
+                          {state.panelLoading ? <CircularProgress size={24} /> : <Delete color="error" />}
                         </IconButton>
                       </TableCell>
                     </TableRow>
@@ -239,24 +368,36 @@ export default function CollaboratorsPanel() {
             </Table>
           </TableContainer>
 
-          {!isTableLoading && filteredCollaborators.length === 0 && (
-            <p className={styles.noResults}>Nenhum colaborador encontrado.</p>
-          )}
+          {/* Modais */}
+          <ScoringParamsModal
+            open={state.scoringParamsModalOpen}
+            onClose={() => updateState({ scoringParamsModalOpen: false })}
+            onSave={handleSaveParameters}
+            initialParams={scoringParams}
+          />
+
+          <DataForPointsModal
+            open={!!editingCollaboratorPointsData}
+            onClose={() => setEditingCollaboratorPointsData(undefined)}
+            onSuccess={() => { refreshCollaborators(); setEditingCollaboratorPointsData(undefined); }}
+            initialData={editingCollaboratorPointsData}
+            projectId={selectedProject}
+          />
 
           <CollaboratorModal
             open={!!editingCollaboratorInitialData}
-            onClose={handleCloseEditModal}
-            onSuccess={handleEditModalSuccess}
+            onClose={() => setEditingCollaboratorInitialData(undefined)}
+            onSuccess={() => { refreshCollaborators(); setEditingCollaboratorInitialData(undefined); }}
             initialData={editingCollaboratorInitialData}
             projectId={selectedProject}
           />
 
           <AddExistingCollaboratorModal
-            open={isAddExistingModalOpen}
-            onClose={handleCloseAddExistingModal}
+            open={state.isAddExistingModalOpen}
+            onClose={() => updateState({ isAddExistingModalOpen: false })}
             collaborators={availableCollaborators}
-            onAdd={handleAddExistingCollaboratorToProject}
-            loading={panelLoading}
+            onAdd={handleAddExisting}
+            loading={state.panelLoading}
           />
         </>
       )}

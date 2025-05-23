@@ -1,4 +1,3 @@
-// src/app/lib/registry.tsx
 'use client';
 
 import { StyledEngineProvider } from '@mui/material/styles';

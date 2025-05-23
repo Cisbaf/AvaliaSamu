@@ -1,40 +1,45 @@
-/* styles/CollaboratorsPanel.module.css */
 .panel {
-    padding: 24px;
-    height: 100vh;
-    background: white;
-    box-shadow: 10px 10px 10px rgba(0,0,0,0.1);
-    flex-grow: 1;
+  padding: 24px;
+  height: 100vh;
+  background: white;
+  box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.1);
+  flex-grow: 1;
+}
+
+.filters {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+
+.tableContainer {
+  max-height: calc(100vh - 200px);
+  overflow-x: auto;
+}
+
+.roleSelect {
+  min-width: 120px;
+}
+
+@media (max-width: 768px) {
+  .panel {
+    padding: 16px;
+    height: auto;
   }
-  
+
   .filters {
-    display: flex;
-    gap: 16px;
-    align-items: center;
-    margin-bottom: 24px;
+    flex-direction: column;
+    gap: 12px;
   }
-  
-  .tableContainer {
-    max-height: calc(100vh - 200px);
-    overflow-x: auto;
-  }
-  
+
   .roleSelect {
-    min-width: 120px;
+    width: 100%;
   }
-  
-  @media (max-width: 768px) {
-    .panel {
-      padding: 16px;
-      height: auto;
-    }
-    
-    .filters {
-      flex-direction: column;
-      gap: 12px;
-    }
-    
-    .roleSelect {
-      width: 100%;
-    }
-  }
+}

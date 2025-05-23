@@ -34,8 +34,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
             addCollaboratorToProject: (projectId, collaborator) => {
                 return projectCollabState.actions.addCollaboratorToProject(projectId, collaborator);
             },
-            updateProjectCollaborator: (projectId, collabId, updates) => {
-                return projectCollabState.actions.updateProjectCollaborator(projectId, collabId, updates);
+            updateProjectCollaborator: (projectId, collabId, updates, wasEdited) => {
+                return projectCollabState.actions.updateProjectCollaborator(projectId, collabId, updates, wasEdited);
+            },
+            updateProjectParameters: (projectId, parameters) => {
+                return projectState.actions.updateProjectParameters(projectId, parameters);
             }
         },
     };
