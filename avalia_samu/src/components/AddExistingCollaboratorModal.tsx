@@ -33,18 +33,14 @@ export default function AddExistingCollaboratorModal({
 }: AddExistingCollaboratorModalProps) {
     console.log('Colaboradores disponíveis:', collaborators);
 
-    // Função para adicionar colaborador, passando medicoRole e shiftHours quando disponíveis
     const handleAddCollaborator = async (collab: GlobalCollaborator) => {
         if (collab.role === 'MEDICO') {
-            // Para médicos, enviar medicoRole e shiftHours que já estão definidos no colaborador global
             await onAdd(collab.id!, collab.role, collab.medicoRole, collab.shiftHours);
         } else {
-            // Para outros tipos, enviar apenas id e role
             await onAdd(collab.id!, collab.role);
         }
     };
 
-    // Verificar se o botão de adicionar deve estar desabilitado para médicos sem medicoRole ou shiftHours
     const isAddButtonDisabled = (collab: GlobalCollaborator) => {
         if (loading) return true;
 
