@@ -22,6 +22,10 @@ public class CollaboratorsMapper {
                 entity.getPontuacao(),
                 entity.getRole(),
                 null,
+                null,
+                null,
+                null,
+                null,
                 null
 
         );

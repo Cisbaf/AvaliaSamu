@@ -209,8 +209,12 @@ public class ProjectCollabService {
                             pontuacao,
                             pc.getRole(),
                             pc.getShiftHours() ,
-                            pc.getMedicoRole()
-                    );
+                            pc.getMedicoRole(),
+                            pc.getDurationSeconds(),
+                            pc.getPausaMensalSeconds(),
+                            pc.getSaidaVtrSeconds(),
+                            pc.getQuantity()
+                            );
                 })
                 .collect(Collectors.toList());
     }

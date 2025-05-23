@@ -4,6 +4,7 @@ import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.io.Serializable;
@@ -27,4 +28,10 @@ public class CollaboratorsResponse implements Serializable {
     private ShiftHours shiftHours;
     @Enumerated(EnumType.STRING)
     private MedicoRole medicoRole;
+
+    private Long durationSeconds;
+    private Long pausaMensalSeconds;
+    private Long saidaVtr;
+    private Integer quantity;
+
 }
