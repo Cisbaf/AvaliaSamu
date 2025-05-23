@@ -105,12 +105,10 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
       const fields: (keyof ScoringSectionParams)[] = ["removidos", "regulacao", "pausas", "saidaVtr", "regulacaoLider"];
 
       for (const field of fields) {
-        // Garantir que a seção existe
         if (!normalized[sec]) {
           normalized[sec] = {};
         }
 
-        // Garantir que o campo existe como array
         if (!normalized[sec][field]) {
           normalized[sec][field] = [];
         }
