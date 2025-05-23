@@ -47,9 +47,7 @@ public class ProjectCollabService {
         CollaboratorEntity collab = collaboratorRepo.findById(dto.getCollaboratorId())
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
 
-        var scoringParams = convertMapToNested(collab.getParametros());
 
-        log.debug("Parâmetros usados para pontuação: {}", scoringParams);
 
         if (dto.getMedicoRole() == null) {
             dto.setMedicoRole(MedicoRole.NENHUM);
@@ -62,7 +60,7 @@ public class ProjectCollabService {
                 .durationSeconds(dto.getDurationSeconds())
                 .quantity(dto.getQuantity())
                 .pausaMensalSeconds(dto.getPausaMensalSeconds())
-                .parametros(scoringParams)
+                .parametros(new NestedScoringParameters())
                 .medicoRole(dto.getMedicoRole())
                 .shiftHours(dto.getShiftHours())
                 .build();

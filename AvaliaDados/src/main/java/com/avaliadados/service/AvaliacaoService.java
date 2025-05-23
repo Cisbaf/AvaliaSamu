@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.avaliadados.service.ProjectCollabService.convertMapToNested;
 import static com.avaliadados.service.utils.SheetsUtils.*;
 
 @Service
@@ -54,7 +53,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             log.info("Colunas disponíveis na sheet: {}", cols.keySet());
 
             Integer idxColab = encontrarIndiceColuna(cols, "COLABORADOR");
-            Integer idxTarm = encontrarIndiceColuna(cols,  "TEMPO REGULAÇÃO TARM", "TEMPO.REGULACAO.TARM");
+            Integer idxTarm = encontrarIndiceColuna(cols, "TEMPO REGULAÇÃO TARM", "TEMPO.REGULACAO.TARM");
             Integer idxFrota = encontrarIndiceColuna(cols, "OP. FROTA REGULAÇÃO MÉDICA", "TEMPO.REGULACAO.FROTA");
 
             log.info("Índices encontrados → COLAB: {}, TARM: {}, FROTA: {}", idxColab, idxTarm, idxFrota);
@@ -84,7 +83,9 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                 SheetRow sr = new SheetRow();
                 sr.setProjectId(projectId);
 
-                if (id != null) {sr.setCollaboratorId(id);}
+                if (id != null) {
+                    sr.setCollaboratorId(id);
+                }
                 sr.setType(TypeAv.TARM_FROTA);
                 sr.getData().put("COLABORADOR", name);
 
@@ -173,7 +174,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
         NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
                 .orElseGet(() -> {
-                    NestedScoringParameters np = convertMapToNested(collab.getParametros());
+                    NestedScoringParameters np = new NestedScoringParameters();
 
                     pc.setParametros(np);
                     return np;
