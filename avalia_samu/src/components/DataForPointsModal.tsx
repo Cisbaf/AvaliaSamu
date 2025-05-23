@@ -47,6 +47,22 @@ export default function DataForPointsModal({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const isFrota = initialData?.role === 'FROTA';
+
+    // Função para formatar segundos para o formato hh:mm:ss
+    function formatTime(seconds: number) {
+        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${h}:${m}:${s}`;
+    }
+
+    // Função para converter hh:mm:ss para segundos
+    function timeStringToSeconds(val: string): number {
+        const [h = "0", m = "0", s = "0"] = val.split(":");
+        return Number(h) * 3600 + Number(m) * 60 + Number(s);
+    }
+
     useEffect(() => {
         if (initialData) {
             setFormData({
@@ -61,7 +77,14 @@ export default function DataForPointsModal({
         setError('');
     }, [initialData]);
 
-    const handleChange = (field: keyof FormData) =>
+    const handleChangeTime = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtrSeconds') =>
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            const timeValue = e.target.value;
+            const seconds = timeStringToSeconds(timeValue);
+            setFormData(prev => ({ ...prev, [field]: seconds }));
+        };
+
+    const handleChangeNumber = (field: 'quantity') =>
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const value = Number(e.target.value);
             setFormData(prev => ({ ...prev, [field]: isNaN(value) ? 0 : value }));
@@ -74,16 +97,15 @@ export default function DataForPointsModal({
         try {
             if (projectId) {
                 const dto: UpdateProjectCollabDto = {
-                    durationSeconds: formData.durationSeconds,
-                    quantity: formData.quantity,
-                    pausaMensalSeconds: formData.pausaMensalSeconds,
-                    saidaVtr: formData.saidaVtrSeconds,
+                    durationSeconds: formData.durationSeconds || 0,
+                    quantity: formData.quantity || 0,
+                    pausaMensalSeconds: formData.pausaMensalSeconds || 0,
+                    saidaVtr: isFrota ? formData.saidaVtrSeconds || 0 : 0, // Apenas para Frota, senão 0
                     role: initialData!.role,
                     nome: initialData!.nome,
                     medicoRole: initialData!.medicoRole,
                     shiftHours: initialData!.shiftHours as ShiftHours,
                 };
-
 
                 await updateProjectCollaborator(
                     projectId,
@@ -91,7 +113,6 @@ export default function DataForPointsModal({
                     dto,
                     true
                 );
-
             }
 
             onSuccess();
@@ -107,46 +128,58 @@ export default function DataForPointsModal({
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-            <DialogTitle> 'Editar Pontos'</DialogTitle>
+            <DialogTitle>Editar Pontos</DialogTitle>
             <DialogContent className={styles.modalContent}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                 <Grid container spacing={2} marginTop={2}>
                     <Grid size={{ xs: 12, sm: 4 }}>
                         <TextField
-                            label="Duração (s)"
-                            type="number"
+                            label="Tempo de Regulação"
+                            type="time"
                             fullWidth
-                            value={formData.durationSeconds}
-                            onChange={handleChange('durationSeconds')}
+                            inputProps={{ step: 1 }}
+                            value={formatTime(formData.durationSeconds)}
+                            onChange={handleChangeTime('durationSeconds')}
                         />
                     </Grid>
+
+                    {/* Mostra "Removidos" apenas se não for Frota */}
+                    {!isFrota && (
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField
+                                label="Removidos"
+                                type="number"
+                                fullWidth
+                                value={formData.quantity}
+                                onChange={handleChangeNumber('quantity')}
+                            />
+                        </Grid>
+                    )}
+
                     <Grid size={{ xs: 12, sm: 4 }}>
                         <TextField
-                            label="Quantidade"
-                            type="number"
+                            label="Pausas Mensais"
+                            type="time"
                             fullWidth
-                            value={formData.quantity}
-                            onChange={handleChange('quantity')}
+                            inputProps={{ step: 1 }}
+                            value={formatTime(formData.pausaMensalSeconds)}
+                            onChange={handleChangeTime('pausaMensalSeconds')}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                        <TextField
-                            label="Pausa Mensal (s)"
-                            type="number"
-                            fullWidth
-                            value={formData.pausaMensalSeconds}
-                            onChange={handleChange('pausaMensalSeconds')}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                        <TextField
-                            label="Saida Vtr (s)"
-                            type="number"
-                            fullWidth
-                            value={formData.saidaVtrSeconds}
-                            onChange={handleChange('saidaVtrSeconds')}
-                        />
-                    </Grid>
+
+                    {/* Mostra "Saída VTR" apenas se for Frota */}
+                    {isFrota && (
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField
+                                label="Saída VTR"
+                                type="time"
+                                fullWidth
+                                inputProps={{ step: 1 }}
+                                value={formatTime(formData.saidaVtrSeconds)}
+                                onChange={handleChangeTime('saidaVtrSeconds')}
+                            />
+                        </Grid>
+                    )}
                 </Grid>
             </DialogContent>
             <DialogActions>
