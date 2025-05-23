@@ -49,7 +49,6 @@ export default function DataForPointsModal({
 
     const isFrota = initialData?.role === 'FROTA';
 
-    // Função para formatar segundos para o formato hh:mm:ss
     function formatTime(seconds: number) {
         const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
         const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
@@ -57,7 +56,6 @@ export default function DataForPointsModal({
         return `${h}:${m}:${s}`;
     }
 
-    // Função para converter hh:mm:ss para segundos
     function timeStringToSeconds(val: string): number {
         const [h = "0", m = "0", s = "0"] = val.split(":");
         return Number(h) * 3600 + Number(m) * 60 + Number(s);
@@ -100,7 +98,7 @@ export default function DataForPointsModal({
                     durationSeconds: formData.durationSeconds || 0,
                     quantity: formData.quantity || 0,
                     pausaMensalSeconds: formData.pausaMensalSeconds || 0,
-                    saidaVtr: isFrota ? formData.saidaVtrSeconds || 0 : 0, // Apenas para Frota, senão 0
+                    saidaVtr: isFrota ? formData.saidaVtrSeconds || 0 : 0,
                     role: initialData!.role,
                     nome: initialData!.nome,
                     medicoRole: initialData!.medicoRole,
