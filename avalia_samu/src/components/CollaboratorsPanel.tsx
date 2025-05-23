@@ -261,7 +261,7 @@ export default function CollaboratorsPanel() {
             <Button
               className={styles.chromeButton}
               variant="contained"
-              color="inherit"
+              color="warning"
               startIcon={<Add />}
               onClick={() => updateState({ isAddExistingModalOpen: true })}
               sx={{ borderRadius: '20px' }}
@@ -274,7 +274,7 @@ export default function CollaboratorsPanel() {
               className={styles.chromeButton}
 
               variant="contained"
-              color="inherit"
+              color="warning"
               onClick={() => updateState({ scoringParamsModalOpen: true })}
               sx={{ borderRadius: '20px' }}
               disabled={state.panelLoading}
@@ -285,7 +285,7 @@ export default function CollaboratorsPanel() {
             <Button
               className={styles.chromeButton}
               variant="contained"
-              color="inherit"
+              color="success"
               component="label"
               sx={{ borderRadius: '20px' }}
               disabled={state.loading}
@@ -296,7 +296,7 @@ export default function CollaboratorsPanel() {
             <Button
               className={styles.chromeButton}
               variant="contained"
-              color="inherit"
+              color="success"
               component="label"
               sx={{ borderRadius: '20px' }}
               disabled={state.loading}
