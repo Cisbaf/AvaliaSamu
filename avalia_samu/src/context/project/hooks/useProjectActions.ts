@@ -35,7 +35,7 @@ export function useProjectActions() {
                         m.role,
                         m.durationSeconds,
                         m.quantity,
-                        m.pausaMensal,
+                        m.pausaMensalSeconds,
                         undefined,
                         m.medicoRole, // Garantido pelo filtro
                         m.shiftHours   // Garantido pelo filtro
@@ -48,7 +48,7 @@ export function useProjectActions() {
                         o.role,
                         o.durationSeconds,
                         o.quantity,
-                        o.pausaMensal
+                        o.pausaMensalSeconds
                     )
                 )
             ]);

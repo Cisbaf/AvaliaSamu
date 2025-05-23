@@ -12,8 +12,9 @@ import CollaboratorModal from './AddCollaboratorModal';
 import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
-import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
 import DataForPointsModal from './DataForPointsModal';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
   isGlobal: boolean;
@@ -25,6 +26,7 @@ export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
 export default function CollaboratorsPanel() {
   const {
     selectedProject,
+    projects,
     projectCollaborators,
     globalCollaborators,
     actions: { addCollaboratorToProject, deleteCollaboratorFromProject, fetchProjectCollaborators, updateProjectParameters }
@@ -198,6 +200,30 @@ export default function CollaboratorsPanel() {
     }
   };
 
+  const exportData = useMemo(() => {
+    return filteredCollaborators.map(c => ({
+      Nome: c.nome,
+      Função:
+        c.role === 'MEDICO' && c.medicoRole && c.shiftHours
+          ? `${c.role} (${c.medicoRole} - ${c.shiftHours})`
+          : c.role,
+      Pontuação: c.pontuacao,
+    }));
+  }, [filteredCollaborators]);
+
+
+  const currentProject = projects.find(p => p.id === selectedProject);
+
+
+  const handleExport = () => {
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Colaboradores');
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const fileName = currentProject ? `${currentProject.name}_${currentProject.month}_colaboradores.xlsx` : 'colaboradores.xlsx';
+    saveAs(new Blob([wbout]), fileName);
+  };
+
   const isTableLoading = selectedProject && !projectCollaborators[selectedProject];
 
   return (
@@ -266,6 +292,17 @@ export default function CollaboratorsPanel() {
             >
               {state.loading ? 'Enviando...' : 'Enviar Planilha'}
               <input type="file" hidden accept=".xlsx,.xls" onChange={handleUpload} />
+            </Button>
+            <Button
+              className={styles.chromeButton}
+              variant="contained"
+              color="inherit"
+              component="label"
+              sx={{ borderRadius: '20px' }}
+              disabled={state.loading}
+              onClick={handleExport}
+            >
+              Exportar Excel
             </Button>
           </div>
 
