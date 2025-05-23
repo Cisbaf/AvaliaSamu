@@ -26,7 +26,7 @@ type FormData = {
     durationSeconds: number;
     quantity: number;
     pausaMensalSeconds: number;
-    saidaVtrSeconds: number;
+    saidaVtr: number;
 };
 
 export default function DataForPointsModal({
@@ -42,40 +42,53 @@ export default function DataForPointsModal({
         durationSeconds: 0,
         quantity: 0,
         pausaMensalSeconds: 0,
-        saidaVtrSeconds: 0
+        saidaVtr: 0
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const isFrota = initialData?.role === 'FROTA';
 
-    function formatTime(seconds: number) {
+    function formatTime(seconds: number): string {
+        if (!seconds && seconds !== 0) return '00:00:00';
+
         const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
         const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
         const s = (seconds % 60).toString().padStart(2, '0');
+
         return `${h}:${m}:${s}`;
     }
 
     function timeStringToSeconds(val: string): number {
-        const [h = "0", m = "0", s = "0"] = val.split(":");
-        return Number(h) * 3600 + Number(m) * 60 + Number(s);
+        if (!val) return 0;
+
+        const cleanVal = val.replace(/\D/g, '').padEnd(6, '0');
+
+        const h = parseInt(cleanVal.substring(0, 2)) || 0;
+        const m = parseInt(cleanVal.substring(2, 4)) || 0;
+        const s = parseInt(cleanVal.substring(4, 6)) || 0;
+
+        return (h * 3600) + (m * 60) + s;
     }
 
     useEffect(() => {
         if (initialData) {
             setFormData({
-                durationSeconds: (initialData as any).durationSeconds ?? 0,
-                quantity: (initialData as any).quantity ?? 0,
-                pausaMensalSeconds: (initialData as any).pausaMensalSeconds ?? 0,
-                saidaVtrSeconds: (initialData as any).saidaVtr ?? 0
+                durationSeconds:
+                    // tenta pegar durationSeconds, depois duration, depois 0
+                    initialData.durationSeconds ??
+                    (initialData as any).duration ??
+                    0,
+                quantity: initialData.quantity ?? 0,
+                pausaMensalSeconds:
+                    initialData.pausaMensalSeconds ??
+                    (initialData as any).pausaMensal ??
+                    0,
+                saidaVtr: initialData.saidaVtr ?? 0,
             });
-        } else {
-            setFormData({ durationSeconds: 0, quantity: 0, pausaMensalSeconds: 0, saidaVtrSeconds: 0 });
         }
-        setError('');
     }, [initialData]);
-
-    const handleChangeTime = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtrSeconds') =>
+    const handleChangeTime = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtr') =>
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const timeValue = e.target.value;
             const seconds = timeStringToSeconds(timeValue);
@@ -95,15 +108,17 @@ export default function DataForPointsModal({
         try {
             if (projectId) {
                 const dto: UpdateProjectCollabDto = {
-                    durationSeconds: formData.durationSeconds || 0,
+                    durationSeconds: formData.durationSeconds ?? 0, // Usar nullish coalescing
                     quantity: formData.quantity || 0,
-                    pausaMensalSeconds: formData.pausaMensalSeconds || 0,
-                    saidaVtr: isFrota ? formData.saidaVtrSeconds || 0 : 0,
+                    pausaMensalSeconds: formData.pausaMensalSeconds ?? 0,
+                    saidaVtr: isFrota ? formData.saidaVtr || 0 : 0,
                     role: initialData!.role,
                     nome: initialData!.nome,
                     medicoRole: initialData!.medicoRole,
                     shiftHours: initialData!.shiftHours as ShiftHours,
                 };
+                console.info('DTO:', dto);
+                console.info("FormData:", formData);
 
                 await updateProjectCollaborator(
                     projectId,
@@ -135,7 +150,11 @@ export default function DataForPointsModal({
                             label="Tempo de Regulação"
                             type="time"
                             fullWidth
-                            inputProps={{ step: 1 }}
+                            InputLabelProps={{ shrink: true }}
+                            inputProps={{
+                                step: 1,
+                                pattern: "[0-9]{2}:[0-9]{2}:[0-9]{2}"
+                            }}
                             value={formatTime(formData.durationSeconds)}
                             onChange={handleChangeTime('durationSeconds')}
                         />
@@ -173,8 +192,8 @@ export default function DataForPointsModal({
                                 type="time"
                                 fullWidth
                                 inputProps={{ step: 1 }}
-                                value={formatTime(formData.saidaVtrSeconds)}
-                                onChange={handleChangeTime('saidaVtrSeconds')}
+                                value={formatTime(formData.saidaVtr)}
+                                onChange={handleChangeTime('saidaVtr')}
                             />
                         </Grid>
                     )}

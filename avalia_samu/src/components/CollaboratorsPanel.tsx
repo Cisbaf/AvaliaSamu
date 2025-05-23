@@ -30,8 +30,6 @@ export default function CollaboratorsPanel() {
     actions: { addCollaboratorToProject, deleteCollaboratorFromProject, fetchProjectCollaborators, updateProjectParameters }
   } = useProjects();
 
-  const { actions } = useProjectCollaborators();
-
   // Estados
   const [state, setState] = useState({
     searchTerm: '',
@@ -81,11 +79,15 @@ export default function CollaboratorsPanel() {
         pontuacao: pc.pontuacao,
         isGlobal: gc?.isGlobal ?? false,
         projectId: selectedProject,
+
         quantity: pc.quantity,
-        durationSeconds: pc.durationSeconds,
-        pausaMensalSeconds: pc.pausaMensalSeconds,
+        duration: pc.durationSeconds,
+        pausaMensal: pc.pausaMensalSeconds,
+        saidaVtr: pc.saidaVtr,
+
         medicoRole: pc.medicoRole || gc?.medicoRole,
         shiftHours: pc.shiftHours || gc?.shiftHours,
+
       };
     });
   }, [projectCollaborators, globalCollaborators, selectedProject]);
