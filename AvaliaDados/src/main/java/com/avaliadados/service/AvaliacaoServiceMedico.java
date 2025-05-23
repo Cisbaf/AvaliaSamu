@@ -77,7 +77,9 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
                 SheetRow sr = new SheetRow();
                 sr.setProjectId(projectId);
-                if (id != null) {sr.setCollaboratorId(id);}
+                if (id != null) {
+                    sr.setCollaboratorId(id);
+                }
                 sr.setType(TypeAv.MEDICO);
                 sr.getData().put("MEDICO.REGULADOR", nomeMed);
                 sr.getData().put("TEMPO.REGULACAO", tempoReg);
@@ -152,7 +154,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         if (pc.getMedicoRole().equals(MedicoRole.REGULADOR) && data.containsKey("TEMPO.REGULACAO")) {
             Long secs = parseTimeToSeconds(data.get("TEMPO.REGULACAO"));
             pc.setDurationSeconds(secs);
-              params.setMedico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(secs).build())).build());
+            params.setMedico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(secs).build())).build());
             regulacao = params.getMedico().getRegulacao().getLast().getDuration();
         }
         if (pc.getMedicoRole().equals(MedicoRole.LIDER) && data.containsKey("CRITICOS")) {
@@ -164,10 +166,10 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
         if (!params.getMedico().getRemovidos().isEmpty()) {
             quantity = params.getMedico().getRemovidos().getLast().getQuantity();
-            pausas =  params.getMedico().getPausas().getLast().getDuration();
+            pausas = params.getMedico().getPausas().getLast().getDuration();
         }
 
-        if (pc.getShiftHours() == null){
+        if (pc.getShiftHours() == null) {
             pc.setShiftHours(ShiftHours.valueOf("H12"));
             log.info("Definindo turno padrão H12 para colaborador {}", pc.getNome());
         }
