@@ -1,4 +1,3 @@
-// src/components/ProjectModal.tsx
 'use client';
 
 import { useState } from 'react';
