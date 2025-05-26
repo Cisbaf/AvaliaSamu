@@ -1,8 +1,8 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.DTO.CollaboratorRequest;
-import com.avaliadados.model.DTO.CollaboratorsResponse;
+import com.avaliadados.model.dto.CollaboratorRequest;
+import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.model.FrotaEntity;
 import com.avaliadados.model.MedicoEntity;
 import com.avaliadados.model.TarmEntity;
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class CollaboratorsMapper {
 
-    protected CollaboratorsResponse toCollaboratorsResponse(CollaboratorEntity entity) {
+    public CollaboratorsResponse toCollaboratorsResponse(CollaboratorEntity entity) {
         return new CollaboratorsResponse(
                 entity.getId(),
                 entity.getNome(),
@@ -31,7 +31,7 @@ public class CollaboratorsMapper {
         );
     }
 
-    protected CollaboratorEntity createByRole(CollaboratorRequest request) {
+    public CollaboratorEntity createByRole(CollaboratorRequest request) {
         String role = request.role().toUpperCase();
 
         if (role.startsWith("MEDICO")) {

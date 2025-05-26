@@ -16,9 +16,7 @@ public class AvaliacaoServiceFactory {
     private final AvaliacaoService avaliacaoService;
     private final AvaliacaoServiceMedico avaliacaoServiceMedico;
 
-    /**
-     * Decide o processor com base no valor da primeira célula (coluna 0) da planilha.
-     */
+
     public AvaliacaoProcessor getProcessor(MultipartFile arquivo) throws IOException {
         try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);

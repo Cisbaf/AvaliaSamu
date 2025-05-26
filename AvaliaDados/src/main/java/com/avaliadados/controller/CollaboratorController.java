@@ -1,8 +1,8 @@
 package com.avaliadados.controller;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.DTO.CollaboratorRequest;
-import com.avaliadados.model.DTO.CollaboratorsResponse;
+import com.avaliadados.model.dto.CollaboratorRequest;
+import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.service.CollaboratorsService;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;

@@ -1,8 +1,8 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.DTO.CollaboratorsResponse;
-import com.avaliadados.model.DTO.ProjectCollabRequest;
+import com.avaliadados.model.dto.CollaboratorsResponse;
+import com.avaliadados.model.dto.ProjectCollabRequest;
 import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.SheetRow;

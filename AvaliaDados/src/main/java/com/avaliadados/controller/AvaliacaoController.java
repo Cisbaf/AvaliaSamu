@@ -1,6 +1,5 @@
 package com.avaliadados.controller;
 
-import com.avaliadados.service.AvaliacaoServiceMedico;
 import com.avaliadados.service.factory.AvaliacaoServiceFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,14 +15,13 @@ import java.io.IOException;
 @Slf4j
 public class AvaliacaoController {
 
-    private final AvaliacaoServiceMedico service;
     private final AvaliacaoServiceFactory factory;
 
     @PostMapping("/{projectId}/processar")
     public ResponseEntity<String> processarPlanilha(@RequestParam MultipartFile arquivo, @PathVariable String projectId) throws IOException {
-            var processor = factory.getProcessor(arquivo);
-            processor.processarPlanilha(arquivo, projectId);
-            return ResponseEntity.ok("Processamento concluído.");
+        var processor = factory.getProcessor(arquivo);
+        processor.processarPlanilha(arquivo, projectId);
+        return ResponseEntity.ok("Processamento concluído.");
     }
 
 }

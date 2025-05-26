@@ -1,9 +1,10 @@
 package com.avaliadados.model;
 
 import jakarta.persistence.*;
-import lombok.*;
-
-import java.util.Map;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
@@ -21,7 +22,7 @@ public class CollaboratorEntity {
     private String cpf;
     private String idCallRote;
     private int pontuacao;
-    @Column(insertable=false, updatable=false)
+    @Column(insertable = false, updatable = false)
     private String role;
     @Version
     private Long version;

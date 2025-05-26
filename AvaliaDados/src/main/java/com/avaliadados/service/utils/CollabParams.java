@@ -47,16 +47,18 @@ public class CollabParams {
         var removidos = section.getRemovidos().getLast().getQuantity();
         Long saida = 0L;
 
-        if (pc.getMedicoRole().equals(MedicoRole.LIDER)) {
+        if (pc.getMedicoRole() != null)
+            if (pc.getMedicoRole().equals(MedicoRole.LIDER)) {
             section.setRegulacaoLider((List.of(ScoringRule.builder().duration(duration).build())));
             regulacao = section.getRegulacaoLider().getLast().getDuration();
-        }
+            }
         if (pc.getRole().equals("FROTA")) {
             section.setSaidaVtr((List.of(ScoringRule.builder().duration(saidaVtr).build())));
              saida = section.getSaidaVtr().getLast().getDuration();
         }
 
 
+        assert pc.getMedicoRole() != null;
         return scoringService.calculateCollaboratorScore(
                 pc.getRole(),
                 pc.getMedicoRole().name(),
