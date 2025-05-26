@@ -74,7 +74,7 @@ export default function CollaboratorsPanel() {
       const gc = globalCollaborators?.find(g => g.id === pc.id);
       return {
         id: pc.id,
-        nome: pc?.nome || gc?.nome || '—',
+        nome: gc?.nome || '—',
         cpf: gc?.cpf || '',
         idCallRote: gc?.idCallRote || '',
         role: pc.role,
