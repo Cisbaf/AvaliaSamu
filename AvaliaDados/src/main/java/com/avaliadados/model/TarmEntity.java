@@ -13,7 +13,6 @@ import lombok.*;
 @Entity
 @ToString
 @Builder
-@AllArgsConstructor
 @Table(name = "tarm")
 @PrimaryKeyJoinColumn(name = "colaborador_id")
 @DiscriminatorValue("TARM")
