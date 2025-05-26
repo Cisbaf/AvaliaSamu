@@ -181,7 +181,7 @@ export default function HomePage() {
       // Cria a planilha
       const ws = XLSX.utils.json_to_sheet(dadosFinais);
       // Define a ordem das colunas 
-      const header = ['Nome', 'Função', ...mesesOrdenados.map(mes => `Pontos ${mes}`), 'Pontuação Total'];
+      const header = ['Nome', 'Função', ...mesesOrdenados.map(mes => ` ${mes}`), 'Pontuação Total'];
       XLSX.utils.sheet_add_aoa(ws, [header], { origin: 'A1' }); // Adiciona o cabeçalho na ordem correta
 
       const wb = XLSX.utils.book_new();

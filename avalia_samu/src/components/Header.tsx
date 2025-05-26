@@ -24,9 +24,10 @@ export function Header() {
       <div className={styles.buttonsContainer}>
         {pathname !== '/colaboradores' && (
           <Button
-            variant="outlined"
+            variant="contained"
+            color='success'
             onClick={() => router.push('/colaboradores')}
-            style={{ borderRadius: '20px', border: "3px solid" }}
+            style={{ borderRadius: '20px' }}
 
           >
             Gerenciar Colaboradores
@@ -35,10 +36,11 @@ export function Header() {
         }
         {pathname !== '/colaboradores' && (
           <Button
-            variant="outlined"
+            variant="contained"
             startIcon={<AddIcon />}
+            color="success"
             onClick={() => setModalOpen(true)}
-            style={{ borderRadius: '20px', border: "3px solid" }}
+            style={{ borderRadius: '20px' }}
 
           >
             Novo Colaborador
