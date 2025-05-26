@@ -7,14 +7,12 @@ import com.avaliadados.model.SheetRow;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.enums.TypeAv;
-import com.avaliadados.model.params.NestedScoringParameters;
-import com.avaliadados.model.params.ScoringRule;
-import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.MedicoEntityRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import com.avaliadados.repository.SheetRowRepository;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
+import com.avaliadados.service.utils.CollabParams;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -25,7 +23,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -40,7 +37,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
     private final ProjetoRepository projetoRepo;
     private final MedicoEntityRepository medicoRepo;
     private final SheetRowRepository sheetRowRepo;
-    private final ScoringService scoringService;
+    private final CollabParams collabParams;
     private final CollaboratorRepository colaboradorRepository;
 
 
@@ -51,6 +48,10 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
             var sheet = wb.getSheetAt(0);
             var cols = getColumnMapping(sheet.getRow(0));
+
+            if (cols.entrySet().stream().noneMatch(e -> e.getKey().startsWith("MEDICO REGULADOR"))){
+                cols = getColumnMapping(sheet.getRow(1));
+            }
 
             Integer idxMedReg = cols.entrySet().stream()
                     .filter(e -> e.getKey().startsWith("MEDICO REGULADOR"))
@@ -66,11 +67,18 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                     idxMedReg, idxTempoMed, idxCrit);
             log.info("Índices sheets : {}", cols.keySet());
 
+            String nomeMed = "";
+            String tempoReg = "";
+
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 var row = sheet.getRow(i);
                 if (row == null) continue;
-                String nomeMed = getCellStringValue(row, idxMedReg);
-                String tempoReg = getCellStringValue(row, idxTempoMed);
+                if (idxMedReg != null) {
+                    nomeMed = getCellStringValue(row, idxMedReg);
+                }
+                if (idxTempoMed != null) {
+                    tempoReg = getCellStringValue(row, idxTempoMed);
+                }
                 if (nomeMed == null || tempoReg == null) continue;
 
                 var id = colaboradorRepository.findByNome(nomeMed).map(CollaboratorEntity::getId).orElse(null);
@@ -143,48 +151,40 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                                       Map<String, String> data,
                                       ProjetoEntity projeto) {
 
-        if (pc.getWasEdited()) return;
-        NestedScoringParameters params = pc.getParametros();
-        if (params == null) params = new NestedScoringParameters();
+        if (pc.getWasEdited()) {
+            return;
+        }
 
-        long regulacao = 0L;
-        long pausas = 0L;
+        long duration = 0L;
         int quantity = 0;
+        long pausaMensal = 0L;
 
-        if (pc.getMedicoRole().equals(MedicoRole.REGULADOR) && data.containsKey("TEMPO.REGULACAO")) {
-            Long secs = parseTimeToSeconds(data.get("TEMPO.REGULACAO"));
-            pc.setDurationSeconds(secs);
-            params.setMedico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(secs).build())).build());
-            regulacao = params.getMedico().getRegulacao().getLast().getDuration();
-        }
-        if (pc.getMedicoRole().equals(MedicoRole.LIDER) && data.containsKey("CRITICOS")) {
-            Long crit = parseTimeToSeconds(data.get("CRITICOS"));
-            pc.setDurationSeconds(crit);
-            params.setMedico(ScoringSectionParams.builder().regulacaoLider(List.of(ScoringRule.builder().duration(crit).build())).build());
-            regulacao = params.getMedico().getRegulacaoLider().getLast().getDuration();
+        MedicoRole medicoRole = pc.getMedicoRole();
+
+        if (medicoRole == MedicoRole.REGULADOR && data.containsKey("TEMPO.REGULACAO")) {
+            duration = parseTimeToSeconds(data.get("TEMPO.REGULACAO"));
+        } else if (medicoRole == MedicoRole.LIDER && data.containsKey("CRITICOS")) {
+            duration = parseTimeToSeconds(data.get("CRITICOS"));
         }
 
-        if (!params.getMedico().getRemovidos().isEmpty()) {
-            quantity = params.getMedico().getRemovidos().getLast().getQuantity();
-            pausas = params.getMedico().getPausas().getLast().getDuration();
+        if (data.containsKey("REMOVIDOS")) {
+            quantity = Integer.parseInt(data.get("REMOVIDOS"));
+        }
+
+        if (data.containsKey("PAUSAS")) {
+            pausaMensal = parseTimeToSeconds(data.get("PAUSAS"));
         }
 
         if (pc.getShiftHours() == null) {
-            pc.setShiftHours(ShiftHours.valueOf("H12"));
+            pc.setShiftHours(ShiftHours.H12);
             log.info("Definindo turno padrão H12 para colaborador {}", pc.getNome());
         }
 
+        pc.setDurationSeconds(duration);
 
-        int pontos = scoringService.calculateCollaboratorScore(
-                pc.getRole(),
-                pc.getMedicoRole().name(),
-                pc.getShiftHours().name(),
-                regulacao,
-                quantity,
-                pausas,
-                projeto.getParameters());
+        int pontos = collabParams.setParams(pc, projeto, duration, quantity, pausaMensal, 0L);
 
         pc.setPontuacao(pontos);
-        pc.setParametros(params);
     }
+
 }

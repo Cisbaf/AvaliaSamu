@@ -192,11 +192,30 @@ export default function CollaboratorModal({
                     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                     <div className={styles.formGrid}>
                         <TextField label="Nome" fullWidth margin="dense"
-                            value={formData.nome} onChange={e => handleChange('nome', e.target.value)} />
+                            value={formData.nome} onChange={e => handleChange('nome', e.target.value)}
+                            variant={isEdit && projectId ? 'filled' : 'outlined'}
+                            slotProps={{
+                                input: {
+                                    readOnly: isEdit && projectId ? true : false,
+                                }
+                            }}
+                        />
                         <TextField label="CPF" fullWidth margin="dense"
-                            value={formData.cpf} onChange={e => handleChange('cpf', e.target.value)} />
+                            value={formData.cpf} onChange={e => handleChange('cpf', e.target.value)}
+                            variant={isEdit && projectId ? 'filled' : 'outlined'}
+                            slotProps={{
+                                input: {
+                                    readOnly: isEdit && projectId ? true : false,
+                                }
+                            }} />
                         <TextField label="ID Call Rote" fullWidth margin="dense"
-                            value={formData.idCallRote} onChange={e => handleChange('idCallRote', e.target.value)} />
+                            variant={isEdit && projectId ? 'filled' : 'outlined'}
+                            value={formData.idCallRote} onChange={e => handleChange('idCallRote', e.target.value)}
+                            slotProps={{
+                                input: {
+                                    readOnly: isEdit && projectId ? true : false,
+                                }
+                            }} />
                         <FormControl fullWidth margin="dense">
                             <InputLabel id="base-role-label">Função Base</InputLabel>
                             <Select

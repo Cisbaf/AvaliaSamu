@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  TextField, Select, MenuItem, IconButton, Button, CircularProgress, Alert
+  TextField, Select, MenuItem, IconButton, Button, CircularProgress, Alert,
+  Typography
 } from '@mui/material';
 import { Edit, Delete, Add, EditNote } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
@@ -74,7 +75,7 @@ export default function CollaboratorsPanel() {
       const gc = globalCollaborators?.find(g => g.id === pc.id);
       return {
         id: pc.id,
-        nome: pc?.nome || gc?.nome || '—',
+        nome: gc?.nome || '—',
         cpf: gc?.cpf || '',
         idCallRote: gc?.idCallRote || '',
         role: pc.role,
@@ -235,6 +236,7 @@ export default function CollaboratorsPanel() {
               {state.error}
             </Alert>
           )}
+          <Typography sx={{ marginBottom: 3 }}>Projeto: {currentProject?.name || '—'}</Typography>
 
           <div className={styles.filters}>
             <TextField

@@ -11,6 +11,4 @@ public class ScoringRule {
     private Integer quantity;
     private Integer points;
 
-    public ScoringRule(Integer orDefault, String s, Integer points) {
-    }
 }

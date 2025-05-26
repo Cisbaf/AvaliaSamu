@@ -16,28 +16,31 @@ public class AvaliacaoServiceFactory {
     private final AvaliacaoService avaliacaoService;
     private final AvaliacaoServiceMedico avaliacaoServiceMedico;
 
-    /**
-     * Decide o processor com base no valor da primeira célula (coluna 0) da planilha.
-     */
+
     public AvaliacaoProcessor getProcessor(MultipartFile arquivo) throws IOException {
         try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
             Sheet sheet = wb.getSheetAt(0);
             Row primeiraLinha = sheet.getRow(0);
+            Row segundaLinha = sheet.getRow(1);
             Cell primeiraCelula = primeiraLinha.getCell(0);
+            Cell segundaCelula = segundaLinha.getCell(0);
             String valor = new DataFormatter()
                     .formatCellValue(primeiraCelula)
+                    .trim()
+                    .toUpperCase();
+            String valor2 = new DataFormatter()
+                    .formatCellValue(segundaCelula)
                     .trim()
                     .toUpperCase();
 
             if ("TOTAL DE PLANTÃO DE 12 HORAS".equals(valor)) {
                 return avaliacaoService;
             }
-            if ("MEDICO REGULADOR".equals(valor)) {
+            if ("MEDICO REGULADOR".equalsIgnoreCase(valor) || "MEDICO REGULADOR".equalsIgnoreCase(valor2)) {
                 return avaliacaoServiceMedico;
             }
-
             throw new IllegalArgumentException(
-                    "Tipo de planilha não reconhecido: " + valor
+                    "Tipo de planilha não reconhecido: " + valor + " ou " + valor2
             );
         }
     }

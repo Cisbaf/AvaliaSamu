@@ -120,7 +120,7 @@ public class ProjetosService {
                 "H12", collaborator.getDurationSeconds(),
                 collaborator.getQuantity(),
                 collaborator.getPausaMensalSeconds(),
-                projeto.getParameters()
+                0L, projeto.getParameters()
         );
         collaborator.setPontuacao(pontos);
     }

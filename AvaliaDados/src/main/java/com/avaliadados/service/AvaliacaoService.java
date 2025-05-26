@@ -6,12 +6,12 @@ import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.SheetRow;
 import com.avaliadados.model.enums.TypeAv;
 import com.avaliadados.model.params.NestedScoringParameters;
-import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import com.avaliadados.repository.SheetRowRepository;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
+import com.avaliadados.service.utils.CollabParams;
 import com.avaliadados.service.utils.SheetsUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +37,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
     private final CollaboratorRepository colaboradorRepository;
     private final ProjetoRepository projetoRepository;
     private final SheetRowRepository sheetRowRepository;
-    private final ScoringService scoringService;
+    private final CollabParams collabParams;
 
     // Constantes para as chaves de dados
     private static final String KEY_TEMPO_REGULACAO_TARM = "TEMPO_REGULACAO_TARM";
@@ -157,7 +157,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                                 .findFirst()
                                 .ifPresent(pc -> {
                                     log.info("Atualizando dados do colaborador {} ({})", colEnt.getNome(), pc.getRole());
-                                    atualizarDadosColaborador(pc, sr.getData(), colEnt, projeto);
+                                    atualizarDadosColaborador(pc, sr.getData(), projeto);
                                     log.info("Dados do SheetRow: {}", sr.getData());
                                 });
                     });
@@ -168,104 +168,43 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
     private void atualizarDadosColaborador(ProjectCollaborator pc,
                                            Map<String, String> data,
-                                           CollaboratorEntity collab,
                                            ProjetoEntity projeto) {
         if (pc.getWasEdited()) return;
+
 
         NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
                 .orElseGet(() -> {
                     NestedScoringParameters np = new NestedScoringParameters();
-
                     pc.setParametros(np);
                     return np;
                 });
         if (params.getTarm() == null) params.setTarm(new ScoringSectionParams());
         if (params.getFrota() == null) params.setFrota(new ScoringSectionParams());
 
-        // Mapa com múltiplas possíveis chaves para cada tipo
         Map<String, List<String>> keyMap = new HashMap<>();
         keyMap.put("TARM", Arrays.asList(KEY_TEMPO_REGULACAO_TARM, "TEMPO.REGULACAO.TARM"));
         keyMap.put("FROTA", Arrays.asList(KEY_TEMPO_REGULACAO_FROTA, "TEMPO.REGULACAO.FROTA", "OP FROTA REGULAO MDICA"));
 
-        // Obter as chaves possíveis para o papel atual
         List<String> possiveisChaves = keyMap.getOrDefault(pc.getRole(), Collections.emptyList());
 
-        // Tentar cada chave possível
         for (String chave : possiveisChaves) {
             if (data.containsKey(chave)) {
                 Long secs = SheetsUtils.parseTimeToSeconds(data.get(chave));
 
-                ScoringRule rule = ScoringRule.builder()
-                        .duration(secs)
-                        .build();
+                ScoringSectionParams section = pc.getRole().equals("TARM") ? params.getTarm() : params.getFrota();
 
-                ScoringSectionParams section = pc.getRole().equals("TARM")
-                        ? params.getTarm()
-                        : params.getFrota();
+                long existingPausaMensal = Optional.ofNullable(section.getPausas())
+                        .filter(list -> !list.isEmpty())
+                        .map(list -> list.getLast().getDuration())
+                        .orElse(0L);
+                int existingRemovidos = Optional.ofNullable(section.getRemovidos())
+                        .filter(list -> !list.isEmpty())
+                        .map(list -> list.getLast().getQuantity())
+                        .orElse(0);
 
-                if (section.getRegulacao() == null) {
-                    section.setRegulacao(new ArrayList<>());
-                }
-                section.getRegulacao().add(rule);
-
-                log.info("Adicionada regra de duração para {} ({}): {}s usando chave {}",
-                        collab.getNome(), pc.getRole(), secs, chave);
-
-                // Encontrou uma chave válida, não precisa continuar tentando
-                break;
+                int pontos = collabParams.setParams(pc, projeto, secs, existingRemovidos, existingPausaMensal, 0L);
+                pc.setPontuacao(pontos);
             }
         }
-
-        // Obter a última duração para cálculo de pontuação
-        long lastDuration = Optional.ofNullable(
-                        "TARM".equals(pc.getRole())
-                                ? params.getTarm()
-                                : params.getFrota()
-                )
-                .map(ScoringSectionParams::getRegulacao)
-                .filter(l -> !l.isEmpty())
-                .map(l -> {
-                    pc.setDurationSeconds(l.getLast().getDuration());
-                    return l.getLast().getDuration();
-                })
-                .orElse(0L);
-
-        long lastPausas = Optional.ofNullable(
-                        "TARM".equals(pc.getRole())
-                                ? params.getTarm()
-                                : params.getFrota()
-                )
-                .map(ScoringSectionParams::getPausas)
-                .filter(l -> !l.isEmpty())
-                .map(l -> {
-                    pc.setPausaMensalSeconds(l.getLast().getDuration());
-                    return l.getLast().getDuration();
-                })
-                .orElse(0L);
-
-        int lastRemovidos = Optional.ofNullable(
-                        "TARM".equals(pc.getRole())
-                                ? params.getTarm()
-                                : params.getFrota()
-                )
-                .map(ScoringSectionParams::getRemovidos)
-                .filter(list -> !list.isEmpty())
-                .map(list -> {
-                    pc.setQuantity(list.getLast().getQuantity());
-                    return list.getLast().getQuantity();
-                })
-                .orElse(0);
-
-        int pontos = scoringService.calculateCollaboratorScore(
-                pc.getRole(),
-                null,
-                "H12", lastDuration,
-                lastRemovidos,
-                lastPausas,
-                projeto.getParameters()
-        );
-        pc.setPontuacao(pontos);
-
-        log.info("Pontuação calculada para {} ({}): {}", collab.getNome(), pc.getRole(), pontos);
     }
 }
