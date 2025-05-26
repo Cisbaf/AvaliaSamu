@@ -57,8 +57,11 @@ public class CollabParams {
              saida = section.getSaidaVtr().getLast().getDuration();
         }
 
+        if (pc.getMedicoRole() == null){
+            pc.setMedicoRole(MedicoRole.NENHUM);
+            log.warn("MedicoRole não informada para colaborador {}, definindo como NENHUM", pc.getNome());
+        }
 
-        assert pc.getMedicoRole() != null;
         return scoringService.calculateCollaboratorScore(
                 pc.getRole(),
                 pc.getMedicoRole().name(),

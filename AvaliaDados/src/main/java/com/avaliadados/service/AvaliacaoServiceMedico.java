@@ -49,6 +49,10 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             var sheet = wb.getSheetAt(0);
             var cols = getColumnMapping(sheet.getRow(0));
 
+            if (cols.entrySet().stream().noneMatch(e -> e.getKey().startsWith("MEDICO REGULADOR"))){
+                cols = getColumnMapping(sheet.getRow(1));
+            }
+
             Integer idxMedReg = cols.entrySet().stream()
                     .filter(e -> e.getKey().startsWith("MEDICO REGULADOR"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
@@ -70,9 +74,11 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 var row = sheet.getRow(i);
                 if (row == null) continue;
                 if (idxMedReg != null) {
-                    nomeMed = getCellStringValue(row, idxMedReg);}
+                    nomeMed = getCellStringValue(row, idxMedReg);
+                }
                 if (idxTempoMed != null) {
-                    tempoReg = getCellStringValue(row, idxTempoMed);}
+                    tempoReg = getCellStringValue(row, idxTempoMed);
+                }
                 if (nomeMed == null || tempoReg == null) continue;
 
                 var id = colaboradorRepository.findByNome(nomeMed).map(CollaboratorEntity::getId).orElse(null);

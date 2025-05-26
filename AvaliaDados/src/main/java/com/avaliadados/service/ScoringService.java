@@ -84,6 +84,8 @@ public class ScoringService {
         }
 
         log.info("Score final para role {}: {} (shiftHour={})", role, totalScore, shiftHour);
+        System.out.println("---------------------------------------------------------------------------");
+
         return totalScore;
     }
 
