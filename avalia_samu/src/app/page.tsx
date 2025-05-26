@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -10,32 +11,56 @@ import {
   ListItemButton,
   ListItemText,
   Typography,
-  IconButton
+  IconButton,
+  Checkbox,
+  CircularProgress
 } from '@mui/material';
 import Delete from '@mui/icons-material/Delete';
+import DownloadIcon from '@mui/icons-material/Download';
 import { useProjects } from '../context/ProjectContext';
 import ProjectModal from '../components/ProjectModal';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
+
 
 export default function HomePage() {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const {
     projects,
-    setSelectedProject,
-    actions: { deleteProject, }
+    projectCollaborators,
+    globalCollaborators,
+    actions: { deleteProject, fetchProjectCollaborators }
   } = useProjects();
 
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
+
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    if (mounted) {
+      projects.forEach(project => {
+        if (project.id && !projectCollaborators[project.id]) {
+          fetchProjectCollaborators(project.id).catch(error => {
+            console.error(`Erro ao buscar colaboradores do projeto ${project.id}:`, error);
+          });
+        }
+      });
+    }
+  }, [mounted, projects, fetchProjectCollaborators, projectCollaborators]);
+
   if (!mounted) return null;
 
   const handleProjectSelect = (projectId: string) => {
-    setSelectedProject(projectId);
     router.push(`/dashboard/${projectId}`);
   };
 
   const handleDelete = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setSelectedProjectIds(prev => prev.filter(id => id !== projectId));
     try {
       await deleteProject(projectId);
     } catch (error) {
@@ -43,57 +68,210 @@ export default function HomePage() {
     }
   };
 
+  const handleCheckboxChange = (projectId: string, checked: boolean) => {
+    setSelectedProjectIds(prev =>
+      checked ? [...prev, projectId] : prev.filter(id => id !== projectId)
+    );
+  };
+
+  const formatarFuncao = (colaborador: ProjectCollaborator, globalCollab?: GlobalCollaborator): string => {
+    const role = colaborador.role || globalCollab?.role;
+    const medicoRole = colaborador.medicoRole || globalCollab?.medicoRole;
+    const shiftHours = colaborador.shiftHours || globalCollab?.shiftHours;
+
+    if (role === 'MEDICO' && medicoRole && shiftHours) {
+      return `${role} (${medicoRole} - ${shiftHours})`;
+    }
+    return role || 'Função Desconhecida';
+  };
+
+  const handleExportSelectedMonthly = async () => {
+    if (selectedProjectIds.length === 0) {
+      alert('Selecione pelo menos um projeto para exportar.');
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      // Estrutura para armazenar os dados consolidados
+      const pontosConsolidados: {
+        [key: string]: {
+          nome: string;
+          funcao: string;
+          pontos_por_mes: { [mes: string]: number };
+          pontuacao_total: number;
+        }
+      } = {};
+      const mesesPresentes = new Set<string>();
+
+      // Itera sobre os IDs dos projetos selecionados
+      for (const projectId of selectedProjectIds) {
+        const projetoAtual = projects.find(p => p.id === projectId);
+        if (!projetoAtual) {
+          console.warn(`Projeto com ID ${projectId} não encontrado.`);
+          continue;
+        }
+        const mesProjeto = projetoAtual.month || 'Mês Desconhecido';
+        mesesPresentes.add(mesProjeto);
+
+        // Garante que os colaboradores do projeto foram carregados
+        if (!projectCollaborators[projectId]) {
+          console.warn(`Colaboradores para o projeto ${projectId} não carregados. Tentando buscar...`);
+          try {
+            await fetchProjectCollaborators(projectId);
+            await new Promise(resolve => setTimeout(resolve, 100)); // Pequena pausa
+          } catch (error) {
+            console.error(`Falha ao buscar colaboradores para ${projectId} durante exportação:`, error);
+            alert(`Não foi possível carregar os dados do projeto ${projetoAtual.name} (${mesProjeto}). A exportação pode estar incompleta.`);
+            continue;
+          }
+        }
+
+        const colaboradoresDoProjeto = projectCollaborators[projectId] || [];
+
+        // Itera sobre os colaboradores do projeto atual
+        for (const colab of colaboradoresDoProjeto) {
+          const globalColab = globalCollaborators?.find(gc => gc.id === colab.id);
+          const nome = globalColab?.nome || colab.nome || 'Nome Desconhecido';
+          const funcaoFormatada = formatarFuncao(colab, globalColab);
+          const chave = `${nome}#${funcaoFormatada}`; // Chave única
+          const pontuacao = Number(colab.pontuacao) || 0;
+
+          // Inicializa o registro do colaborador se for a primeira vez
+          if (!pontosConsolidados[chave]) {
+            pontosConsolidados[chave] = {
+              nome: nome,
+              funcao: funcaoFormatada,
+              pontos_por_mes: {},
+              pontuacao_total: 0
+            };
+          }
+
+          // Adiciona a pontuação ao mês específico e ao total
+          const pontosMesAtual = pontosConsolidados[chave].pontos_por_mes[mesProjeto] || 0;
+          pontosConsolidados[chave].pontos_por_mes[mesProjeto] = pontosMesAtual + pontuacao;
+          pontosConsolidados[chave].pontuacao_total += pontuacao;
+        }
+      }
+
+      // Ordena os meses (alfabeticamente, pode precisar de lógica melhor para meses reais)
+      const mesesOrdenados = Array.from(mesesPresentes).sort();
+
+      // Prepara os dados finais para a planilha
+      const dadosFinais = Object.values(pontosConsolidados).map(item => {
+        const linha: { [key: string]: string | number } = {
+          'Nome': item.nome,
+          'Função': item.funcao
+        };
+        // Adiciona colunas de pontos por mês
+        for (const mes of mesesOrdenados) {
+          linha[`Pontos ${mes}`] = item.pontos_por_mes[mes] || 0;
+        }
+        // Adiciona coluna de total
+        linha['Pontuação Total'] = item.pontuacao_total;
+        return linha;
+      }).sort((a, b) => String(a.Nome).localeCompare(String(b.Nome)) || String(a.Função).localeCompare(String(b.Função))); // Ordena por Nome e Função
+
+      if (dadosFinais.length === 0) {
+        alert('Nenhum colaborador encontrado nos projetos selecionados.');
+        return;
+      }
+
+      // Cria a planilha
+      const ws = XLSX.utils.json_to_sheet(dadosFinais);
+      // Define a ordem das colunas 
+      const header = ['Nome', 'Função', ...mesesOrdenados.map(mes => `Pontos ${mes}`), 'Pontuação Total'];
+      XLSX.utils.sheet_add_aoa(ws, [header], { origin: 'A1' }); // Adiciona o cabeçalho na ordem correta
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Pontos Consolidados por Mês');
+
+      // Gera o nome do arquivo
+      const dateStr = new Date().toISOString().split('T')[0];
+      const fileName = `pontos_consolidados_por_mes_${selectedProjectIds.length}_projetos_${dateStr}.xlsx`;
+
+      // Exporta o arquivo
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      saveAs(new Blob([wbout]), fileName);
+
+    } catch (error) {
+      console.error('Erro ao exportar dados consolidados por mês:', error);
+      alert('Ocorreu um erro ao gerar a planilha por mês.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <Box sx={{ p: 4, maxWidth: 800, margin: '0 auto' }}>
-      {/* Cabeçalho */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" component="h1">
           Gestão de Projetos
         </Typography>
-        <Button
-          variant="contained"
-          onClick={() => setModalOpen(true)}
-          sx={{ ml: 2 }}
-        >
-          Novo Projeto
-        </Button>
+        <Box>
+          <Button
+            variant="contained"
+            onClick={() => setModalOpen(true)}
+            sx={{ mr: 2 }}
+          >
+            Novo Projeto
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={isExporting ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
+            onClick={handleExportSelectedMonthly}
+            disabled={selectedProjectIds.length === 0 || isExporting}
+          >
+            {isExporting ? 'Exportando...' : 'Exportar por Mês'}
+          </Button>
+        </Box>
       </Box>
 
-      {/* Lista de Projetos */}
       {projects.length > 0 ? (
-        <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
+        <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, border: '1px solid', borderColor: 'divider' }}>
           {projects.map((project) => (
-            <ListItem key={project.id} disablePadding>
-              <ListItemButton
-                onClick={() => handleProjectSelect(project.id!)}
-                sx={{
-                  py: 2,
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                  position: 'relative'
-                }}
-              >
-                <ListItemText
-                  primary={project.name}
-                  secondary={`Mês: ${project.month}`}
-                  sx={{ '& .MuiListItemText-secondary': { mt: 0.5 } }}
-                />
-
+            <ListItem
+              sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
+              key={project.id}
+              disablePadding
+              secondaryAction={
                 <IconButton
-                  size="small"
-                  color="error"
+                  edge="end"
+                  aria-label="delete"
                   onClick={(e) => handleDelete(project.id!, e)}
-                  sx={{
-                    position: 'absolute',
-                    right: 16,
-                    top: '50%',
-                    transform: 'translateY(-50%)'
-                  }}
+                  color="error"
                 >
                   <Delete fontSize="small" />
                 </IconButton>
+
+              }
+            >
+
+              <ListItemButton
+                role={undefined}
+                onClick={() => handleProjectSelect(project.id!)}
+                dense
+                sx={{ pr: 8 }}
+              >
+                <ListItemText
+                  id={`checkbox-list-label-${project.id}`}
+                  primary={project.name}
+                  secondary={`Mês: ${project.month || 'N/A'}`} // Exibe o mês
+                  sx={{ '& .MuiListItemText-secondary': { mt: 0.5 } }}
+                />
               </ListItemButton>
+              <Checkbox
+                edge="start"
+                checked={selectedProjectIds.includes(project.id!)}
+                onChange={(e) => handleCheckboxChange(project.id!, e.target.checked)}
+                inputProps={{ 'aria-labelledby': `checkbox-list-label-${project.id}` }}
+                sx={{ marginRight: 5 }}
+              />
+
             </ListItem>
+
           ))}
         </List>
       ) : (
@@ -108,3 +286,4 @@ export default function HomePage() {
     </Box>
   );
 }
+
