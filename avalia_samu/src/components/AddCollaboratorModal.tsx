@@ -193,27 +193,27 @@ export default function CollaboratorModal({
                     <div className={styles.formGrid}>
                         <TextField label="Nome" fullWidth margin="dense"
                             value={formData.nome} onChange={e => handleChange('nome', e.target.value)}
-                            variant={isEdit ? 'filled' : 'outlined'}
+                            variant={isEdit && projectId ? 'filled' : 'outlined'}
                             slotProps={{
                                 input: {
-                                    readOnly: isEdit == true ? true : false,
+                                    readOnly: isEdit && projectId ? true : false,
                                 }
                             }}
                         />
                         <TextField label="CPF" fullWidth margin="dense"
                             value={formData.cpf} onChange={e => handleChange('cpf', e.target.value)}
-                            variant={isEdit ? 'filled' : 'outlined'}
+                            variant={isEdit && projectId ? 'filled' : 'outlined'}
                             slotProps={{
                                 input: {
-                                    readOnly: isEdit == true ? true : false,
+                                    readOnly: isEdit && projectId ? true : false,
                                 }
                             }} />
                         <TextField label="ID Call Rote" fullWidth margin="dense"
-                            variant={isEdit ? 'filled' : 'outlined'}
+                            variant={isEdit && projectId ? 'filled' : 'outlined'}
                             value={formData.idCallRote} onChange={e => handleChange('idCallRote', e.target.value)}
                             slotProps={{
                                 input: {
-                                    readOnly: isEdit == true ? true : false,
+                                    readOnly: isEdit && projectId ? true : false,
                                 }
                             }} />
                         <FormControl fullWidth margin="dense">
