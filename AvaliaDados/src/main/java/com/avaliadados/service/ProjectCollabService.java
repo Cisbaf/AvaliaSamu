@@ -19,8 +19,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.avaliadados.service.utils.SheetsUtils.*;
@@ -33,7 +35,6 @@ public class ProjectCollabService {
 
     private final ProjetoRepository projetoRepo;
     private final CollaboratorRepository collaboratorRepo;
-    private final ScoringService scoringService;
     private final SheetRowRepository rowRepository;
     private final CollabParams collabParams;
 
@@ -46,8 +47,6 @@ public class ProjectCollabService {
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
         CollaboratorEntity collab = collaboratorRepo.findById(dto.getCollaboratorId())
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
-
-
 
         if (dto.getMedicoRole() == null) {
             dto.setMedicoRole(MedicoRole.NENHUM);
@@ -70,15 +69,12 @@ public class ProjectCollabService {
         if (sheetColab != null) {
             processSheetRowData(pc, sheetColab);
 
-            int pontos = scoringService.calculateCollaboratorScore(
-                    pc.getRole(),
-                    pc.getMedicoRole().name(),
-                    "H12",
-                    pc.getDurationSeconds() != null ? pc.getDurationSeconds() : null,
-                    pc.getQuantity() != null ? pc.getQuantity() : 0,
-                    pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : null,
-                    projeto.getParameters()
-            );
+            long duration = pc.getDurationSeconds() != null ? pc.getDurationSeconds() : 0L;
+            int quantity = pc.getQuantity() != null ? pc.getQuantity() : 0;
+            long pausaMensal = pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L;
+            long saidaVtr = 0L;
+
+            int pontos = collabParams.setParams(pc, projeto, duration, quantity, pausaMensal, saidaVtr);
             pc.setPontuacao(pontos);
             log.debug("Pontuação calculada para o colaborador: {}", pontos);
         } else {
@@ -206,13 +202,13 @@ public class ProjectCollabService {
                             collab.getIdCallRote(),
                             pontuacao,
                             pc.getRole(),
-                            pc.getShiftHours() ,
+                            pc.getShiftHours(),
                             pc.getMedicoRole(),
                             pc.getDurationSeconds(),
                             pc.getPausaMensalSeconds(),
                             pc.getSaidaVtrSeconds(),
                             pc.getQuantity()
-                            );
+                    );
                 })
                 .collect(Collectors.toList());
     }
@@ -237,7 +233,7 @@ public class ProjectCollabService {
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
-                    if (!wasEdited || !pc.getWasEdited() ) {
+                    if (!wasEdited || !pc.getWasEdited()) {
                         SheetRow sheetColab = getSheetRowForCollaborator(collaboratorId, projectId, collab.getNome());
                         if (sheetColab != null) {
                             processSheetRowData(pc, sheetColab);
@@ -257,7 +253,7 @@ public class ProjectCollabService {
 
                     int pontos = pc.getPontuacao();
                     if (pc.getDurationSeconds() != null) {
-                         pontos = collabParams.setParams(pc, projeto, pc.getDurationSeconds(), pc.getQuantity(), pc.getPausaMensalSeconds(), pc.getSaidaVtrSeconds());
+                        pontos = collabParams.setParams(pc, projeto, pc.getDurationSeconds(), pc.getQuantity(), pc.getPausaMensalSeconds(), pc.getSaidaVtrSeconds());
                     }
 
 
@@ -285,59 +281,4 @@ public class ProjectCollabService {
 
         projetoRepo.saveAll(projetos);
     }
-
-    public static NestedScoringParameters convertMapToNested(Map<String, Integer> flatParams) {
-        NestedScoringParameters nested = new NestedScoringParameters();
-        if (flatParams == null || flatParams.isEmpty()) {
-            log.warn("Mapa de parâmetros plano está nulo ou vazio. Retornando estrutura de parâmetros aninhada vazia.");
-            nested.setTarm(new ScoringSectionParams(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
-            nested.setFrota(new ScoringSectionParams(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
-            nested.setMedico(new ScoringSectionParams(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
-            return nested;
-        }
-
-        nested.setTarm(convertSection(flatParams, "tarm"));
-        nested.setFrota(convertSection(flatParams, "frota"));
-        nested.setMedico(convertSection(flatParams, "medico"));
-
-        return nested;
-    }
-
-
-    private static ScoringSectionParams convertSection(Map<String, Integer> params, String section) {
-        return ScoringSectionParams.builder()
-                .removidos(extractRules(params, section, "removidos"))
-                .regulacao(extractRules(params, section, "regulacao"))
-                .pausas(extractRules(params, section, "pausas"))
-                .saidaVtr(extractRules(params, section, "saidaVtr"))
-                .regulacaoLider(extractRules(params, section, "regulacaoLider"))
-                .build();
-    }
-
-    private static List<ScoringRule> extractRules(Map<String, Integer> params, String section, String field) {
-        List<ScoringRule> rules = new ArrayList<>();
-        int index = 0;
-
-        while (true) {
-            String quantityKey = String.format("%s_%s_%d_quantity", section, field, index);
-            String durationKey = String.format("%s_%s_%d_duration", section, field, index);
-            String pointsKey = String.format("%s_%s_%d_points", section, field, index);
-
-            if (!params.containsKey(pointsKey)) break;
-
-            rules.add(new ScoringRule(
-                    params.getOrDefault(quantityKey, 0),
-                    parseDuration(params.get(durationKey)),
-                    params.get(pointsKey)
-            ));
-            index++;
-        }
-
-        return rules;
-    }
-
-    private static String parseDuration(Integer seconds) {
-        return seconds != null ? Duration.ofSeconds(seconds).toString() : null;
-    }
-
 }

@@ -19,6 +19,7 @@ public class ScoringService {
             Long durationSeconds,
             Integer quantity,
             Long pausaMensalSeconds,
+            Long saidaVtrSeconds,
             NestedScoringParameters params
     ) {
         log.info("Iniciando cálculo de score para role={}, medicRole={}, shiftHour={}, duration={}s, quantity={}, pausa={}s",
@@ -59,7 +60,7 @@ public class ScoringService {
                 break;
             case "FROTA":
                 if (sectionParams != null) {
-                    totalScore += calculateFrotaScore(durationSeconds, pausaMensalSeconds, sectionParams);
+                    totalScore += calculateFrotaScore(durationSeconds, pausaMensalSeconds, saidaVtrSeconds, sectionParams);
                 } else {
                     log.warn("Parâmetros FROTA não encontrados para cálculo específico.");
                 }
@@ -99,14 +100,17 @@ public class ScoringService {
         return score;
     }
 
-    private int calculateFrotaScore(Long durationRegulacao, Long durationSaidaVtr, ScoringSectionParams params) {
-        log.info("Calculando FROTA: durationRegulacao={}s, durationSaidaVtr={}s", durationRegulacao, durationSaidaVtr);
+    private int calculateFrotaScore(Long durationRegulacao,Long pausa, Long durationSaidaVtr, ScoringSectionParams params) {
+        log.info("Calculando FROTA: durationRegulacao={}s, pausas={} durationSaidaVtr={}s", durationRegulacao, pausa, durationSaidaVtr);
         int score = 0;
         if (durationRegulacao != null && durationRegulacao > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
             score += matchDurationRule(durationRegulacao, params.getRegulacao(), false);
         }
         if (durationSaidaVtr != null && durationSaidaVtr > 0 && params.getSaidaVtr() != null && !params.getSaidaVtr().isEmpty()) {
             score += matchDurationRule(durationSaidaVtr, params.getSaidaVtr(), false);
+        }
+        if (pausa != null && pausa > 0 && params.getPausas() != null && !params.getPausas().isEmpty()) {
+            score += matchDurationRule(pausa, params.getPausas(), false);
         }
         log.info("FROTA specific score: {}", score);
         return score;
