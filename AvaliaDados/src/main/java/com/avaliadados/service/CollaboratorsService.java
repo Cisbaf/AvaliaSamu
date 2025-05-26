@@ -4,7 +4,9 @@ import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.DTO.CollaboratorRequest;
 import com.avaliadados.model.DTO.CollaboratorsResponse;
 import com.avaliadados.model.MedicoEntity;
+import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.repository.CollaboratorRepository;
+import com.avaliadados.repository.ProjetoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ public class CollaboratorsService {
 
     private final CollaboratorRepository collaboratorRepository;
     private final CollaboratorsMapper mapper;
+    private final ProjetoRepository projetoRepository;
 
 
     @Transactional
@@ -64,7 +67,6 @@ public class CollaboratorsService {
     public CollaboratorsResponse updateCollaborator(CollaboratorRequest request, String id) {
         CollaboratorEntity existing = collaboratorRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Colaborador não encontrado"));
-
         if (!existing.getRole().equalsIgnoreCase(request.role())) {
             return handleRoleChange(existing, request);
         }
@@ -74,7 +76,9 @@ public class CollaboratorsService {
         }
 
         updateCommonFields(existing, request);
-        return mapper.toCollaboratorsResponse(collaboratorRepository.save(existing));
+        var updated = collaboratorRepository.save(existing);
+        syncIds(existing.getId(), updated.getId());
+        return mapper.toCollaboratorsResponse(updated);
     }
 
     private void updateMedicoFields(MedicoEntity entity, CollaboratorRequest request) {
@@ -96,7 +100,10 @@ public class CollaboratorsService {
         collaboratorRepository.delete(oldEntity);
         CollaboratorEntity saved = collaboratorRepository.save(newEntity);
 
-        return mapper.toCollaboratorsResponse(saved);
+        var updated = mapper.toCollaboratorsResponse(saved);
+
+        syncIds(oldEntity.getId(), updated.getId());
+        return updated;
     }
 
     private void copyCommonFields(CollaboratorEntity source, CollaboratorEntity target) {
@@ -104,6 +111,26 @@ public class CollaboratorsService {
         target.setCpf(source.getCpf());
         target.setIdCallRote(source.getIdCallRote());
         target.setPontuacao(source.getPontuacao());
+    }
+
+    public void syncIds(String oldId, String newId) {
+        log.info("Atualizando ID do colaborador de [{}] para [{}]", oldId, newId);
+
+        List<ProjetoEntity> projetos = projetoRepository.findByCollaboratorsCollaboratorId(oldId);
+        if (projetos.isEmpty()) {
+            log.warn("Nenhum projeto encontrado para o colaborador com ID [{}]", oldId);
+            return;
+        }
+        projetos.forEach(projeto -> {
+            projeto.getCollaborators().forEach(pc -> {
+                if (pc.getCollaboratorId().equals(oldId)) {
+                    pc.setCollaboratorId(newId);
+                }
+            });
+            projetoRepository.save(projeto);
+        });
+
+        log.info("ID do colaborador atualizado com sucesso em todos os projetos.");
     }
 
 }
