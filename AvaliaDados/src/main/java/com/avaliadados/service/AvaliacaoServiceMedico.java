@@ -185,6 +185,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         int pontos = collabParams.setParams(pc, projeto, duration, quantity, pausaMensal, 0L);
 
         pc.setPontuacao(pontos);
+        pc.setDurationSeconds(duration);
     }
 
 }

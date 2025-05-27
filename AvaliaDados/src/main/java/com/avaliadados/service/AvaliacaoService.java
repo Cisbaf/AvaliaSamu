@@ -201,9 +201,15 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                         .filter(list -> !list.isEmpty())
                         .map(list -> list.getLast().getQuantity())
                         .orElse(0);
+                Long existingSaidaVtr = Optional.ofNullable(section.getSaidaVtr())
+                        .filter(list -> !list.isEmpty())
+                        .map(list -> list.getLast().getDuration())
+                        .orElse(0L);
 
-                int pontos = collabParams.setParams(pc, projeto, secs, existingRemovidos, existingPausaMensal, 0L);
+                int pontos = collabParams.setParams(pc, projeto, secs, existingRemovidos, existingPausaMensal, existingSaidaVtr);
                 pc.setPontuacao(pontos);
+                pc.setDurationSeconds(secs);
+
             }
         }
     }
