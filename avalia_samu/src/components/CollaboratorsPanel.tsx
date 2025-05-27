@@ -162,9 +162,7 @@ export default function CollaboratorsPanel() {
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/${selectedProject}/processar`, {
-        method: 'POST', body: formData, headers: {
-          'Content-Type': 'multipart/form-data',
-        }
+        method: 'POST', body: formData
       });
 
       if (!response.ok) throw new Error(response.statusText);
