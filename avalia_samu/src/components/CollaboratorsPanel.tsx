@@ -158,17 +158,32 @@ export default function CollaboratorsPanel() {
     updateState({ loading: true, error: null });
 
     const formData = new FormData();
-    formData.append('arquivo', e.target.files[0]);
+    formData.append('arquivo', e.target.files[0], e.target.files[0].name);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/${selectedProject}/processar`, {
-        method: 'POST', body: formData
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/${selectedProject}/processar`,
+        {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json',
+          },
+        }
+      );
 
-      if (!response.ok) throw new Error(response.statusText);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Erro ${response.status}: ${response.statusText}`);
+      }
+
       await fetchProjectCollaborators(selectedProject);
     } catch (err: any) {
-      updateState({ error: err.message || 'Falha ao processar planilha' });
+      updateState({
+        error: err.message.includes('Failed to fetch')
+          ? 'Falha na conexão com o servidor'
+          : err.message
+      });
     } finally {
       updateState({ loading: false });
     }
