@@ -162,7 +162,7 @@ export default function CollaboratorsPanel() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/${selectedProject}/processar`,
+        `http://192.168.1.10:8010/api/${selectedProject}/processar`,
         {
           method: 'POST',
           body: formData,

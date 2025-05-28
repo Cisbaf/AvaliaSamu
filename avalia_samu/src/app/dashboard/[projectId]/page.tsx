@@ -7,8 +7,8 @@ import CollaboratorsPanel from '@/components/CollaboratorsPanel';
 import { useParams } from 'next/navigation';
 
 export default function DashboardPage() {
-  const { projectId } = useParams();
-  const { projects, setSelectedProject } = useProjects();
+  const params = useParams();
+  const projectId = typeof params?.projectId === 'string' ? params.projectId : Array.isArray(params?.projectId) ? params.projectId[0] : ''; const { projects, setSelectedProject } = useProjects();
   useEffect(() => {
     if (typeof projectId === 'string') {
       setSelectedProject(projectId);
