@@ -12,7 +12,7 @@ import {
 import styles from './styles/Modal.module.css';
 import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
 import { CombinedCollaboratorData } from './CollaboratorsPanel';
-import { UpdateProjectCollabDto, GlobalCollaborator, ShiftHours } from '@/types/project';
+import { UpdateProjectCollabDto, GlobalCollaborator, ShiftHours, MedicoRole } from '@/types/project';
 
 interface DataForPointsModalProps {
     open: boolean;
@@ -24,6 +24,7 @@ interface DataForPointsModalProps {
 
 type FormData = {
     durationSeconds: number;
+    criticos: number,
     quantity: number;
     pausaMensalSeconds: number;
     saidaVtr: number;
@@ -40,6 +41,7 @@ export default function DataForPointsModal({
 
     const [formData, setFormData] = useState<FormData>({
         durationSeconds: 0,
+        criticos: 0,
         quantity: 0,
         pausaMensalSeconds: 0,
         saidaVtr: 0
@@ -48,6 +50,7 @@ export default function DataForPointsModal({
     const [error, setError] = useState('');
 
     const isFrota = initialData?.role === 'FROTA';
+    const isLiderRef = initialData?.medicoRole === MedicoRole.LIDER_REGULADOR;
 
     function formatTime(seconds: number): string {
         if (!seconds && seconds !== 0) return '00:00:00';
@@ -79,6 +82,7 @@ export default function DataForPointsModal({
                     initialData.durationSeconds ??
                     (initialData as any).duration ??
                     0,
+                criticos: (initialData as any).criticos ?? 0,
                 quantity: initialData.quantity ?? 0,
                 pausaMensalSeconds:
                     initialData.pausaMensalSeconds ??
@@ -88,7 +92,7 @@ export default function DataForPointsModal({
             });
         }
     }, [initialData]);
-    const handleChangeTime = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtr') =>
+    const handleChangeTime = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtr' | 'criticos') =>
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const timeValue = e.target.value;
             const seconds = timeStringToSeconds(timeValue);
@@ -109,6 +113,7 @@ export default function DataForPointsModal({
             if (projectId) {
                 const dto: UpdateProjectCollabDto = {
                     durationSeconds: formData.durationSeconds ?? 0, // Usar nullish coalescing
+                    criticos: formData.criticos ?? 0,
                     quantity: formData.quantity || 0,
                     pausaMensalSeconds: formData.pausaMensalSeconds ?? 0,
                     saidaVtr: isFrota ? formData.saidaVtr || 0 : 0,
@@ -159,6 +164,22 @@ export default function DataForPointsModal({
                             onChange={handleChangeTime('durationSeconds')}
                         />
                     </Grid>
+                    {isLiderRef && (
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField
+                                label="Criticos"
+                                type="time"
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                inputProps={{
+                                    step: 1,
+                                    pattern: "[0-9]{2}:[0-9]{2}:[0-9]{2}"
+                                }}
+                                value={formatTime(formData.criticos)}
+                                onChange={handleChangeTime('criticos')}
+                            />
+                        </Grid>
+                    )}
 
                     {/* Mostra "Removidos" apenas se não for Frota */}
                     {!isFrota && (
@@ -172,6 +193,7 @@ export default function DataForPointsModal({
                             />
                         </Grid>
                     )}
+
 
                     <Grid size={{ xs: 12, sm: 4 }}>
                         <TextField

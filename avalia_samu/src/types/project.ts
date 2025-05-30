@@ -8,14 +8,17 @@ export interface BaseCollaborator {
   medicoRole?: MedicoRole;
   pontuacao: number;
   quantity?: number;
+  criticos?: number;
   durationSeconds?: number;
   pausaMensalSeconds?: number;
   saidaVtr?: number;
+  points?: Record<string, number>;
 }
 
 export enum MedicoRole {
   REGULADOR = 'REGULADOR',
   LIDER = 'LIDER',
+  LIDER_REGULADOR = "LIDER_REGULADOR"
 }
 
 export enum ShiftHours {
@@ -79,6 +82,7 @@ export interface UpdateProjectCollabDto {
   nome?: string;
   role?: string;
   durationSeconds?: number;
+  criticos?: number;
   quantity?: number;
   pausaMensalSeconds?: number;
   medicoRole?: MedicoRole;
