@@ -25,6 +25,8 @@ services:
       - SPRING_DATA_MONGODB_URI=mongodb://root:admin@mongo:27017/projeto?authSource=admin
       - MONGO_USER=root
       - MONGO_PASSWORD=admin
+      - SPRING_PROFILES_ACTIVE=prod
+
     depends_on:
       - postgres
       - mongo
