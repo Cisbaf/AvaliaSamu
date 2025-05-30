@@ -5,6 +5,8 @@ import com.avaliadados.model.dto.ProjectCollabRequest;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.service.ProjectCollabService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,12 +18,14 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/projetos/{projectId}/collaborator")
 @RequiredArgsConstructor
+@Tag(name = "Collaboradores do Projeto", description = "Operações relacionadas aos colaboradores de um projeto")
 public class ProjectCollabController {
 
     private static final Logger logger = LoggerFactory.getLogger(ProjectCollabController.class);
     private final ProjectCollabService service;
 
     @PostMapping
+    @Operation(summary = "Adiciona um colaborador ao projeto")
     public ResponseEntity<ProjetoEntity> add(
             @PathVariable String projectId, @RequestBody ProjectCollabRequest dto,
             @RequestParam(required = false) NestedScoringParameters parametros) {
@@ -33,6 +37,7 @@ public class ProjectCollabController {
     }
 
     @GetMapping
+    @Operation(summary = "Busca todos os colaboradores do projeto")
     public ResponseEntity<List<CollaboratorsResponse>> getAll(@PathVariable String projectId) {
 
         List<CollaboratorsResponse> collaborators = service.getAllProjectCollaborators(projectId);
@@ -41,6 +46,7 @@ public class ProjectCollabController {
     }
 
     @PutMapping("/{collaboratorId}")
+    @Operation(summary = "Atualiza um colaborador do projeto")
     public ResponseEntity<ProjetoEntity> update(@PathVariable String projectId, @PathVariable String collaboratorId, @RequestBody ProjectCollabRequest dto, @RequestParam  Boolean wasEdited) {
 
         return ResponseEntity.ok(service.updateProjectCollaborator(
@@ -53,6 +59,7 @@ public class ProjectCollabController {
     }
 
     @DeleteMapping("/{collaboratorId}")
+    @Operation(summary = "Remove um colaborador do projeto")
     public ResponseEntity<Void> delete(
             @PathVariable String projectId,
             @PathVariable String collaboratorId
