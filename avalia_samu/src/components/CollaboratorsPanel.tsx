@@ -270,7 +270,7 @@ export default function CollaboratorsPanel() {
         }
 
         if (role === "MEDICO") {
-          baseData['Criticos'] = c.criticos;
+          baseData['Criticos'] = formatTime(c.criticos!);
           baseData['Criticos Pontos'] = c.points?.['Criticos'] || 0;
         }
 
