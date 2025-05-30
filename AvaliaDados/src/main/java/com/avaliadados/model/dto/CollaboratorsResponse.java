@@ -7,6 +7,7 @@ import jakarta.persistence.Enumerated;
 import lombok.*;
 
 import java.io.Serializable;
+import java.util.Map;
 
 /**
  * DTO for {@link CollaboratorRequest}
@@ -21,7 +22,6 @@ public class CollaboratorsResponse implements Serializable {
     private String nome;
     private String cpf;
     private String idCallRote;
-    private int pontuacao;
     private String role;
     @Enumerated(EnumType.STRING)
     private ShiftHours shiftHours;
@@ -32,5 +32,9 @@ public class CollaboratorsResponse implements Serializable {
     private Long pausaMensalSeconds;
     private Long saidaVtr;
     private Integer quantity;
+    private Long criticos;
+    private int pontuacao;
+
+    Map<String, Integer> points;
 
 }

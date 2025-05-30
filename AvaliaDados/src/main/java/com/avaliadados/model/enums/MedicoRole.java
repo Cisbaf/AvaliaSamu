@@ -4,5 +4,6 @@ package com.avaliadados.model.enums;
 public enum MedicoRole {
     REGULADOR,
     LIDER,
-    NENHUM
+    NENHUM,
+    LIDER_REGULADOR;
 }

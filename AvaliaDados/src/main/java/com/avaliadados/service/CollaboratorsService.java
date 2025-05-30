@@ -1,10 +1,10 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.dto.CollaboratorRequest;
-import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.model.MedicoEntity;
 import com.avaliadados.model.ProjetoEntity;
+import com.avaliadados.model.dto.CollaboratorRequest;
+import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -20,40 +20,54 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CollaboratorsService {
 
-    private final CollaboratorRepository collaboratorRepository;
+    private final CollaboratorRepository collaboratorRepo;
     private final CollaboratorsMapper mapper;
     private final ProjetoRepository projetoRepository;
 
 
     @Transactional
     public CollaboratorsResponse createCollaborator(CollaboratorRequest request) {
+        if (collaboratorRepo.existsByNome(request.nome())) {
+            log.warn("Colaborador com nome {} já existe.", request.nome());
+            throw new IllegalArgumentException("Colaborador com nome já existente: " + request.nome());
+        }
+        if (collaboratorRepo.existsByCpf((request.cpf()))) {
+            log.warn("Colaborador com CPF ");
+            throw new IllegalArgumentException("Colaborador com CPF: " + request.cpf());
+        }
+        if (collaboratorRepo.existsByIdCallRote(request.idCallRote())) {
+            log.warn("Colaborador com ID de Call Rote já existe.");
+            throw new IllegalArgumentException("Colaborador com ID de Call Rote já existente: " + request.idCallRote());
+        }
+
+
         CollaboratorEntity newCollaborator = mapper.createByRole(request);
-        CollaboratorEntity saved = collaboratorRepository.save(newCollaborator);
+        CollaboratorEntity saved = collaboratorRepo.save(newCollaborator);
         return mapper.toCollaboratorsResponse(saved);
     }
 
 
     public CollaboratorsResponse findById(String id) {
-        var collaborator = collaboratorRepository.findById(id)
+        var collaborator = collaboratorRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Colaborador não encontrado com ID: " + id));
         return mapper.toCollaboratorsResponse(collaborator);
     }
 
 
     public List<CollaboratorEntity> findAll() {
-        return collaboratorRepository.findAll();
+        return collaboratorRepo.findAll();
     }
 
     public List<CollaboratorEntity> findByName(String nome) {
-        return collaboratorRepository.findByNomeApproximate(nome);
+        return collaboratorRepo.findByNomeApproximate(nome);
     }
 
     public void deleteById(String id) {
-        collaboratorRepository.findById(id)
+        collaboratorRepo.findById(id)
                 .ifPresentOrElse(
                         entity -> {
-                            collaboratorRepository.delete(entity);
-                            collaboratorRepository.flush();
+                            collaboratorRepo.delete(entity);
+                            collaboratorRepo.flush();
                             log.info("Colaborador com ID {} deletado.", id);
                         },
                         () -> {
@@ -65,7 +79,7 @@ public class CollaboratorsService {
 
     @Transactional
     public CollaboratorsResponse updateCollaborator(CollaboratorRequest request, String id) {
-        CollaboratorEntity existing = collaboratorRepository.findById(id)
+        CollaboratorEntity existing = collaboratorRepo.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Colaborador não encontrado"));
         if (!existing.getRole().equalsIgnoreCase(request.role())) {
             return handleRoleChange(existing, request);
@@ -76,7 +90,7 @@ public class CollaboratorsService {
         }
 
         updateCommonFields(existing, request);
-        var updated = collaboratorRepository.save(existing);
+        var updated = collaboratorRepo.save(existing);
         syncIds(existing.getId(), updated.getId());
         return mapper.toCollaboratorsResponse(updated);
     }
@@ -97,8 +111,8 @@ public class CollaboratorsService {
         CollaboratorEntity newEntity = mapper.createByRole(request);
         copyCommonFields(oldEntity, newEntity);
 
-        collaboratorRepository.delete(oldEntity);
-        CollaboratorEntity saved = collaboratorRepository.save(newEntity);
+        collaboratorRepo.delete(oldEntity);
+        CollaboratorEntity saved = collaboratorRepo.save(newEntity);
 
         var updated = mapper.toCollaboratorsResponse(saved);
 

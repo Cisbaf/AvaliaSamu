@@ -18,16 +18,18 @@ public class CollaboratorsMapper {
                 entity.getId(),
                 entity.getNome(),
                 entity.getCpf(),
-                entity.getIdCallRote(),
-                entity.getPontuacao(),
                 entity.getRole(),
+                entity.getIdCallRote(),
                 null,
                 null,
                 null,
                 null,
                 null,
-                null
+                null,
+                null,
+                entity.getPontuacao(),
 
+                null
         );
     }
 

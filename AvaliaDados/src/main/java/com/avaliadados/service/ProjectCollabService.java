@@ -19,10 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.avaliadados.service.utils.SheetsUtils.*;
@@ -47,7 +44,6 @@ public class ProjectCollabService {
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
         CollaboratorEntity collab = collaboratorRepo.findById(dto.getCollaboratorId())
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
-
         if (dto.getMedicoRole() == null) {
             dto.setMedicoRole(MedicoRole.NENHUM);
         }
@@ -72,9 +68,10 @@ public class ProjectCollabService {
             long duration = pc.getDurationSeconds() != null ? pc.getDurationSeconds() : 0L;
             int quantity = pc.getQuantity() != null ? pc.getQuantity() : 0;
             long pausaMensal = pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L;
-            long saidaVtr = 0L;
+            long saidaVtr = pc.getSaidaVtrSeconds() != null ? pc.getSaidaVtrSeconds() : 0L;
+            long criticos = pc.getCriticos() != null ? pc.getCriticos() : 0L;
 
-            int pontos = collabParams.setParams(pc, projeto, duration, quantity, pausaMensal, saidaVtr);
+            int pontos = collabParams.setParams(pc, projeto, duration, criticos,quantity, pausaMensal, saidaVtr);
             pc.setPontuacao(pontos);
             log.debug("Pontuação calculada para o colaborador: {}", pontos);
         } else {
@@ -187,27 +184,33 @@ public class ProjectCollabService {
 
         return projeto.getCollaborators().stream()
                 .map(pc -> {
-                    CollaboratorEntity collab = collaboratorRepo.findById(pc.getCollaboratorId())
-                            .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
+                    Optional<CollaboratorEntity> collab =
+                            collaboratorRepo.findById(pc.getCollaboratorId());
 
-                    int pontuacao = 0;
-                    if (pc.getPontuacao() != null) {
-                        pontuacao = pc.getPontuacao();
-                    }
+                    String cpf = collab.map(CollaboratorEntity::getCpf)
+                            .orElse("000.000.000-00");
+                    String idCallRote = collab.map(CollaboratorEntity::getIdCallRote)
+                            .orElse("000");
+
+                    int pontuacao = pc.getPontuacao() != null ? pc.getPontuacao() : 0;
+
+
 
                     return new CollaboratorsResponse(
                             pc.getCollaboratorId(),
                             pc.getNome(),
-                            collab.getCpf(),
-                            collab.getIdCallRote(),
-                            pontuacao,
+                            cpf,
+                            idCallRote,
                             pc.getRole(),
                             pc.getShiftHours(),
                             pc.getMedicoRole(),
                             pc.getDurationSeconds(),
                             pc.getPausaMensalSeconds(),
                             pc.getSaidaVtrSeconds(),
-                            pc.getQuantity()
+                            pc.getQuantity(),
+                            pc.getCriticos(),
+                            pontuacao,
+                            pc.getPoints()
                     );
                 })
                 .collect(Collectors.toList());
@@ -253,7 +256,7 @@ public class ProjectCollabService {
 
                     int pontos = pc.getPontuacao();
                     if (pc.getDurationSeconds() != null) {
-                        pontos = collabParams.setParams(pc, projeto, pc.getDurationSeconds(), pc.getQuantity(), pc.getPausaMensalSeconds(), pc.getSaidaVtrSeconds());
+                        pontos = collabParams.setParams(pc, projeto, pc.getDurationSeconds(),pc.getCriticos(), pc.getQuantity(), pc.getPausaMensalSeconds(), pc.getSaidaVtrSeconds());
                     }
 
 

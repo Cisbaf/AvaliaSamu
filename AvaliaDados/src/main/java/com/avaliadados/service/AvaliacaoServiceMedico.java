@@ -49,7 +49,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             var sheet = wb.getSheetAt(0);
             var cols = getColumnMapping(sheet.getRow(0));
 
-            if (cols.entrySet().stream().noneMatch(e -> e.getKey().startsWith("MEDICO REGULADOR"))){
+            if (cols.entrySet().stream().noneMatch(e -> e.getKey().startsWith("MEDICO REGULADOR"))) {
                 cols = getColumnMapping(sheet.getRow(1));
             }
 
@@ -156,15 +156,30 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         }
 
         long duration = 0L;
+        long criticos = 0L; // Separar os dois valores
         int quantity = 0;
         long pausaMensal = 0L;
 
         MedicoRole medicoRole = pc.getMedicoRole();
 
-        if (medicoRole == MedicoRole.REGULADOR && data.containsKey("TEMPO.REGULACAO")) {
-            duration = parseTimeToSeconds(data.get("TEMPO.REGULACAO"));
-        } else if (medicoRole == MedicoRole.LIDER && data.containsKey("CRITICOS")) {
-            duration = parseTimeToSeconds(data.get("CRITICOS"));
+        // Lógica corrigida para cada papel
+        switch (medicoRole) {
+            case LIDER_REGULADOR:
+                duration = data.containsKey("TEMPO.REGULACAO")
+                        ? parseTimeToSeconds(data.get("TEMPO.REGULACAO")) : 0L;
+                criticos = data.containsKey("CRITICOS")
+                        ? parseTimeToSeconds(data.get("CRITICOS")) : 0L;
+                break;
+
+            case REGULADOR:
+                duration = data.containsKey("TEMPO.REGULACAO")
+                        ? parseTimeToSeconds(data.get("TEMPO.REGULACAO")) : 0L;
+                break;
+
+            case LIDER:
+                criticos = data.containsKey("CRITICOS")
+                        ? parseTimeToSeconds(data.get("CRITICOS")) : 0L;
+                break;
         }
 
         if (data.containsKey("REMOVIDOS")) {
@@ -180,12 +195,20 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             log.info("Definindo turno padrão H12 para colaborador {}", pc.getNome());
         }
 
-        pc.setDurationSeconds(duration);
-
-        int pontos = collabParams.setParams(pc, projeto, duration, quantity, pausaMensal, 0L);
+        // Aqui está o CORRETO - manter a ordem original de parâmetros
+        int pontos = collabParams.setParams(
+                pc,
+                projeto,
+                duration,
+                criticos,
+                quantity,
+                pausaMensal,
+                criticos  // Novo parâmetro para críticos
+        );
 
         pc.setPontuacao(pontos);
         pc.setDurationSeconds(duration);
+        pc.setCriticos(criticos);
     }
 
 }
