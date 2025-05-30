@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -20,7 +21,7 @@ public class CollabParams {
     private final ScoringService scoringService;
 
 
-    public int setParams(ProjectCollaborator pc, ProjetoEntity project, long duration, int quantity, long pausaMensal, long saidaVtr) {
+    public int setParams(ProjectCollaborator pc, ProjetoEntity project, long duration, long criticos, int quantity, long pausaMensal, long saidaVtr) {
         if (pc.getRole() == null) return 0;
 
         NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
@@ -40,18 +41,27 @@ public class CollabParams {
 
         section.setPausas(List.of(ScoringRule.builder().duration(pausaMensal).build()));
         section.setRegulacao(List.of(ScoringRule.builder().duration(duration).build()));
+        section.setRegulacaoLider(List.of(ScoringRule.builder().duration(criticos).build()));
         section.setRemovidos((List.of(ScoringRule.builder().quantity(quantity).build())));
 
         var pausas = section.getPausas().getLast().getDuration();
         var regulacao = section.getRegulacao().getLast().getDuration();
         var removidos = section.getRemovidos().getLast().getQuantity();
         Long saida = 0L;
+        var regulacaoLider = section.getRegulacaoLider().getLast().getDuration();
 
-        if (pc.getMedicoRole() != null)
+        if (pc.getMedicoRole() != null) {
             if (pc.getMedicoRole().equals(MedicoRole.LIDER)) {
-            section.setRegulacaoLider((List.of(ScoringRule.builder().duration(duration).build())));
-            regulacao = section.getRegulacaoLider().getLast().getDuration();
+                section.setRegulacaoLider((List.of(ScoringRule.builder().duration(criticos).build())));
+                regulacaoLider = section.getRegulacaoLider().getLast().getDuration();
             }
+            if (pc.getMedicoRole().equals(MedicoRole.LIDER_REGULADOR)){
+                section.setRegulacaoLider((List.of(ScoringRule.builder().duration(criticos).build())));
+                section.setRegulacao((List.of(ScoringRule.builder().duration(duration).build())));
+                regulacao = section.getRegulacao().getLast().getDuration();
+                regulacaoLider = section.getRegulacaoLider().getLast().getDuration();
+            }
+        }
         if (pc.getRole().equals("FROTA")) {
             section.setSaidaVtr((List.of(ScoringRule.builder().duration(saidaVtr).build())));
              saida = section.getSaidaVtr().getLast().getDuration();
@@ -61,17 +71,20 @@ public class CollabParams {
             pc.setMedicoRole(MedicoRole.NENHUM);
             log.warn("MedicoRole não informada para colaborador {}, definindo como NENHUM", pc.getNome());
         }
-
-        return scoringService.calculateCollaboratorScore(
+        Map<String, Integer> pontos = scoringService.calculateCollaboratorScore(
                 pc.getRole(),
                 pc.getMedicoRole().name(),
                 pc.getShiftHours() != null ? pc.getShiftHours().name() : "H12",
                 regulacao,
+                regulacaoLider,
                 removidos,
                 pausas,
                 saida,
                 project.getParameters()
         );
+        pc.setPoints(pontos);
+
+       return pontos.get("Total");
 
     }
 

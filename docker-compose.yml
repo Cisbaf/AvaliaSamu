@@ -1,0 +1,93 @@
+services:
+  # Frontend Next.js (imagem do Docker Hub)
+  frontend:
+    image: gustavofogao/avaliacao_samu:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend:8080/api
+
+    depends_on:
+      - backend
+    networks:
+      - avaliacao-network
+
+  # Backend Spring Boot (imagem do Docker Hub)
+  backend:
+    image: gustavofogao/avalia_dados:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_USER=admin
+      - DB_PASSWORD=admin
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/avaliacao
+      - SPRING_DATA_MONGODB_URI=mongodb://root:admin@mongo:27017/projeto?authSource=admin
+      - MONGO_USER=root
+      - MONGO_PASSWORD=admin
+    depends_on:
+      - postgres
+      - mongo
+    networks:
+      - avaliacao-network
+
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: avaliacao
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - avaliacao-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d avaliacao"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Banco de dados MongoDB
+  mongo:
+    image: mongo:latest
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: admin
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - avaliacao-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Interface web para MongoDB (opcional)
+  mongo-express:
+    image: mongo-express:latest
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: admin
+    depends_on:
+      - mongo
+    networks:
+      - avaliacao-network
+
+networks:
+  avaliacao-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:

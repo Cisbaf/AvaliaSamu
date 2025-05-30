@@ -142,6 +142,7 @@ export default function CollaboratorModal({
                         parametros: {}
                     };
 
+
                     await addCollaboratorToProject(projectId, payloadForAdd);
                 }
             } else {
@@ -171,7 +172,7 @@ export default function CollaboratorModal({
             onSuccess();
             onClose();
         } catch (err: any) {
-            setError(err.response?.data?.message || err.message || 'Erro ao salvar colaborador');
+            setError('Erro ao salvar colaborador');
         } finally {
             setLoading(false);
         }
@@ -228,7 +229,7 @@ export default function CollaboratorModal({
                                 <MenuItem value="TARM">TARM</MenuItem>
                                 <MenuItem value="FROTA">FROTA</MenuItem>
                                 <MenuItem value="MEDICO">MÉDICO</MenuItem>
-                                <MenuItem value="MEDICO_SUPERVISOR">MÉDICO SUPERVISOR</MenuItem>
+                                <MenuItem value="SUPERVISOR">SUPERVISOR</MenuItem>
                             </Select>
                         </FormControl>
                         {formData.baseRole === 'MEDICO' && (

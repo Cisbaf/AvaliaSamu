@@ -15,4 +15,10 @@ public interface CollaboratorRepository extends JpaRepository<CollaboratorEntity
     List<CollaboratorEntity> findByNomeApproximate(@Param("nome") String nome);
 
     Optional<CollaboratorEntity> findByNome(String name);
+
+    boolean existsByNome(String nome);
+
+    boolean existsByCpf(String cpf);
+
+    boolean existsByIdCallRote(String idCallRote);
 }

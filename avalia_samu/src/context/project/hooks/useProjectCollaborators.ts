@@ -19,6 +19,7 @@ export function useProjectCollaborators() {
                 ...prev,
                 [projectId]: res.data.map(c => ({
                     ...c,
+                    points: c.points as Record<string, number> | undefined,
                     medicoRole: c.medicoRole as MedicoRole | undefined,
                     shiftHours: c.shiftHours as ShiftHours | undefined
                 }))

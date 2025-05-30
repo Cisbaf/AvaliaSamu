@@ -5,6 +5,8 @@ import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.params.NestedScoringParameters;
 import lombok.*;
 
+import java.util.Map;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,10 +20,12 @@ public class ProjectCollaborator {
     private ShiftHours shiftHours;
     private MedicoRole medicoRole;
     private Long durationSeconds = 0L;
+    private Long criticos = 0L;
     private Integer quantity = 0;
     private Integer pontuacao = 0;
-    private NestedScoringParameters parametros;
     private Long pausaMensalSeconds = 0L;
     private Long saidaVtrSeconds = 0L;
+    Map<String, Integer> points;
     private Boolean wasEdited = false;
+    private NestedScoringParameters parametros;
 }

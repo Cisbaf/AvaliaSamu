@@ -206,7 +206,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                         .map(list -> list.getLast().getDuration())
                         .orElse(0L);
 
-                int pontos = collabParams.setParams(pc, projeto, secs, existingRemovidos, existingPausaMensal, existingSaidaVtr);
+                int pontos = collabParams.setParams(pc, projeto, secs,0L, existingRemovidos,  existingPausaMensal, existingSaidaVtr);
                 pc.setPontuacao(pontos);
                 pc.setDurationSeconds(secs);
 

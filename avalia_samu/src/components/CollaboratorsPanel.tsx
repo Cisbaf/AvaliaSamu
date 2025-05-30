@@ -75,9 +75,9 @@ export default function CollaboratorsPanel() {
       const gc = globalCollaborators?.find(g => g.id === pc.id);
       return {
         id: pc.id,
-        nome: gc?.nome || '—',
-        cpf: gc?.cpf || '',
-        idCallRote: gc?.idCallRote || '',
+        nome: pc?.nome || gc?.nome || "-",
+        cpf: pc?.cpf || gc?.cpf || "000-000-00-00",
+        idCallRote: pc?.idCallRote || gc?.idCallRote || "0000",
         role: pc.role,
         pontuacao: pc.pontuacao,
         isGlobal: gc?.isGlobal ?? false,
@@ -85,12 +85,14 @@ export default function CollaboratorsPanel() {
 
         quantity: pc.quantity,
         duration: pc.durationSeconds,
+        criticos: pc.criticos,
         pausaMensal: pc.pausaMensalSeconds,
         saidaVtr: pc.saidaVtr,
 
         medicoRole: pc.medicoRole || gc?.medicoRole,
         shiftHours: pc.shiftHours || gc?.shiftHours,
 
+        points: pc.points || {},
       };
     });
   }, [projectCollaborators, globalCollaborators, selectedProject]);
@@ -162,7 +164,7 @@ export default function CollaboratorsPanel() {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/${selectedProject}/processar`,
+        `/api/proxy/${selectedProject}/processar`,
         {
           method: 'POST',
           body: formData,
@@ -216,31 +218,80 @@ export default function CollaboratorsPanel() {
     }
   };
 
-  const exportData = useMemo(() => {
-    return filteredCollaborators.map(c => ({
-      Nome: c.nome,
-      Função:
-        c.role === 'MEDICO' && c.medicoRole && c.shiftHours
-          ? `${c.role} (${c.medicoRole} - ${c.shiftHours})`
-          : c.role,
-      Pontuação: c.pontuacao,
-    }));
-  }, [filteredCollaborators]);
+  function formatTime(seconds: number): string {
+    if (!seconds && seconds !== 0) return '00:00:00';
 
+    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
 
-  const currentProject = projects.find(p => p.id === selectedProject);
-
+    return `${h}:${m}:${s}`;
+  }
 
   const handleExport = () => {
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    if (!combinedCollaborators || combinedCollaborators.length === 0) {
+      console.error("Nenhum colaborador para exportar.");
+
+      return;
+    }
+
+    const collaboratorsByRole = combinedCollaborators.reduce((acc, collaborator) => {
+      const role = collaborator.role || 'Sem Função';
+      if (!acc[role]) {
+        acc[role] = [];
+      }
+      acc[role].push(collaborator);
+      return acc;
+    }, {} as { [key: string]: typeof combinedCollaborators });
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Colaboradores');
+
+    Object.keys(collaboratorsByRole).forEach(role => {
+      const sheetData = collaboratorsByRole[role].map(c => {
+        const baseData: Record<string, any> = {
+          'Nome': c.nome,
+          'Função': c.role === 'MEDICO' && c.medicoRole && c.shiftHours
+            ? `${c.role} (${c.medicoRole} - ${c.shiftHours})`
+            : c.role,
+          'Pontuação': c.pontuacao,
+          'Pausa Mensal': formatTime(c.pausaMensal!),
+          'Pausa Pontos': c.points?.['Pausas'] || 0,
+          'Regulação': formatTime(c.duration!),
+          'Regulação Pontos': c.points?.['Regulacao'] || 0,
+
+        };
+        if (role === "FROTA") {
+          baseData['Saída VTR'] = formatTime(c.saidaVtr!);
+          baseData['Saída VTR Pontos'] = c.points?.['SaidaVTR'] || 0;
+        }
+        if (role !== "FROTA") {
+          baseData['Removidos'] = c.quantity;
+          baseData['Removidos Pontos'] = c.points?.['Removidos'] || 0;
+        }
+
+        if (role === "MEDICO") {
+          baseData['Criticos'] = c.criticos;
+          baseData['Criticos Pontos'] = c.points?.['Criticos'] || 0;
+        }
+
+        return baseData;
+      });
+
+      const ws = XLSX.utils.json_to_sheet(sheetData);
+
+      const safeSheetName = role.replace(/[:\\/?*\[\]]/g, '').substring(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
+    });
+
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const fileName = currentProject ? `${currentProject.name}_${currentProject.month}_colaboradores.xlsx` : 'colaboradores.xlsx';
+    const fileName = currentProject
+      ? `${currentProject.name}_${currentProject.month}_colaboradores_por_funcao.xlsx`
+      : 'colaboradores_por_funcao.xlsx';
     saveAs(new Blob([wbout]), fileName);
   };
 
   const isTableLoading = selectedProject && !projectCollaborators[selectedProject];
+  const currentProject = projects.find(p => p.id === selectedProject);
 
   return (
     <div className={styles.panel}>

@@ -114,15 +114,18 @@ public class ProjetosService {
     private void recalculateCollaboratorPoints(ProjectCollaborator collaborator, ProjetoEntity projeto) {
         if (collaborator.getMedicoRole() == null)
             collaborator.setMedicoRole(MedicoRole.valueOf("NENHUM"));
-        int pontos = scoringService.calculateCollaboratorScore(
+        Map<String, Integer> pontos = scoringService.calculateCollaboratorScore(
                 collaborator.getRole(),
                 collaborator.getMedicoRole().name(),
-                "H12", collaborator.getDurationSeconds(),
+                "H12",
+                collaborator.getDurationSeconds(),
+                collaborator.getCriticos(),
                 collaborator.getQuantity(),
                 collaborator.getPausaMensalSeconds(),
-                0L, projeto.getParameters()
+                collaborator.getSaidaVtrSeconds(),
+                projeto.getParameters()
         );
-        collaborator.setPontuacao(pontos);
+        collaborator.setPoints(pontos);
     }
 
     public ProjetoEntity createProjetoWithCollaborators(ProjetoEntity projeto) {
