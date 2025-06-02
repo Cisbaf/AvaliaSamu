@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -22,7 +21,6 @@ import ProjectModal from '../components/ProjectModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
-
 
 export default function HomePage() {
   const router = useRouter();
@@ -94,7 +92,6 @@ export default function HomePage() {
     setIsExporting(true);
 
     try {
-      // Estrutura para armazenar os dados consolidados
       const pontosConsolidados: {
         [key: string]: {
           nome: string;
@@ -105,7 +102,6 @@ export default function HomePage() {
       } = {};
       const mesesPresentes = new Set<string>();
 
-      // Itera sobre os IDs dos projetos selecionados
       for (const projectId of selectedProjectIds) {
         const projetoAtual = projects.find(p => p.id === projectId);
         if (!projetoAtual) {
@@ -115,12 +111,11 @@ export default function HomePage() {
         const mesProjeto = projetoAtual.month || 'Mês Desconhecido';
         mesesPresentes.add(mesProjeto);
 
-        // Garante que os colaboradores do projeto foram carregados
         if (!projectCollaborators[projectId]) {
           console.warn(`Colaboradores para o projeto ${projectId} não carregados. Tentando buscar...`);
           try {
             await fetchProjectCollaborators(projectId);
-            await new Promise(resolve => setTimeout(resolve, 100)); // Pequena pausa
+            await new Promise(resolve => setTimeout(resolve, 100));
           } catch (error) {
             console.error(`Falha ao buscar colaboradores para ${projectId} durante exportação:`, error);
             alert(`Não foi possível carregar os dados do projeto ${projetoAtual.name} (${mesProjeto}). A exportação pode estar incompleta.`);
@@ -130,15 +125,13 @@ export default function HomePage() {
 
         const colaboradoresDoProjeto = projectCollaborators[projectId] || [];
 
-        // Itera sobre os colaboradores do projeto atual
         for (const colab of colaboradoresDoProjeto) {
           const globalColab = globalCollaborators?.find(gc => gc.id === colab.id);
           const nome = globalColab?.nome || colab.nome || 'Nome Desconhecido';
           const funcaoFormatada = formatarFuncao(colab, globalColab);
-          const chave = `${nome}#${funcaoFormatada}`; // Chave única
+          const chave = `${nome}#${funcaoFormatada}`;
           const pontuacao = Number(colab.pontuacao) || 0;
 
-          // Inicializa o registro do colaborador se for a primeira vez
           if (!pontosConsolidados[chave]) {
             pontosConsolidados[chave] = {
               nome: nome,
@@ -148,50 +141,41 @@ export default function HomePage() {
             };
           }
 
-          // Adiciona a pontuação ao mês específico e ao total
           const pontosMesAtual = pontosConsolidados[chave].pontos_por_mes[mesProjeto] || 0;
           pontosConsolidados[chave].pontos_por_mes[mesProjeto] = pontosMesAtual + pontuacao;
           pontosConsolidados[chave].pontuacao_total += pontuacao;
         }
       }
 
-      // Ordena os meses (alfabeticamente, pode precisar de lógica melhor para meses reais)
       const mesesOrdenados = Array.from(mesesPresentes).sort();
 
-      // Prepara os dados finais para a planilha
       const dadosFinais = Object.values(pontosConsolidados).map(item => {
         const linha: { [key: string]: string | number } = {
           'Nome': item.nome,
           'Função': item.funcao
         };
-        // Adiciona colunas de pontos por mês
         for (const mes of mesesOrdenados) {
           linha[`Pontos ${mes}`] = item.pontos_por_mes[mes] || 0;
         }
-        // Adiciona coluna de total
         linha['Pontuação Total'] = item.pontuacao_total;
         return linha;
-      }).sort((a, b) => String(a.Nome).localeCompare(String(b.Nome)) || String(a.Função).localeCompare(String(b.Função))); // Ordena por Nome e Função
+      }).sort((a, b) => String(a.Nome).localeCompare(String(b.Nome)) || String(a.Função).localeCompare(String(b.Função)));
 
       if (dadosFinais.length === 0) {
         alert('Nenhum colaborador encontrado nos projetos selecionados.');
         return;
       }
 
-      // Cria a planilha
       const ws = XLSX.utils.json_to_sheet(dadosFinais);
-      // Define a ordem das colunas 
       const header = ['Nome', 'Função', ...mesesOrdenados.map(mes => ` ${mes}`), 'Pontuação Total'];
-      XLSX.utils.sheet_add_aoa(ws, [header], { origin: 'A1' }); // Adiciona o cabeçalho na ordem correta
+      XLSX.utils.sheet_add_aoa(ws, [header], { origin: 'A1' });
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Pontos Consolidados por Mês');
 
-      // Gera o nome do arquivo
       const dateStr = new Date().toISOString().split('T')[0];
       const fileName = `pontos_consolidados_por_mes_${selectedProjectIds.length}_projetos_${dateStr}.xlsx`;
 
-      // Exporta o arquivo
       const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
       saveAs(new Blob([wbout]), fileName);
 
@@ -245,10 +229,8 @@ export default function HomePage() {
                 >
                   <Delete fontSize="small" />
                 </IconButton>
-
               }
             >
-
               <ListItemButton
                 role={undefined}
                 onClick={() => handleProjectSelect(project.id!)}
@@ -258,7 +240,7 @@ export default function HomePage() {
                 <ListItemText
                   id={`checkbox-list-label-${project.id}`}
                   primary={project.name}
-                  secondary={`Mês: ${project.month || 'N/A'}`} // Exibe o mês
+                  secondary={`Data: ${project.month || 'N/A'}`}
                   sx={{ '& .MuiListItemText-secondary': { mt: 0.5 } }}
                 />
               </ListItemButton>
@@ -269,9 +251,7 @@ export default function HomePage() {
                 inputProps={{ 'aria-labelledby': `checkbox-list-label-${project.id}` }}
                 sx={{ marginRight: 5 }}
               />
-
             </ListItem>
-
           ))}
         </List>
       ) : (
@@ -286,4 +266,3 @@ export default function HomePage() {
     </Box>
   );
 }
-

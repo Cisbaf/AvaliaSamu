@@ -45,7 +45,7 @@ export default function CollaboratorsPanel() {
     isAddExistingModalOpen: false,
   });
 
-  const [scoringParams, setScoringParams] = useState<NestedScoringParameters>();
+  const [scoringParams] = useState<NestedScoringParameters>();
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>();
   const [editingCollaboratorPointsData, setEditingCollaboratorPointsData] = useState<CombinedCollaboratorData | undefined>();
 
@@ -98,11 +98,14 @@ export default function CollaboratorsPanel() {
   }, [projectCollaborators, globalCollaborators, selectedProject]);
 
   const filteredCollaborators = useMemo(() =>
-    combinedCollaborators.filter(c =>
-      c.nome.toLowerCase().includes(state.searchTerm.toLowerCase()) &&
-      (state.filterRole === 'all' || c.role === state.filterRole)
-    ),
-    [combinedCollaborators, state.searchTerm, state.filterRole]);
+    combinedCollaborators
+      .filter(c =>
+        c.nome.toLowerCase().includes(state.searchTerm.toLowerCase()) &&
+        (state.filterRole === 'all' || c.role === state.filterRole)
+      )
+      .sort((a, b) => a.nome.localeCompare(b.nome)), // Modificação aqui
+    [combinedCollaborators, state.searchTerm, state.filterRole]
+  );
 
   const availableCollaborators = useMemo(() => {
     if (!globalCollaborators || !selectedProject) return [];

@@ -11,7 +11,10 @@ import {
 } from '@mui/material';
 import { useProjects } from '../context/ProjectContext';
 import styles from "./styles/Modal.module.css"
-
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { format } from 'date-fns';
+import { enGB } from 'date-fns/locale';
 
 export default function ProjectModal({
   open,
@@ -61,14 +64,13 @@ export default function ProjectModal({
           onChange={(e) => setProjectName(e.target.value)}
           sx={{ mb: 2 }}
         />
-        <TextField
-          margin="dense"
-          label="Mês/Período"
-          fullWidth
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          placeholder="Ex: Janeiro 2024"
-        />
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
+          <DatePicker
+            label={"Data do Projeto"}
+            views={['month', 'year']}
+            onChange={(date) => setMonth(date ? format(date as Date, 'MM-yyyy') : '')}
+          />
+        </LocalizationProvider>
       </DialogContent>
       <DialogActions className={styles.modalActions}>
         <Button onClick={onClose}>Cancelar</Button>
