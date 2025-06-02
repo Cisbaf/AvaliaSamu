@@ -172,7 +172,11 @@ export default function CollaboratorModal({
             onSuccess();
             onClose();
         } catch (err: any) {
-            setError('Erro ao salvar colaborador');
+            const errorMessage =
+                err.response?.data?.message ||
+                err.message ||
+                'Erro ao salvar colaborador';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
