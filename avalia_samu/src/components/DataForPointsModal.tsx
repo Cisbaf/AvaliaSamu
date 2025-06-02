@@ -50,7 +50,7 @@ export default function DataForPointsModal({
     const [error, setError] = useState('');
 
     const isFrota = initialData?.role === 'FROTA';
-    const isLiderRef = initialData?.medicoRole === MedicoRole.LIDER_REGULADOR;
+    const isLider = initialData?.medicoRole === MedicoRole.LIDER;
 
     function formatTime(seconds: number): string {
         if (!seconds && seconds !== 0) return '00:00:00';
@@ -150,21 +150,25 @@ export default function DataForPointsModal({
             <DialogContent className={styles.modalContent}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                 <Grid container spacing={2} marginTop={2}>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                        <TextField
-                            label="Tempo de Regulação"
-                            type="time"
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            inputProps={{
-                                step: 1,
-                                pattern: "[0-9]{2}:[0-9]{2}:[0-9]{2}"
-                            }}
-                            value={formatTime(formData.durationSeconds)}
-                            onChange={handleChangeTime('durationSeconds')}
-                        />
-                    </Grid>
-                    {isLiderRef && (
+                    {!isLider && (
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField
+                                label="Tempo de Regulação"
+                                type="time"
+                                fullWidth
+                                InputLabelProps={{ shrink: true }}
+                                inputProps={{
+                                    step: 1,
+                                    pattern: "[0-9]{2}:[0-9]{2}:[0-9]{2}"
+                                }}
+                                value={formatTime(formData.durationSeconds)}
+                                onChange={handleChangeTime('durationSeconds')}
+                            />
+                        </Grid>
+
+                    )}
+
+                    {isLider && (
                         <Grid size={{ xs: 12, sm: 4 }}>
                             <TextField
                                 label="Criticos"

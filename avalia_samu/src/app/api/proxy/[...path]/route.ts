@@ -27,6 +27,12 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json(axiosResponse.data);
     } catch (error: any) {
+        if (error.response) {
+            return NextResponse.json(
+                error.response.data,
+                { status: error.response.status }
+            );
+        }
         console.error("Proxy GET error:", {
             message: error.message,
             code: error.code,
@@ -115,6 +121,13 @@ async function handleProxy(request: NextRequest) {
         return NextResponse.json(axiosResponse.data);
 
     } catch (error: any) {
+        if (error.response) {
+            return NextResponse.json(
+                error.response.data,
+                { status: error.response.status }
+            );
+        }
+
         console.error("Proxy error:", {
             message: error.message,
             code: error.code,
@@ -122,7 +135,6 @@ async function handleProxy(request: NextRequest) {
             targetUrl,
             response: error?.response?.data,
         });
-
         return NextResponse.json(
             { error: "Erro ao comunicar com a API externa", details: error.message },
             { status: 500 }
