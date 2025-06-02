@@ -78,14 +78,19 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                     continue;
                 }
 
-                var id = colaboradorRepository.findByNome(name).map(CollaboratorEntity::getId).orElse(null);
+                var id = colaboradorRepository.findByNomeApproximate(name).stream().map(CollaboratorEntity::getId).toList();
+                String ids = null;
+                if (id.isEmpty()) {
+                    log.warn("  → colaborador '{}' não encontrado, usando ID vazio", name);
+                } else {
+                    ids = id.get(0);
+                }
 
                 SheetRow sr = new SheetRow();
                 sr.setProjectId(projectId);
 
-                if (id != null) {
-                    sr.setCollaboratorId(id);
-                }
+                sr.setCollaboratorId(ids);
+
                 sr.setType(TypeAv.TARM_FROTA);
                 sr.getData().put("COLABORADOR", name);
 
@@ -206,7 +211,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                         .map(list -> list.getLast().getDuration())
                         .orElse(0L);
 
-                int pontos = collabParams.setParams(pc, projeto, secs,0L, existingRemovidos,  existingPausaMensal, existingSaidaVtr);
+                int pontos = collabParams.setParams(pc, projeto, secs, 0L, existingRemovidos, existingPausaMensal, existingSaidaVtr);
                 pc.setPontuacao(pontos);
                 pc.setDurationSeconds(secs);
 

@@ -247,7 +247,7 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
           <Typography variant="subtitle1">Tempo de Regulação Médica</Typography>
           {renderTable('medico', 'regulacao', ['Duração', 'Pontuação'])}
 
-          <Typography variant="subtitle1">Tempo de Regulação Líder</Typography>
+          <Typography variant="subtitle1">Tempo de Criticos Líder</Typography>
           {renderTable('medico', 'regulacaoLider', ['Duração', 'Pontuação'])}
         </TabPanel>
 

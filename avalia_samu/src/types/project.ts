@@ -18,7 +18,6 @@ export interface BaseCollaborator {
 export enum MedicoRole {
   REGULADOR = 'REGULADOR',
   LIDER = 'LIDER',
-  LIDER_REGULADOR = "LIDER_REGULADOR"
 }
 
 export enum ShiftHours {

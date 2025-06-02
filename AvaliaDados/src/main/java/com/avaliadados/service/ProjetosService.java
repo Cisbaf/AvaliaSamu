@@ -16,10 +16,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.time.Month;
+import java.time.Year;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -133,6 +132,18 @@ public class ProjetosService {
         ProjetoEntity novo = projetoRepo.save(projeto);
         List<CollaboratorEntity> globais = collaboratorRepo.findAll();
         List<MedicoEntity> medicos = medicoRepository.findAll();
+
+        String[] mesAno = novo.getMonth().split("-");
+
+        Month mesReal = Month.of(Integer.parseInt(Arrays.stream(mesAno).findFirst().get()));
+        String nome = String.format("%02d", mesReal.getValue());
+        Year anoReal = Year.of(Integer.parseInt(Arrays.stream(mesAno).toList().getLast()));
+        var dia = mesReal.length(anoReal.isLeap());
+        
+        if (nome.length() == 1) {
+            nome = "0" + nome;
+        }
+        System.out.println(dia + "/" + nome + "/" + anoReal.getValue());
 
         var collabs = globais.stream().map(g -> {
                     if (!Objects.equals(g.getRole(), "MEDICO")) {

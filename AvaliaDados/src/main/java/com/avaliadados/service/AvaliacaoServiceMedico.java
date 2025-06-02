@@ -1,9 +1,6 @@
 package com.avaliadados.service;
 
-import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.ProjectCollaborator;
-import com.avaliadados.model.ProjetoEntity;
-import com.avaliadados.model.SheetRow;
+import com.avaliadados.model.*;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.enums.TypeAv;
@@ -22,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -57,7 +54,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                     .filter(e -> e.getKey().startsWith("MEDICO REGULADOR"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
             Integer idxTempoMed = cols.entrySet().stream()
-                    .filter(e -> e.getKey().contains("TEMPO MEDIO REGULAÇÃO MEDICA"))
+                    .filter(e -> e.getKey().startsWith("TEMPO MEDIO REGULAÇÃO MEDICA"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
             Integer idxCrit = cols.entrySet().stream()
                     .filter(e -> e.getKey().startsWith("CRITICOS"))
@@ -81,12 +78,28 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 }
                 if (nomeMed == null || tempoReg == null) continue;
 
-                var id = colaboradorRepository.findByNome(nomeMed).map(CollaboratorEntity::getId).orElse(null);
+                List<CollaboratorEntity> encontrados =
+                        colaboradorRepository.findByNomeIgnoreCase(nomeMed.trim());
+
+                String idEncontrado = null;
+                if (encontrados.isEmpty()) {
+                    continue;
+                } else if (encontrados.size() == 1) {
+                    // Exatamente um → OK
+                    idEncontrado = encontrados.get(0).getId();
+                } else {
+                    // Mais de um → tomamos alguma decisão (por ex. usar o primeiro ou logar)
+                    log.warn("Mais de um colaborador encontrado com nome '{}'. IDs retornados = {}",
+                            nomeMed,
+                            encontrados.stream().map(CollaboratorEntity::getId).toList());
+                    // Por hora, vamos usar o primeiro da lista:
+                    idEncontrado = encontrados.get(0).getId();
+                }
 
                 SheetRow sr = new SheetRow();
                 sr.setProjectId(projectId);
-                if (id != null) {
-                    sr.setCollaboratorId(id);
+                if (idEncontrado != null) {
+                    sr.setCollaboratorId(idEncontrado);
                 }
                 sr.setType(TypeAv.MEDICO);
                 sr.getData().put("MEDICO.REGULADOR", nomeMed);
@@ -98,7 +111,9 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 sheetRowRepo.save(sr);
             }
         }
-        log.info("Planilha médica do projeto {} salva com {} linhas específicas", projectId,
+
+        log.info("Planilha médica do projeto {} salva com {} linhas específicas",
+                projectId,
                 sheetRowRepo.findByProjectId(projectId).size());
 
         sincronizarColaboradores(projectId);
@@ -109,40 +124,39 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         var projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado: " + projectId));
 
-        var medicos = medicoRepo.findAll().stream()
-                .collect(Collectors.toMap(
-                        m -> normalizeName(m.getNome()),
-                        m -> m,
-                        (a, b) -> a
+        Map<String, List<MedicoEntity>> medicosPorNome = medicoRepo.findAll().stream()
+                .collect(Collectors.groupingBy(
+                        m -> normalizeName(m.getNome())
                 ));
 
         for (SheetRow sr : sheetRowRepo.findByProjectId(projectId)) {
-            String rawNome = Optional.ofNullable(sr.getData().get("MEDICO.REGULADOR")).orElse("MEDICO.LIDER");
+            String rawNome = Optional.ofNullable(sr.getData().get("MEDICO.REGULADOR"))
+                    .orElse("MEDICO.LIDER");
             String nomeNorm = normalizeName(rawNome);
 
-            medicos.entrySet().stream()
-                    .filter(e -> similarity(e.getKey(), nomeNorm) >= 0.85)
-                    .max(Comparator.comparingDouble(e -> similarity(e.getKey(), nomeNorm)))
-                    .ifPresent(entry -> {
-                        var med = entry.getValue();
-                        String collabId = med.getId();
-                        ProjectCollaborator pc = projeto.getCollaborators().stream()
-                                .filter(c -> c.getCollaboratorId().equals(collabId))
-                                .findFirst()
-                                .orElseGet(() -> {
-                                    var novo = ProjectCollaborator.builder()
-                                            .collaboratorId(collabId)
-                                            .nome(med.getNome())
-                                            .role(med.getRole())
-                                            .medicoRole(med.getMedicoRole())
-                                            .build();
-                                    projeto.getCollaborators().add(novo);
-                                    return novo;
-                                });
-                        if (pc.getMedicoRole() == null) pc.setMedicoRole(med.getMedicoRole());
-                        atualizarDadosMedico(pc, sr.getData(), projeto);
-                    });
+            List<MedicoEntity> possiveis = medicosPorNome.getOrDefault(nomeNorm, List.of());
+
+            for (MedicoEntity med : possiveis) {
+                String collabId = med.getId();
+
+                ProjectCollaborator pc = projeto.getCollaborators().stream()
+                        .filter(c -> c.getCollaboratorId().equals(collabId))
+                        .findFirst()
+                        .orElseGet(() -> {
+                            var novo = ProjectCollaborator.builder()
+                                    .collaboratorId(collabId)
+                                    .nome(med.getNome())
+                                    .role(med.getRole())
+                                    .medicoRole(med.getMedicoRole())
+                                    .build();
+                            projeto.getCollaborators().add(novo);
+                            return novo;
+
+                        });
+                atualizarDadosMedico(pc, sr.getData(), projeto);
+            }
         }
+
         projetoRepo.save(projeto);
         log.info("Colaboradores sincronizados para projeto {}", projectId);
     }
@@ -151,9 +165,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                                       Map<String, String> data,
                                       ProjetoEntity projeto) {
 
-        if (pc.getWasEdited()) {
-            return;
-        }
+        log.info("Atualizando Colaborador: ID={}, Nome={}, Role={}, Dados Planilha={}",
+                pc.getCollaboratorId(), pc.getNome(), pc.getMedicoRole(), data);
 
         long duration = 0L;
         long criticos = 0L; // Separar os dois valores
@@ -164,21 +177,19 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
         // Lógica corrigida para cada papel
         switch (medicoRole) {
-            case LIDER_REGULADOR:
-                duration = data.containsKey("TEMPO.REGULACAO")
-                        ? parseTimeToSeconds(data.get("TEMPO.REGULACAO")) : 0L;
-                criticos = data.containsKey("CRITICOS")
-                        ? parseTimeToSeconds(data.get("CRITICOS")) : 0L;
-                break;
-
             case REGULADOR:
                 duration = data.containsKey("TEMPO.REGULACAO")
                         ? parseTimeToSeconds(data.get("TEMPO.REGULACAO")) : 0L;
+                log.info("  -> Role REGULADOR. Usando TEMPO.REGULACAO: {}. duration={}",
+                        data.getOrDefault("TEMPO.REGULACAO", "N/A"), duration);
                 break;
 
             case LIDER:
                 criticos = data.containsKey("CRITICOS")
                         ? parseTimeToSeconds(data.get("CRITICOS")) : 0L;
+                // Adicione este log
+                log.info("  -> Role LIDER. Usando CRITICOS: {}. criticos={}",
+                        data.getOrDefault("CRITICOS", "N/A"), criticos);
                 break;
         }
 
@@ -194,7 +205,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             pc.setShiftHours(ShiftHours.H12);
             log.info("Definindo turno padrão H12 para colaborador {}", pc.getNome());
         }
-
+        log.info("  -> Valores calculados para setParams: duration={}, criticos={}, quantity={}, pausaMensal={}",
+                duration, criticos, quantity, pausaMensal);
         // Aqui está o CORRETO - manter a ordem original de parâmetros
         int pontos = collabParams.setParams(
                 pc,
@@ -205,6 +217,9 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 pausaMensal,
                 criticos  // Novo parâmetro para críticos
         );
+
+        log.info("  -> Pontuação final: {}. Atualizando pc.setPontuacao={}, pc.setDurationSeconds={}, pc.setCriticos={}",
+                pontos, pontos, duration, criticos);
 
         pc.setPontuacao(pontos);
         pc.setDurationSeconds(duration);

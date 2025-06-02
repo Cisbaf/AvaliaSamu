@@ -45,7 +45,7 @@ export default function CollaboratorsPanel() {
     isAddExistingModalOpen: false,
   });
 
-  const [scoringParams, setScoringParams] = useState<NestedScoringParameters>();
+  const [scoringParams] = useState<NestedScoringParameters>();
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>();
   const [editingCollaboratorPointsData, setEditingCollaboratorPointsData] = useState<CombinedCollaboratorData | undefined>();
 
@@ -98,11 +98,14 @@ export default function CollaboratorsPanel() {
   }, [projectCollaborators, globalCollaborators, selectedProject]);
 
   const filteredCollaborators = useMemo(() =>
-    combinedCollaborators.filter(c =>
-      c.nome.toLowerCase().includes(state.searchTerm.toLowerCase()) &&
-      (state.filterRole === 'all' || c.role === state.filterRole)
-    ),
-    [combinedCollaborators, state.searchTerm, state.filterRole]);
+    combinedCollaborators
+      .filter(c =>
+        c.nome.toLowerCase().includes(state.searchTerm.toLowerCase()) &&
+        (state.filterRole === 'all' || c.role === state.filterRole)
+      )
+      .sort((a, b) => a.nome.localeCompare(b.nome)), // Modificação aqui
+    [combinedCollaborators, state.searchTerm, state.filterRole]
+  );
 
   const availableCollaborators = useMemo(() => {
     if (!globalCollaborators || !selectedProject) return [];
@@ -195,8 +198,12 @@ export default function CollaboratorsPanel() {
     if (selectedProject) {
       try {
         await fetchProjectCollaborators(selectedProject);
-      } catch {
-        updateState({ error: 'Falha ao atualizar colaboradores' });
+      } catch (err: any) {
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          'Erro ao salvar colaborador';
+        updateState(errorMessage);
       }
     }
   };
@@ -253,7 +260,6 @@ export default function CollaboratorsPanel() {
           'Função': c.role === 'MEDICO' && c.medicoRole && c.shiftHours
             ? `${c.role} (${c.medicoRole} - ${c.shiftHours})`
             : c.role,
-          'Pontuação': c.pontuacao,
           'Pausa Mensal': formatTime(c.pausaMensal!),
           'Pausa Pontos': c.points?.['Pausas'] || 0,
           'Regulação': formatTime(c.duration!),
@@ -264,15 +270,16 @@ export default function CollaboratorsPanel() {
           baseData['Saída VTR'] = formatTime(c.saidaVtr!);
           baseData['Saída VTR Pontos'] = c.points?.['SaidaVTR'] || 0;
         }
-        if (role !== "FROTA") {
-          baseData['Removidos'] = c.quantity;
-          baseData['Removidos Pontos'] = c.points?.['Removidos'] || 0;
-        }
 
         if (role === "MEDICO") {
           baseData['Criticos'] = formatTime(c.criticos!);
           baseData['Criticos Pontos'] = c.points?.['Criticos'] || 0;
         }
+        if (role !== "FROTA") {
+          baseData['Removidos'] = c.quantity;
+          baseData['Removidos Pontos'] = c.points?.['Removidos'] || 0;
+        }
+        baseData['Pontuação'] = c.pontuacao;
 
         return baseData;
       });
