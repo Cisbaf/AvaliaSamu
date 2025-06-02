@@ -5,7 +5,9 @@ import com.avaliadados.model.MedicoEntity;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.dto.CollaboratorRequest;
 import com.avaliadados.model.dto.CollaboratorsResponse;
+import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.repository.CollaboratorRepository;
+import com.avaliadados.repository.MedicoRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -21,23 +23,29 @@ import java.util.List;
 public class CollaboratorsService {
 
     private final CollaboratorRepository collaboratorRepo;
+    private final MedicoRepository medicoRepo;
     private final CollaboratorsMapper mapper;
     private final ProjetoRepository projetoRepository;
 
 
     @Transactional
     public CollaboratorsResponse createCollaborator(CollaboratorRequest request) {
-        if (collaboratorRepo.existsByNome(request.nome())) {
-            log.warn("Colaborador com nome {} já existe.", request.nome());
-            throw new IllegalArgumentException("Colaborador com nome já existente: " + request.nome());
-        }
-        if (collaboratorRepo.existsByCpf((request.cpf()))) {
-            log.warn("Colaborador com CPF ");
-            throw new IllegalArgumentException("Colaborador com CPF: " + request.cpf());
-        }
-        if (collaboratorRepo.existsByIdCallRote(request.idCallRote())) {
-            log.warn("Colaborador com ID de Call Rote já existe.");
-            throw new IllegalArgumentException("Colaborador com ID de Call Rote já existente: " + request.idCallRote());
+        assert request.medicoRole() != null;
+        if (request.medicoRole().equals(MedicoRole.NENHUM)) {
+            if (collaboratorRepo.existsByNome(request.nome())) {
+                log.warn("Colaborador com nome {} já existe.", request.nome());
+                throw new IllegalArgumentException("Colaborador com nome já existente: " + request.nome());
+            }
+            if (collaboratorRepo.existsByCpf((request.cpf()))) {
+                log.warn("Colaborador com CPF ");
+                throw new IllegalArgumentException("Colaborador com CPF: " + request.cpf());
+            }
+            if (collaboratorRepo.existsByIdCallRote(request.idCallRote())) {
+                log.warn("Colaborador com ID de Call Rote já existe.");
+                throw new IllegalArgumentException("Colaborador com ID de Call Rote já existente: " + request.idCallRote());
+            }
+        } else if (medicoRepo.existsByNomeAndMedicoRole(request.nome(), request.medicoRole())) {
+            throw new IllegalArgumentException("Colaborador médico com nome e função já existente: " + request.nome() + " - " + request.medicoRole());
         }
 
 

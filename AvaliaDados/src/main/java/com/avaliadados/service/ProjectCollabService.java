@@ -231,6 +231,16 @@ public class ProjectCollabService {
         CollaboratorEntity collab = collaboratorRepo.findById(collaboratorId)
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
 
+        boolean colaboradorExistente = projeto.getCollaborators().stream()
+                .anyMatch(c -> c.getNome().equals(dto.getNome())
+                        && c.getMedicoRole().equals(dto.getMedicoRole()));
+
+        if (colaboradorExistente) {
+            log.warn("Colaborador com nome [{}] e médico role [{}] já existe no projeto [{}].",
+                    dto.getNome(), dto.getMedicoRole(), projectId);
+            throw new RuntimeException("Colaborador com nome e médico role já existe no projeto.");
+        }
+
         projeto.getCollaborators()
                 .stream()
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
@@ -242,12 +252,12 @@ public class ProjectCollabService {
                             processSheetRowData(pc, sheetColab);
                         }
                     }
-                    pc.setNome(dto.getNome());
-                    pc.setRole(dto.getRole());
-                    pc.setCriticos(dto.getCriticos());
+                    pc.setNome(dto.getNome() != null ? dto.getNome() : pc.getNome());
+                    pc.setRole(dto.getRole() != null ? dto.getRole() : pc.getRole());
+                    pc.setCriticos(dto.getCriticos() != null ? dto.getCriticos() : pc.getCriticos());
                     pc.setMedicoRole(dto.getMedicoRole() != null ? dto.getMedicoRole() : MedicoRole.NENHUM);
-                    pc.setShiftHours(dto.getShiftHours());
-                    pc.setWasEdited(wasEdited);
+                    pc.setShiftHours(dto.getShiftHours() != null ? dto.getShiftHours() : pc.getShiftHours());
+                    pc.setWasEdited(wasEdited || pc.getWasEdited());
                     pc.setSaidaVtrSeconds(dto.getSaidaVtr() != null ? dto.getSaidaVtr() : pc.getSaidaVtrSeconds());
                     pc.setDurationSeconds(dto.getDurationSeconds() != null ? dto.getDurationSeconds() : pc.getDurationSeconds());
                     pc.setQuantity(dto.getQuantity() != null ? dto.getQuantity() : pc.getQuantity());

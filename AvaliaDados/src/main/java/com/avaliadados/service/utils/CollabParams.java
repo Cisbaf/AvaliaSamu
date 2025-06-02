@@ -55,12 +55,6 @@ public class CollabParams {
                 section.setRegulacaoLider((List.of(ScoringRule.builder().duration(criticos).build())));
                 regulacaoLider = section.getRegulacaoLider().getLast().getDuration();
             }
-            if (pc.getMedicoRole().equals(MedicoRole.LIDER_REGULADOR)){
-                section.setRegulacaoLider((List.of(ScoringRule.builder().duration(criticos).build())));
-                section.setRegulacao((List.of(ScoringRule.builder().duration(duration).build())));
-                regulacao = section.getRegulacao().getLast().getDuration();
-                regulacaoLider = section.getRegulacaoLider().getLast().getDuration();
-            }
         }
         if (pc.getRole().equals("FROTA")) {
             section.setSaidaVtr((List.of(ScoringRule.builder().duration(saidaVtr).build())));
