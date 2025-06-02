@@ -244,6 +244,7 @@ public class ProjectCollabService {
                     }
                     pc.setNome(dto.getNome());
                     pc.setRole(dto.getRole());
+                    pc.setCriticos(dto.getCriticos());
                     pc.setMedicoRole(dto.getMedicoRole() != null ? dto.getMedicoRole() : MedicoRole.NENHUM);
                     pc.setShiftHours(dto.getShiftHours());
                     pc.setWasEdited(wasEdited);

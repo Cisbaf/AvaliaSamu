@@ -31,6 +31,9 @@ public class ProjectCollabRequest {
     @NotNull(message = "A quantidade é obrigatória")
     private Integer quantity;
 
+    @NotNull(message = "O tempo de críticos é obrigatório")
+    private Long criticos;
+
     @NotNull(message = "A pontuação é obrigatória")
     private Integer pontuacao;
 
