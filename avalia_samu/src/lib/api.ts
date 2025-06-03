@@ -2,7 +2,6 @@ import axios from 'axios';
 import { GlobalCollaborator, Project, ProjectCollaborator, NestedScoringParameters, UpdateProjectCollabDto, MedicoRole, ShiftHours } from '@/types/project';
 
 const uri = '/api/proxy';
-console.log("API URI:", uri);
 
 export const api = axios.create({
   baseURL: uri,

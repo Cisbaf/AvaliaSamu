@@ -5,10 +5,10 @@ import com.avaliadados.model.MedicoEntity;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.dto.CollaboratorRequest;
 import com.avaliadados.model.dto.CollaboratorsResponse;
-import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.MedicoRepository;
 import com.avaliadados.repository.ProjetoRepository;
+import com.avaliadados.service.utils.CollaboratorsMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -30,9 +30,9 @@ public class CollaboratorsService {
 
     @Transactional
     public CollaboratorsResponse createCollaborator(CollaboratorRequest request) {
-        assert request.medicoRole() != null;
-        if (request.medicoRole().equals(MedicoRole.NENHUM)) {
-            if (collaboratorRepo.existsByNome(request.nome())) {
+
+        if (request.medicoRole() == null) {
+            if (collaboratorRepo.existsByNome(request.nome().trim())) {
                 log.warn("Colaborador com nome {} já existe.", request.nome());
                 throw new IllegalArgumentException("Colaborador com nome já existente: " + request.nome());
             }

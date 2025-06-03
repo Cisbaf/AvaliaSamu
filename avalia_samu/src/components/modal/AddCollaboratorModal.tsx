@@ -17,9 +17,9 @@ import {
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import styles from './styles/Modal.module.css';
+import styles from "../styles/Modal.module.css"
 import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
-import { CombinedCollaboratorData } from './CollaboratorsPanel';
+import { CombinedCollaboratorData } from '../CollaboratorsPanel';
 import {
     MedicoRole,
     ShiftHours,
@@ -96,6 +96,16 @@ export default function CollaboratorModal({
     const handleChange = (key: keyof FormData, value: any) => {
         setFormData(prev => ({ ...prev, [key]: value }));
     };
+
+    const handleClose = async () => {
+        onClose();
+        setFormData({
+            nome: '', cpf: '', idCallRote: '', baseRole: '',
+            medicoRole: undefined, shiftHours: undefined,
+            durationSeconds: undefined, quantity: undefined, pausaMensalSeconds: undefined
+        })
+    }
+
 
     const handleSubmit = async () => {
         setLoading(true);
@@ -179,6 +189,11 @@ export default function CollaboratorModal({
             setError(errorMessage);
         } finally {
             setLoading(false);
+            setFormData({
+                nome: '', cpf: '', idCallRote: '', baseRole: '',
+                medicoRole: undefined, shiftHours: undefined,
+                durationSeconds: undefined, quantity: undefined, pausaMensalSeconds: undefined
+            })
         }
     };
 
@@ -272,7 +287,7 @@ export default function CollaboratorModal({
                     </div>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={onClose} disabled={loading}>Cancelar</Button>
+                    <Button onClick={handleClose} disabled={loading}>Cancelar</Button>
                     <Button onClick={handleSubmit} variant="contained" disabled={isSubmitDisabled}>
                         {loading ? <CircularProgress size={24} /> : isEdit ? 'Salvar' : 'Cadastrar'}
                     </Button>

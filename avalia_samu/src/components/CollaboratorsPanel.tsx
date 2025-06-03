@@ -9,11 +9,11 @@ import {
 import { Edit, Delete, Add, EditNote } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
 import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ShiftHours } from '@/types/project';
-import CollaboratorModal from './AddCollaboratorModal';
-import AddExistingCollaboratorModal from './AddExistingCollaboratorModal';
+import CollaboratorModal from './modal/AddCollaboratorModal';
+import AddExistingCollaboratorModal from './modal/AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
 import ScoringParamsModal from './ParameterPanel';
-import DataForPointsModal from './DataForPointsModal';
+import DataForPointsModal from './modal/DataForPointsModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 

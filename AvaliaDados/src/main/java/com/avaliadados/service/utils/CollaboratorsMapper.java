@@ -1,4 +1,4 @@
-package com.avaliadados.service;
+package com.avaliadados.service.utils;
 
 import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.dto.CollaboratorRequest;
@@ -28,7 +28,6 @@ public class CollaboratorsMapper {
                 null,
                 null,
                 entity.getPontuacao(),
-
                 null
         );
     }
@@ -38,7 +37,7 @@ public class CollaboratorsMapper {
 
         if (role.startsWith("MEDICO")) {
             return new MedicoEntity(
-                    request.nome(),
+                    request.nome().toUpperCase(),
                     request.cpf(),
                     request.idCallRote(),
                     request.pontuacao(),
@@ -50,7 +49,7 @@ public class CollaboratorsMapper {
         } else {
             return switch (request.role().toUpperCase()) {
                 case "TARM" -> new TarmEntity(
-                        request.nome(),
+                        request.nome().toUpperCase(),
                         request.cpf(),
                         request.idCallRote(),
                         request.pontuacao(),
@@ -58,21 +57,11 @@ public class CollaboratorsMapper {
                         null
                 );
                 case "FROTA" -> new FrotaEntity(
-                        request.nome(),
+                        request.nome().toUpperCase(),
                         request.cpf(),
                         request.idCallRote(),
                         request.pontuacao(),
                         request.role(),
-                        null
-                );
-                case "MEDICO", "MEDICO_SUPERVISOR" -> new MedicoEntity(
-                        request.nome(),
-                        request.cpf(),
-                        request.idCallRote(),
-                        request.pontuacao(),
-                        request.role(),
-                        request.medicoRole(),
-                        request.shiftHours(),
                         null
                 );
                 default -> throw new IllegalArgumentException("Role inválido: " + request.role());

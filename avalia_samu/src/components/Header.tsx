@@ -4,7 +4,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import CollaboratorModal from './AddCollaboratorModal';
+import CollaboratorModal from './modal/AddCollaboratorModal';
 import styles from './styles/Header.module.css';
 
 export function Header() {

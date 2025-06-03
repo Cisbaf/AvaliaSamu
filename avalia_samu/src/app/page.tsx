@@ -17,7 +17,7 @@ import {
 import Delete from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useProjects } from '../context/ProjectContext';
-import ProjectModal from '../components/ProjectModal';
+import ProjectModal from '../components/modal/ProjectModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';

@@ -1,7 +1,7 @@
 package com.avaliadados.service.factory;
 
-import com.avaliadados.service.AvaliacaoService;
-import com.avaliadados.service.AvaliacaoServiceMedico;
+import com.avaliadados.service.avaliacao.AvaliacaoService;
+import com.avaliadados.service.avaliacao.AvaliacaoServiceMedico;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Component;

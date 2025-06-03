@@ -9,8 +9,8 @@ import {
   DialogActions,
   Button
 } from '@mui/material';
-import { useProjects } from '../context/ProjectContext';
-import styles from "./styles/Modal.module.css"
+import { useProjects } from '../../context/ProjectContext';
+import styles from "../styles/Modal.module.css"
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format } from 'date-fns';
