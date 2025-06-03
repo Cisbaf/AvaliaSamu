@@ -12,10 +12,12 @@ import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ShiftHours } f
 import CollaboratorModal from './modal/AddCollaboratorModal';
 import AddExistingCollaboratorModal from './modal/AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
-import ScoringParamsModal from './ParameterPanel';
+import ScoringParamsModal from './modal/ScoringParamsModal';
 import DataForPointsModal from './modal/DataForPointsModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { Project } from '@/types/project';
+
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
   isGlobal: boolean;
@@ -45,12 +47,14 @@ export default function CollaboratorsPanel() {
     isAddExistingModalOpen: false,
   });
 
-  const [scoringParams] = useState<NestedScoringParameters>();
+  const [scoringParams, setScoringParams] = useState<NestedScoringParameters>();
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>();
   const [editingCollaboratorPointsData, setEditingCollaboratorPointsData] = useState<CombinedCollaboratorData | undefined>();
 
   // Atualização de estado simplificada
   const updateState = (newState: Partial<typeof state>) => setState(prev => ({ ...prev, ...newState }));
+  const currentProject = projects.find(p => p.id === selectedProject);
+
 
   // Efeitos
   useEffect(() => {
@@ -66,6 +70,11 @@ export default function CollaboratorsPanel() {
       updateState({ roles: Array.from(new Set(inProject.map(c => c.role))) });
     }
   }, [projectCollaborators, selectedProject]);
+  useEffect(() => {
+    if (currentProject?.parameters) {
+      setScoringParams(currentProject.parameters);
+    }
+  }, [currentProject]);
 
   // Dados processados
   const combinedCollaborators = useMemo(() => {
@@ -208,7 +217,6 @@ export default function CollaboratorsPanel() {
     }
   };
 
-  // Handlers para modais
   const handleSaveParameters = async (params: NestedScoringParameters) => {
     if (!selectedProject) return;
 
@@ -217,6 +225,7 @@ export default function CollaboratorsPanel() {
     try {
       await updateProjectParameters(selectedProject, params);
       await fetchProjectCollaborators(selectedProject);
+      setScoringParams(params);
       updateState({ scoringParamsModalOpen: false });
     } catch (err: any) {
       updateState({ error: err.response?.data?.message || 'Falha ao salvar parâmetros' });
@@ -298,7 +307,6 @@ export default function CollaboratorsPanel() {
   };
 
   const isTableLoading = selectedProject && !projectCollaborators[selectedProject];
-  const currentProject = projects.find(p => p.id === selectedProject);
 
   return (
     <div className={styles.panel}>
@@ -448,7 +456,7 @@ export default function CollaboratorsPanel() {
             open={state.scoringParamsModalOpen}
             onClose={() => updateState({ scoringParamsModalOpen: false })}
             onSave={handleSaveParameters}
-            initialParams={scoringParams}
+            initialParams={currentProject?.parameters}
           />
 
           <DataForPointsModal
