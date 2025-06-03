@@ -260,7 +260,6 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
           variant="contained"
           onClick={() => {
             const clean = normalizeParams(params);
-            console.log("Dados que serão salvos:", clean);
             onSave(clean);
           }}
         >

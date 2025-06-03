@@ -122,8 +122,6 @@ export default function DataForPointsModal({
                     medicoRole: initialData!.medicoRole,
                     shiftHours: initialData!.shiftHours as ShiftHours,
                 };
-                console.info('DTO:', dto);
-                console.info("FormData:", formData);
 
                 await updateProjectCollaborator(
                     projectId,

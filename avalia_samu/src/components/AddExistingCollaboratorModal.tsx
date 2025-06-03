@@ -31,7 +31,6 @@ export default function AddExistingCollaboratorModal({
     onAdd,
     loading
 }: AddExistingCollaboratorModalProps) {
-    console.log('Colaboradores disponíveis:', collaborators);
 
     const handleAddCollaborator = async (collab: GlobalCollaborator) => {
         if (collab.role === 'MEDICO') {
