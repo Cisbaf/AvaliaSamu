@@ -1,29 +1,22 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.dto.CollaboratorsResponse;
-import com.avaliadados.model.dto.ProjectCollabRequest;
 import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
-import com.avaliadados.model.SheetRow;
-import com.avaliadados.model.enums.MedicoRole;
-import com.avaliadados.model.params.NestedScoringParameters;
-import com.avaliadados.model.params.ScoringRule;
-import com.avaliadados.model.params.ScoringSectionParams;
+import com.avaliadados.model.dto.CollaboratorsResponse;
+import com.avaliadados.model.dto.ProjectCollabRequest;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
-import com.avaliadados.repository.SheetRowRepository;
 import com.avaliadados.service.utils.CollabParams;
+import com.avaliadados.service.utils.SheetProcessingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
-
-import static com.avaliadados.service.utils.SheetsUtils.*;
-
 
 @Slf4j
 @Service
@@ -32,8 +25,8 @@ public class ProjectCollabService {
 
     private final ProjetoRepository projetoRepo;
     private final CollaboratorRepository collaboratorRepo;
-    private final SheetRowRepository rowRepository;
     private final CollabParams collabParams;
+    private final SheetProcessingService sheetProcessingService;
 
     @Transactional
     public ProjetoEntity addCollaborator(String projectId, ProjectCollabRequest dto) {
@@ -44,9 +37,9 @@ public class ProjectCollabService {
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
         CollaboratorEntity collab = collaboratorRepo.findById(dto.getCollaboratorId())
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
-        if (dto.getMedicoRole() == null) {
-            dto.setMedicoRole(MedicoRole.NENHUM);
-        }
+
+        // Se dto.getMedicoRole() vier nulo, define NENHUM
+        var medicoRole = Optional.ofNullable(dto.getMedicoRole()).orElse(com.avaliadados.model.enums.MedicoRole.NENHUM);
 
         ProjectCollaborator pc = ProjectCollaborator.builder()
                 .collaboratorId(dto.getCollaboratorId())
@@ -55,127 +48,34 @@ public class ProjectCollabService {
                 .durationSeconds(dto.getDurationSeconds())
                 .quantity(dto.getQuantity())
                 .pausaMensalSeconds(dto.getPausaMensalSeconds())
-                .parametros(new NestedScoringParameters())
-                .medicoRole(dto.getMedicoRole())
+                .parametros(new com.avaliadados.model.params.NestedScoringParameters())
+                .medicoRole(medicoRole)
                 .shiftHours(dto.getShiftHours())
                 .build();
 
-        SheetRow sheetColab = getSheetRowForCollaborator(dto.getCollaboratorId(), projectId, collab.getNome());
+        // DELEGA: tenta encontrar a SheetRow e, se existir, popula o pc
+        sheetProcessingService
+                .findAndAssociateSheetRow(dto.getCollaboratorId(), projectId, collab.getNome())
+                .ifPresent(sheetRow -> {
+                    sheetProcessingService.populateFromSheet(pc, sheetRow);
 
-        if (sheetColab != null) {
-            processSheetRowData(pc, sheetColab);
+                    // Depois de popular o PC, calcula pontuação
+                    long duration = Optional.ofNullable(pc.getDurationSeconds()).orElse(0L);
+                    int quantity = Optional.ofNullable(pc.getQuantity()).orElse(0);
+                    long pausaMensal = Optional.ofNullable(pc.getPausaMensalSeconds()).orElse(0L);
+                    long saidaVtr = Optional.ofNullable(pc.getSaidaVtrSeconds()).orElse(0L);
+                    long criticos = Optional.ofNullable(pc.getCriticos()).orElse(0L);
 
-            long duration = pc.getDurationSeconds() != null ? pc.getDurationSeconds() : 0L;
-            int quantity = pc.getQuantity() != null ? pc.getQuantity() : 0;
-            long pausaMensal = pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L;
-            long saidaVtr = pc.getSaidaVtrSeconds() != null ? pc.getSaidaVtrSeconds() : 0L;
-            long criticos = pc.getCriticos() != null ? pc.getCriticos() : 0L;
+                    int pontos = collabParams.setParams(pc, projeto, duration, criticos, quantity, pausaMensal, saidaVtr);
+                    pc.setPontuacao(pontos);
+                    log.debug("Pontuação calculada para o colaborador: {}", pontos);
+                });
 
-            int pontos = collabParams.setParams(pc, projeto, duration, criticos,quantity, pausaMensal, saidaVtr);
-            pc.setPontuacao(pontos);
-            log.debug("Pontuação calculada para o colaborador: {}", pontos);
-        } else {
-            log.warn("Nenhum dado de planilha encontrado para o colaborador [{}]", dto.getCollaboratorId());
-        }
-
+        // Substitui qualquer colaborador já existente com esse ID, e adiciona o novo
         projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(dto.getCollaboratorId()));
         projeto.getCollaborators().add(pc);
-        log.debug("Dados do Collaborador {}", pc);
+        log.debug("Dados do Collaborador adicionados/atualizados: {}", pc);
         return projetoRepo.save(projeto);
-    }
-
-    private SheetRow getSheetRowForCollaborator(String collaboratorId, String projectId, String collaboratorName) {
-        SheetRow sheetColab = rowRepository.findByCollaboratorIdAndProjectId(collaboratorId, projectId);
-
-        if (sheetColab == null) {
-            String nomeNormalizado = normalizeName(collaboratorName);
-            List<SheetRow> todasLinhas = rowRepository.findByProjectId(projectId);
-
-            Optional<SheetRow> melhorCorrespondencia = todasLinhas.stream()
-                    .filter(row -> {
-                        String nomeMedico = row.getData().get("MEDICO.REGULADOR");
-                        if (nomeMedico == null) {
-                            nomeMedico = row.getData().get("MEDICO.LIDER");
-                        }
-                        if (nomeMedico == null) return false;
-
-                        return similarity(normalizeName(nomeMedico), nomeNormalizado) >= 0.85;
-                    })
-                    .findFirst();
-
-            if (melhorCorrespondencia.isPresent()) {
-                sheetColab = melhorCorrespondencia.get();
-
-                sheetColab.setCollaboratorId(collaboratorId);
-                rowRepository.save(sheetColab);
-
-                log.info("Associado colaborador [{}] à linha da planilha por similaridade de nome", collaboratorId);
-            }
-        }
-
-        return sheetColab;
-    }
-
-
-    private void processSheetRowData(ProjectCollaborator pc, SheetRow sheetRow) {
-        log.info("Dados da planilha encontrados para o colaborador [{}]", pc.getCollaboratorId());
-        Map<String, String> data = sheetRow.getData();
-
-        if (Objects.equals(pc.getRole(), "TARM")) {
-            String tempoRegulacaoTarm = data.get("TEMPO.REGULACAO.TARM");
-            if (tempoRegulacaoTarm != null) {
-                Long segundos = parseTimeToSeconds(tempoRegulacaoTarm);
-                pc.setDurationSeconds(segundos);
-                pc.setParametros(NestedScoringParameters.builder()
-                        .tarm(ScoringSectionParams.builder()
-                                .regulacao(List.of(ScoringRule.builder().duration(segundos).build()))
-                                .build())
-                        .build());
-                log.debug("Tempo de regulação TARM definido: {} segundos", segundos);
-            }
-        }
-
-        if (Objects.equals(pc.getRole(), "FROTA")) {
-            String tempoRegulacaoFrota = data.get("TEMPO.REGULACAO.FROTA");
-            if (tempoRegulacaoFrota != null) {
-                Long segundos = parseTimeToSeconds(tempoRegulacaoFrota);
-                pc.setDurationSeconds(segundos);
-                pc.setParametros(NestedScoringParameters.builder()
-                        .frota(ScoringSectionParams.builder()
-                                .regulacao(List.of(ScoringRule.builder().duration(segundos).build()))
-                                .build())
-                        .build());
-                log.debug("Tempo de regulação FROTA definido: {} segundos", segundos);
-            }
-        }
-
-        if (Objects.equals(pc.getRole(), "MEDICO")) {
-            if (pc.getMedicoRole().equals(MedicoRole.REGULADOR)) {
-                String tempoRegulacao = data.get("TEMPO.REGULACAO");
-                if (tempoRegulacao != null) {
-                    Long segundos = parseTimeToSeconds(tempoRegulacao);
-                    pc.setDurationSeconds(segundos);
-                    pc.setParametros(NestedScoringParameters.builder()
-                            .medico(ScoringSectionParams.builder()
-                                    .regulacao(List.of(ScoringRule.builder().duration(segundos).build()))
-                                    .build())
-                            .build());
-                    log.debug("Tempo de regulação MÉDICO REGULADOR definido: {} segundos", segundos);
-                }
-            } else if (pc.getMedicoRole().equals(MedicoRole.LIDER)) {
-                String criticos = data.get("CRITICOS");
-                if (criticos != null) {
-                    Long segundos = parseTimeToSeconds(criticos);
-                    pc.setDurationSeconds(segundos);
-                    pc.setParametros(NestedScoringParameters.builder()
-                            .medico(ScoringSectionParams.builder()
-                                    .regulacaoLider(List.of(ScoringRule.builder().duration(segundos).build()))
-                                    .build())
-                            .build());
-                    log.debug("Tempo de críticos MÉDICO LÍDER definido: {} segundos", segundos);
-                }
-            }
-        }
     }
 
     public List<CollaboratorsResponse> getAllProjectCollaborators(String projectId) {
@@ -183,36 +83,46 @@ public class ProjectCollabService {
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
 
         return projeto.getCollaborators().stream()
-                .map(pc -> {
-                    Optional<CollaboratorEntity> collab =
-                            collaboratorRepo.findById(pc.getCollaboratorId());
+                .map(pc -> collaboratorRepo.findById(pc.getCollaboratorId())
+                        .map(collab -> {
+                            String cpf = collab.getCpf() != null ? collab.getCpf() : "000.000.000-00";
+                            String idCallRote = collab.getIdCallRote() != null ? collab.getIdCallRote() : "000";
+                            int pontuacao = Optional.ofNullable(pc.getPontuacao()).orElse(0);
 
-                    String cpf = collab.map(CollaboratorEntity::getCpf)
-                            .orElse("000.000.000-00");
-                    String idCallRote = collab.map(CollaboratorEntity::getIdCallRote)
-                            .orElse("000");
-
-                    int pontuacao = pc.getPontuacao() != null ? pc.getPontuacao() : 0;
-
-
-
-                    return new CollaboratorsResponse(
-                            pc.getCollaboratorId(),
-                            pc.getNome(),
-                            cpf,
-                            idCallRote,
-                            pc.getRole(),
-                            pc.getShiftHours(),
-                            pc.getMedicoRole(),
-                            pc.getDurationSeconds(),
-                            pc.getPausaMensalSeconds(),
-                            pc.getSaidaVtrSeconds(),
-                            pc.getQuantity(),
-                            pc.getCriticos(),
-                            pontuacao,
-                            pc.getPoints()
-                    );
-                })
+                            return new CollaboratorsResponse(
+                                    pc.getCollaboratorId(),
+                                    pc.getNome(),
+                                    cpf,
+                                    idCallRote,
+                                    pc.getRole(),
+                                    pc.getShiftHours(),
+                                    pc.getMedicoRole(),
+                                    pc.getDurationSeconds(),
+                                    pc.getPausaMensalSeconds(),
+                                    pc.getSaidaVtrSeconds(),
+                                    pc.getQuantity(),
+                                    pc.getCriticos(),
+                                    pontuacao,
+                                    pc.getPoints()
+                            );
+                        })
+                        .orElseGet(() -> new CollaboratorsResponse(
+                                pc.getCollaboratorId(),
+                                pc.getNome(),
+                                "000.000.000-00",
+                                "000",
+                                pc.getRole(),
+                                pc.getShiftHours(),
+                                pc.getMedicoRole(),
+                                pc.getDurationSeconds(),
+                                pc.getPausaMensalSeconds(),
+                                pc.getSaidaVtrSeconds(),
+                                pc.getQuantity(),
+                                pc.getCriticos(),
+                                Optional.ofNullable(pc.getPontuacao()).orElse(0),
+                                pc.getPoints()
+                        ))
+                )
                 .collect(Collectors.toList());
     }
 
@@ -223,55 +133,72 @@ public class ProjectCollabService {
             ProjectCollabRequest dto,
             boolean wasEdited
     ) {
-        log.info("Atualizando colaborador [{}] no projeto [{}] em {} tal {}", dto, projectId, wasEdited, dto);
+        log.info("Atualizando colaborador [{}] no projeto [{}] (wasEdited = {})", dto.getCollaboratorId(), projectId, wasEdited);
 
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
-
-        CollaboratorEntity collab = collaboratorRepo.findById(collaboratorId)
+        collaboratorRepo.findById(collaboratorId)
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
 
-        boolean colaboradorExistente = projeto.getCollaborators().stream()
-                .anyMatch(c -> c.getNome().equals(dto.getNome())
-                        && c.getMedicoRole().equals(dto.getMedicoRole()));
+        boolean existsNoProjeto = projeto.getCollaborators().stream()
+                .anyMatch(c ->
+                        !c.getCollaboratorId().equals(collaboratorId) &&
+                                c.getNome().equals(dto.getNome()) &&
+                                c.getMedicoRole().equals(dto.getMedicoRole())
+                );
 
-        if (colaboradorExistente) {
-            log.warn("Colaborador com nome [{}] e médico role [{}] já existe no projeto [{}].",
+        if (existsNoProjeto) {
+            log.warn("Colaborador com nome [{}] e médicoRole [{}] já existe no projeto [{}].",
                     dto.getNome(), dto.getMedicoRole(), projectId);
-            throw new RuntimeException("Colaborador com nome e médico role já existe no projeto.");
+            throw new RuntimeException("Colaborador com mesmo nome e médicoRole já existe no projeto.");
         }
 
-        projeto.getCollaborators()
-                .stream()
+        projeto.getCollaborators().stream()
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
-                    if (!wasEdited || !pc.getWasEdited()) {
-                        SheetRow sheetColab = getSheetRowForCollaborator(collaboratorId, projectId, collab.getNome());
-                        if (sheetColab != null) {
-                            processSheetRowData(pc, sheetColab);
-                        }
+                    // Se ainda não foi editado manualmente, podemos reprojetar dados da planilha
+                    if (!wasEdited && !pc.getWasEdited()) {
+                        sheetProcessingService
+                                .findAndAssociateSheetRow(collaboratorId, projectId, pc.getNome())
+                                .ifPresent(sheetRow -> sheetProcessingService.populateFromSheet(pc, sheetRow));
                     }
-                    pc.setNome(dto.getNome() != null ? dto.getNome() : pc.getNome());
-                    pc.setRole(dto.getRole() != null ? dto.getRole() : pc.getRole());
-                    pc.setCriticos(dto.getCriticos() != null ? dto.getCriticos() : pc.getCriticos());
-                    pc.setMedicoRole(dto.getMedicoRole() != null ? dto.getMedicoRole() : MedicoRole.NENHUM);
-                    pc.setShiftHours(dto.getShiftHours() != null ? dto.getShiftHours() : pc.getShiftHours());
+
+                    // Atualiza somente campos passados no DTO
+                    Optional.ofNullable(dto.getNome())
+                            .ifPresent(pc::setNome);
+                    Optional.ofNullable(dto.getRole())
+                            .ifPresent(pc::setRole);
+                    Optional.ofNullable(dto.getCriticos())
+                            .ifPresent(pc::setCriticos);
+                    pc.setMedicoRole(Optional.ofNullable(dto.getMedicoRole()).orElse(com.avaliadados.model.enums.MedicoRole.NENHUM));
+                    Optional.ofNullable(dto.getShiftHours())
+                            .ifPresent(pc::setShiftHours);
+
                     pc.setWasEdited(wasEdited || pc.getWasEdited());
-                    pc.setSaidaVtrSeconds(dto.getSaidaVtr() != null ? dto.getSaidaVtr() : pc.getSaidaVtrSeconds());
-                    pc.setDurationSeconds(dto.getDurationSeconds() != null ? dto.getDurationSeconds() : pc.getDurationSeconds());
-                    pc.setQuantity(dto.getQuantity() != null ? dto.getQuantity() : pc.getQuantity());
-                    pc.setPausaMensalSeconds(dto.getPausaMensalSeconds() != null ? dto.getPausaMensalSeconds() : pc.getPausaMensalSeconds());
+                    Optional.ofNullable(dto.getSaidaVtr())
+                            .ifPresent(pc::setSaidaVtrSeconds);
+                    Optional.ofNullable(dto.getDurationSeconds())
+                            .ifPresent(pc::setDurationSeconds);
+                    Optional.ofNullable(dto.getQuantity())
+                            .ifPresent(pc::setQuantity);
+                    Optional.ofNullable(dto.getPausaMensalSeconds())
+                            .ifPresent(pc::setPausaMensalSeconds);
 
-                    log.info("Colaborador tal {}", pc);
+                    log.info("Colaborador após atualizações de campos: {}", pc);
 
-                    int pontos = pc.getPontuacao();
+                    // Recalcula pontuação se houver durationSeconds
                     if (pc.getDurationSeconds() != null) {
-                        pontos = collabParams.setParams(pc, projeto, pc.getDurationSeconds(),pc.getCriticos(), pc.getQuantity(), pc.getPausaMensalSeconds(), pc.getSaidaVtrSeconds());
+                        long duration = pc.getDurationSeconds();
+                        long criticosVal = Optional.ofNullable(pc.getCriticos()).orElse(0L);
+                        int quantityVal = Optional.ofNullable(pc.getQuantity()).orElse(0);
+                        long pausaMensal = Optional.ofNullable(pc.getPausaMensalSeconds()).orElse(0L);
+                        long saidaVtr = Optional.ofNullable(pc.getSaidaVtrSeconds()).orElse(0L);
+
+                        int pontos = collabParams.setParams(pc, projeto, duration, criticosVal, quantityVal, pausaMensal, saidaVtr);
+                        pc.setPontuacao(pontos);
                     }
 
-
-                    pc.setPontuacao(pontos);
                     syncCollaboratorData(collaboratorId);
                 });
 
@@ -290,11 +217,7 @@ public class ProjectCollabService {
     @Transactional
     public void syncCollaboratorData(String collaboratorId) {
         log.info("Sincronizando (apenas) IDs do colaborador [{}]", collaboratorId);
-
         List<ProjetoEntity> projetos = projetoRepo.findByCollaboratorsCollaboratorId(collaboratorId);
-
         projetoRepo.saveAll(projetos);
     }
-
-
 }
