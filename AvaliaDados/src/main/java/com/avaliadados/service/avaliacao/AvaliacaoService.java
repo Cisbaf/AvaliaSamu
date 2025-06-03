@@ -1,4 +1,4 @@
-package com.avaliadados.service;
+package com.avaliadados.service.avaliacao;
 
 import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.ProjectCollaborator;

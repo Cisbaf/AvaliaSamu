@@ -8,6 +8,7 @@ import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.MedicoRepository;
 import com.avaliadados.repository.ProjetoRepository;
+import com.avaliadados.service.utils.CollaboratorsMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;

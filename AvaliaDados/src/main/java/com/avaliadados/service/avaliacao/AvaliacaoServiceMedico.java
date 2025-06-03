@@ -1,4 +1,4 @@
-package com.avaliadados.service;
+package com.avaliadados.service.avaliacao;
 
 import com.avaliadados.model.*;
 import com.avaliadados.model.enums.MedicoRole;
