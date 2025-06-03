@@ -21,6 +21,9 @@ import ProjectModal from '../components/modal/ProjectModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
+import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
+import { updateProjectApi } from '@/lib/api';
+
 
 export default function HomePage() {
   const router = useRouter();
@@ -29,7 +32,7 @@ export default function HomePage() {
     projects,
     projectCollaborators,
     globalCollaborators,
-    actions: { deleteProject, fetchProjectCollaborators }
+    actions: { deleteProject, fetchProjectCollaborators, updateProjectParameters }
   } = useProjects();
 
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -45,6 +48,9 @@ export default function HomePage() {
           fetchProjectCollaborators(project.id).catch(error => {
             console.error(`Erro ao buscar colaboradores do projeto ${project.id}:`, error);
           });
+        }
+        if (project.parameters.colab.pausas?.length == 0) {
+          updateProjectParameters(project.id!, DEFAULT_PARAMS!)
         }
       });
     }
