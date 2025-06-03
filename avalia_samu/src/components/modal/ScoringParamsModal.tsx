@@ -44,6 +44,7 @@ function a11yProps(idx: number) {
 
 export default function ScoringParamsModal({ open, onClose, onSave, initialParams }: ScoringParamsModalProps) {
   const [tabIndex, setTabIndex] = useState(0);
+
   const [params, setParams] = useState<NestedScoringParameters>(() =>
     initialParams
       ? JSON.parse(JSON.stringify(initialParams))
