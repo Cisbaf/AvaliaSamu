@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import styles from '@/components/styles/CollaboratorsPanel.module.css';
 import EditIcon from '@mui/icons-material/Edit';
-import CollaboratorModal from '@/components/AddCollaboratorModal';
+import CollaboratorModal from '@/components/modal/AddCollaboratorModal';
 import api, { deleteGlobalCollaboratorApi } from '@/lib/api';
 import { GlobalCollaborator, Collaborator } from "@/types/project"
 import { useProjects } from '@/context/ProjectContext';

@@ -9,9 +9,9 @@ import {
     Alert,
     Grid
 } from '@mui/material';
-import styles from './styles/Modal.module.css';
+import styles from "../styles/Modal.module.css"
 import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
-import { CombinedCollaboratorData } from './CollaboratorsPanel';
+import { CombinedCollaboratorData } from '../CollaboratorsPanel';
 import { UpdateProjectCollabDto, GlobalCollaborator, ShiftHours, MedicoRole } from '@/types/project';
 
 interface DataForPointsModalProps {
