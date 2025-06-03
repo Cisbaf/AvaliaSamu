@@ -39,8 +39,7 @@ public class ProjetosService {
             NestedScoringParameters newParams = objectMapper.convertValue(
                     updates.get("parameters"), NestedScoringParameters.class);
 
-            NestedScoringParameters mergedParams = mergeParameters(p.getParameters(), newParams);
-            p.setParameters(mergedParams);
+            p.setParameters(newParams);
 
             p.getCollaborators().forEach(collab ->
                     recalculateCollaboratorPoints(collab, p)
