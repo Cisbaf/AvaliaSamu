@@ -81,19 +81,19 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 List<CollaboratorEntity> encontrados =
                         colaboradorRepository.findByNomeIgnoreCase(nomeMed.trim());
 
-                String idEncontrado = null;
+                String idEncontrado;
                 if (encontrados.isEmpty()) {
                     continue;
                 } else if (encontrados.size() == 1) {
                     // Exatamente um → OK
-                    idEncontrado = encontrados.get(0).getId();
+                    idEncontrado = encontrados.getFirst().getId();
                 } else {
                     // Mais de um → tomamos alguma decisão (por ex. usar o primeiro ou logar)
                     log.warn("Mais de um colaborador encontrado com nome '{}'. IDs retornados = {}",
                             nomeMed,
                             encontrados.stream().map(CollaboratorEntity::getId).toList());
                     // Por hora, vamos usar o primeiro da lista:
-                    idEncontrado = encontrados.get(0).getId();
+                    idEncontrado = encontrados.getFirst().getId();
                 }
 
                 SheetRow sr = new SheetRow();

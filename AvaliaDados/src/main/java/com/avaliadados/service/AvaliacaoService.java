@@ -83,7 +83,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                 if (id.isEmpty()) {
                     log.warn("  → colaborador '{}' não encontrado, usando ID vazio", name);
                 } else {
-                    ids = id.get(0);
+                    ids = id.getFirst();
                 }
 
                 SheetRow sr = new SheetRow();
