@@ -112,7 +112,7 @@ export default function CollaboratorsPanel() {
         c.nome.toLowerCase().includes(state.searchTerm.toLowerCase()) &&
         (state.filterRole === 'all' || c.role === state.filterRole)
       )
-      .sort((a, b) => a.nome.localeCompare(b.nome)), // Modificação aqui
+      .sort((a, b) => a.nome.localeCompare(b.nome)),
     [combinedCollaborators, state.searchTerm, state.filterRole]
   );
 
@@ -251,7 +251,7 @@ export default function CollaboratorsPanel() {
       return;
     }
 
-    const collaboratorsByRole = combinedCollaborators.reduce((acc, collaborator) => {
+    const collaboratorsByRole = combinedCollaborators.sort((a, b) => a.nome.localeCompare(b.nome)).reduce((acc, collaborator) => {
       const role = collaborator.role || 'Sem Função';
       if (!acc[role]) {
         acc[role] = [];
