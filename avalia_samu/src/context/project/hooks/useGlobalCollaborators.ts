@@ -5,7 +5,7 @@ import api, {
     updateGlobalCollaboratorApi,
     deleteGlobalCollaboratorApi
 } from '@/lib/api';
-import { Collaborator, GlobalCollaborator, MedicoRole, ShiftHours } from '@/types/project';
+import { GlobalCollaborator, MedicoRole, ShiftHours } from '@/types/project';
 
 export function useGlobalCollaborators() {
     const [globalCollaborators, setGlobalCollaborators] = useState<GlobalCollaborator[]>([]);

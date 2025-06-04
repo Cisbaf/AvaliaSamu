@@ -41,7 +41,6 @@ public class ProjectCollabController {
     public ResponseEntity<List<CollaboratorsResponse>> getAll(@PathVariable String projectId) {
 
         List<CollaboratorsResponse> collaborators = service.getAllProjectCollaborators(projectId);
-        logger.info("Buscando todos os colaboradores do projeto ID: {}", collaborators);
         return ResponseEntity.ok(collaborators);
     }
 

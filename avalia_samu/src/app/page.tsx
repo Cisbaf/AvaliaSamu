@@ -22,7 +22,6 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
 import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
-import { updateProjectApi } from '@/lib/api';
 
 
 export default function HomePage() {

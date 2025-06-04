@@ -16,7 +16,6 @@ import ScoringParamsModal from './modal/ScoringParamsModal';
 import DataForPointsModal from './modal/DataForPointsModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { Project } from '@/types/project';
 
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {

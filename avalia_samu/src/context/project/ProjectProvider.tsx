@@ -5,7 +5,7 @@ import { useProjectActions } from './hooks/useProjectActions';
 import { useGlobalCollaborators } from './hooks/useGlobalCollaborators';
 import { useProjectCollaborators } from './hooks/useProjectCollaborators';
 import { ProjectContextType } from '@/types/ProjectContextType';
-import { Collaborator, GlobalCollaborator } from '@/types/project';
+import { GlobalCollaborator } from '@/types/project';
 
 const ProjectContext = createContext<ProjectContextType | null>(null);
 
