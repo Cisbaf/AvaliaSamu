@@ -21,7 +21,7 @@ public class ProjectCollaborator {
     private MedicoRole medicoRole;
     private Long durationSeconds = 0L;
     private Long criticos = 0L;
-    private Integer quantity = 0;
+    private Integer removidos = 0;
     private Integer pontuacao = 0;
     private Long pausaMensalSeconds = 0L;
     private Long saidaVtrSeconds = 0L;

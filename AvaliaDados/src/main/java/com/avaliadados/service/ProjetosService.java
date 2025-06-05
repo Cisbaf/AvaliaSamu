@@ -118,7 +118,7 @@ public class ProjetosService {
                 "H12",
                 collaborator.getDurationSeconds(),
                 collaborator.getCriticos(),
-                collaborator.getQuantity(),
+                collaborator.getRemovidos(),
                 collaborator.getPausaMensalSeconds(),
                 collaborator.getSaidaVtrSeconds(),
                 projeto.getParameters()

@@ -20,13 +20,13 @@ public class ScoringService {
             String shiftHour,
             Long durationSeconds,
             Long criticos,
-            Integer quantity,
+            Integer removidos,
             Long pausaMensalSeconds,
             Long saidaVtrSeconds,
             NestedScoringParameters params
     ) {
-        log.info("Iniciando cálculo de score para role={}, medicRole={}, shiftHour={}, duration={}s, quantity={}, pausa={}s",
-                role, medicRole, shiftHour, durationSeconds, quantity, pausaMensalSeconds);
+        log.info("Iniciando cálculo de score para role={}, medicRole={}, shiftHour={}, duration={}s, removidos={}, pausa={}s",
+                role, medicRole, shiftHour, durationSeconds, removidos, pausaMensalSeconds);
 
         Map<String, Integer> points = new HashMap<>();
 
@@ -58,7 +58,7 @@ public class ScoringService {
         switch (role) {
             case "TARM":
                 if (sectionParams != null) {
-                    totalScore += calculateTarmScore(durationSeconds, quantity, sectionParams, points);
+                    totalScore += calculateTarmScore(durationSeconds, removidos, sectionParams, points);
                 }
                 break;
             case "FROTA":
@@ -68,7 +68,7 @@ public class ScoringService {
                 break;
             case "MEDICO":
                 if (sectionParams != null) {
-                    totalScore += calculateMedicoScore(medicRole, durationSeconds, criticos, quantity, sectionParams, shouldApplyMultiplier, points);
+                    totalScore += calculateMedicoScore(medicRole, durationSeconds, criticos, removidos, sectionParams, shouldApplyMultiplier, points);
                 }
                 break;
         }
@@ -84,12 +84,12 @@ public class ScoringService {
         return points;
     }
 
-    private int calculateTarmScore(Long duration, Integer quantity, ScoringSectionParams params, Map<String, Integer> points) {
+    private int calculateTarmScore(Long duration, Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
         int score = 0;
         int point;
 
-        if (quantity != null && quantity > 0 && params.getRemovidos() != null) {
-            point = matchQuantityRule(quantity, params.getRemovidos());
+        if (removidos != null && removidos > 0 && params.getRemovidos() != null) {
+            point = matchremovidosRule(removidos, params.getRemovidos());
             score += point;
             points.put("Removidos", point);
         }
@@ -140,11 +140,11 @@ public class ScoringService {
         return score;
     }
 
-    private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer quantity, ScoringSectionParams params, boolean applyMultiplier, Map<String, Integer> points) {
+    private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos, ScoringSectionParams params, boolean applyMultiplier, Map<String, Integer> points) {
         int score = 0;
 
-        if (quantity != null && quantity > 0 && params.getRemovidos() != null) {
-            int point = matchQuantityRule(quantity, params.getRemovidos());
+        if (removidos != null && removidos > 0 && params.getRemovidos() != null) {
+            int point = matchremovidosRule(removidos, params.getRemovidos());
             score += point;
             points.put("Removidos", point);
         }
@@ -186,7 +186,7 @@ public class ScoringService {
         return score;
     }
 
-    private int matchQuantityRule(Integer value, List<ScoringRule> rules) {
+    private int matchremovidosRule(Integer value, List<ScoringRule> rules) {
         if (value == null || value <= 0 || rules == null || rules.isEmpty()) return 0;
 
         return rules.stream()

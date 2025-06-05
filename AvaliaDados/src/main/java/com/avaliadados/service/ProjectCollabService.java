@@ -46,7 +46,7 @@ public class ProjectCollabService {
                 .nome(collab.getNome())
                 .role(dto.getRole())
                 .durationSeconds(dto.getDurationSeconds())
-                .quantity(dto.getQuantity())
+                .removidos(dto.getRemovidos())
                 .pausaMensalSeconds(dto.getPausaMensalSeconds())
                 .parametros(new com.avaliadados.model.params.NestedScoringParameters())
                 .medicoRole(medicoRole)
@@ -61,7 +61,7 @@ public class ProjectCollabService {
 
                     // Depois de popular o PC, calcula pontuação
                     long duration = Optional.ofNullable(pc.getDurationSeconds()).orElse(0L);
-                    int quantity = Optional.ofNullable(pc.getQuantity()).orElse(0);
+                    int quantity = Optional.ofNullable(pc.getRemovidos()).orElse(0);
                     long pausaMensal = Optional.ofNullable(pc.getPausaMensalSeconds()).orElse(0L);
                     long saidaVtr = Optional.ofNullable(pc.getSaidaVtrSeconds()).orElse(0L);
                     long criticos = Optional.ofNullable(pc.getCriticos()).orElse(0L);
@@ -100,7 +100,7 @@ public class ProjectCollabService {
                                     pc.getDurationSeconds(),
                                     pc.getPausaMensalSeconds(),
                                     pc.getSaidaVtrSeconds(),
-                                    pc.getQuantity(),
+                                    pc.getRemovidos(),
                                     pc.getCriticos(),
                                     pontuacao,
                                     pc.getPoints()
@@ -117,7 +117,7 @@ public class ProjectCollabService {
                                 pc.getDurationSeconds(),
                                 pc.getPausaMensalSeconds(),
                                 pc.getSaidaVtrSeconds(),
-                                pc.getQuantity(),
+                                pc.getRemovidos(),
                                 pc.getCriticos(),
                                 Optional.ofNullable(pc.getPontuacao()).orElse(0),
                                 pc.getPoints()
@@ -180,8 +180,8 @@ public class ProjectCollabService {
                             .ifPresent(pc::setSaidaVtrSeconds);
                     Optional.ofNullable(dto.getDurationSeconds())
                             .ifPresent(pc::setDurationSeconds);
-                    Optional.ofNullable(dto.getQuantity())
-                            .ifPresent(pc::setQuantity);
+                    Optional.ofNullable(dto.getRemovidos())
+                            .ifPresent(pc::setRemovidos);
                     Optional.ofNullable(dto.getPausaMensalSeconds())
                             .ifPresent(pc::setPausaMensalSeconds);
 
@@ -191,7 +191,7 @@ public class ProjectCollabService {
                     if (pc.getDurationSeconds() != null) {
                         long duration = pc.getDurationSeconds();
                         long criticosVal = Optional.ofNullable(pc.getCriticos()).orElse(0L);
-                        int quantityVal = Optional.ofNullable(pc.getQuantity()).orElse(0);
+                        int quantityVal = Optional.ofNullable(pc.getRemovidos()).orElse(0);
                         long pausaMensal = Optional.ofNullable(pc.getPausaMensalSeconds()).orElse(0L);
                         long saidaVtr = Optional.ofNullable(pc.getSaidaVtrSeconds()).orElse(0L);
 
