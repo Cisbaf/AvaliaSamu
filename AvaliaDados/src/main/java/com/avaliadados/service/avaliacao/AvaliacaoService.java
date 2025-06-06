@@ -78,18 +78,8 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                     continue;
                 }
 
-                var id = colaboradorRepository.findByNomeApproximate(name).stream().map(CollaboratorEntity::getId).toList();
-                String ids = null;
-                if (id.isEmpty()) {
-                    log.warn("  → colaborador '{}' não encontrado, usando ID vazio", name);
-                } else {
-                    ids = id.getFirst();
-                }
-
                 SheetRow sr = new SheetRow();
                 sr.setProjectId(projectId);
-
-                sr.setCollaboratorId(ids);
 
                 sr.setType(TypeAv.TARM_FROTA);
                 sr.getData().put("COLABORADOR", name);
@@ -198,20 +188,19 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
                 ScoringSectionParams section = pc.getRole().equals("TARM") ? params.getTarm() : params.getFrota();
 
-                long existingPausaMensal = Optional.ofNullable(section.getPausas())
-                        .filter(list -> !list.isEmpty())
-                        .map(list -> list.getLast().getDuration())
-                        .orElse(0L);
-                int existingRemovidos = Optional.ofNullable(section.getRemovidos())
-                        .filter(list -> !list.isEmpty())
-                        .map(list -> list.getLast().getQuantity())
-                        .orElse(0);
                 Long existingSaidaVtr = Optional.ofNullable(section.getSaidaVtr())
                         .filter(list -> !list.isEmpty())
                         .map(list -> list.getLast().getDuration())
                         .orElse(0L);
 
-                int pontos = collabParams.setParams(pc, projeto, secs, 0L, existingRemovidos, existingPausaMensal, existingSaidaVtr);
+                var collab = colaboradorRepository.getReferenceById(pc.getCollaboratorId());
+
+                var apiData = collabParams.setDataFromApi( pc, projeto, collab.getIdCallRote());
+                var removidos = Math.toIntExact(apiData.get("removeds"));
+                var pausa = apiData.get("pauses");
+                pc.setRemovidos(removidos);
+
+                int pontos = collabParams.setParams(pc, projeto,removidos, secs, 0L, pausa, existingSaidaVtr);
                 pc.setPontuacao(pontos);
                 pc.setDurationSeconds(secs);
 

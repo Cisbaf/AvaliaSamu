@@ -207,14 +207,20 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         }
         log.info("  -> Valores calculados para setParams: duration={}, criticos={}, quantity={}, pausaMensal={}",
                 duration, criticos, quantity, pausaMensal);
-        // Aqui está o CORRETO - manter a ordem original de parâmetros
+
+
+        var apiData = collabParams.setDataFromApi(pc, projeto, colaboradorRepository.getReferenceById(pc.getCollaboratorId()).getIdCallRote());
+        var removidos = Math.toIntExact(apiData.get("removeds"));
+        var pausas = apiData.get("pauses");
+        pc.setRemovidos(removidos);
+
         int pontos = collabParams.setParams(
                 pc,
                 projeto,
+                removidos,
                 duration,
                 criticos,
-                quantity,
-                pausaMensal,
+                pausas,
                 criticos  // Novo parâmetro para críticos
         );
 

@@ -26,6 +26,9 @@ public class ProjectCollaborator {
     private Long pausaMensalSeconds = 0L;
     private Long saidaVtrSeconds = 0L;
     Map<String, Integer> points;
-    private Boolean wasEdited = false;
     private NestedScoringParameters parametros;
+    private Boolean wasEdited = false;
+    private boolean wasSearched = false;
+    private boolean fristAdd = true;
+
 }
