@@ -25,7 +25,7 @@ interface DataForPointsModalProps {
 type FormData = {
     durationSeconds: number;
     criticos: number,
-    quantity: number;
+    removidos: number;
     pausaMensalSeconds: number;
     saidaVtr: number;
 };
@@ -42,7 +42,7 @@ export default function DataForPointsModal({
     const [formData, setFormData] = useState<FormData>({
         durationSeconds: 0,
         criticos: 0,
-        quantity: 0,
+        removidos: 0,
         pausaMensalSeconds: 0,
         saidaVtr: 0
     });
@@ -83,7 +83,7 @@ export default function DataForPointsModal({
                     (initialData as any).duration ??
                     0,
                 criticos: (initialData as any).criticos ?? 0,
-                quantity: initialData.quantity ?? 0,
+                removidos: initialData.removidos ?? 0,
                 pausaMensalSeconds:
                     initialData.pausaMensalSeconds ??
                     (initialData as any).pausaMensal ??
@@ -114,7 +114,7 @@ export default function DataForPointsModal({
                 const dto: UpdateProjectCollabDto = {
                     durationSeconds: formData.durationSeconds ?? 0, // Usar nullish coalescing
                     criticos: formData.criticos ?? 0,
-                    quantity: formData.quantity || 0,
+                    removidos: formData.removidos || 0,
                     pausaMensalSeconds: formData.pausaMensalSeconds ?? 0,
                     saidaVtr: isFrota ? formData.saidaVtr || 0 : 0,
                     role: initialData!.role,
@@ -140,7 +140,7 @@ export default function DataForPointsModal({
         }
     };
 
-    const isSubmitDisabled = loading || formData.durationSeconds < 0 || formData.quantity < 0 || formData.pausaMensalSeconds < 0;
+    const isSubmitDisabled = loading || formData.durationSeconds < 0 || formData.removidos < 0 || formData.pausaMensalSeconds < 0;
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -190,7 +190,7 @@ export default function DataForPointsModal({
                                 label="Removidos"
                                 type="number"
                                 fullWidth
-                                value={formData.quantity}
+                                value={formData.removidos}
                                 onChange={handleChangeNumber('quantity')}
                             />
                         </Grid>

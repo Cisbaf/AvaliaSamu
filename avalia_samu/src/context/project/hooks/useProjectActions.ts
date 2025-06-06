@@ -34,7 +34,7 @@ export function useProjectActions() {
                         m.id!,
                         m.role,
                         m.durationSeconds,
-                        m.quantity,
+                        m.removidos,
                         m.pausaMensalSeconds,
                         undefined,
                         m.medicoRole, // Garantido pelo filtro
@@ -47,7 +47,7 @@ export function useProjectActions() {
                         o.id!,
                         o.role,
                         o.durationSeconds,
-                        o.quantity,
+                        o.removidos,
                         o.pausaMensalSeconds
                     )
                 )

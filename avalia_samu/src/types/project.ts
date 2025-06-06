@@ -7,7 +7,7 @@ export interface BaseCollaborator {
   shiftHours?: ShiftHours;
   medicoRole?: MedicoRole;
   pontuacao: number;
-  quantity?: number;
+  removidos?: number;
   criticos?: number;
   durationSeconds?: number;
   pausaMensalSeconds?: number;
@@ -82,7 +82,7 @@ export interface UpdateProjectCollabDto {
   role?: string;
   durationSeconds?: number;
   criticos?: number;
-  quantity?: number;
+  removidos?: number;
   pausaMensalSeconds?: number;
   medicoRole?: MedicoRole;
   shiftHours?: ShiftHours;

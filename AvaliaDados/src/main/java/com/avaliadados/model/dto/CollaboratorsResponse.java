@@ -14,9 +14,10 @@ import java.util.Map;
  */
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @ToString
+@Builder
 public class CollaboratorsResponse implements Serializable {
     private String id;
     private String nome;

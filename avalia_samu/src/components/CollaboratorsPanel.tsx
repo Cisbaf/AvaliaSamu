@@ -63,11 +63,14 @@ export default function CollaboratorsPanel() {
     }
   }, [selectedProject, fetchProjectCollaborators]);
 
+
   useEffect(() => {
     if (selectedProject) {
       const inProject = projectCollaborators[selectedProject] || [];
       updateState({ roles: Array.from(new Set(inProject.map(c => c.role))) });
+      console.log(inProject)
     }
+
   }, [projectCollaborators, selectedProject]);
   useEffect(() => {
     if (currentProject?.parameters) {
@@ -91,7 +94,7 @@ export default function CollaboratorsPanel() {
         isGlobal: gc?.isGlobal ?? false,
         projectId: selectedProject,
 
-        quantity: pc.quantity,
+        removidos: pc.removidos,
         duration: pc.durationSeconds,
         criticos: pc.criticos,
         pausaMensal: pc.pausaMensalSeconds,
@@ -284,7 +287,7 @@ export default function CollaboratorsPanel() {
           baseData['Criticos Pontos'] = c.points?.['Criticos'] || 0;
         }
         if (role !== "FROTA") {
-          baseData['Removidos'] = c.quantity;
+          baseData['Removidos'] = c.removidos;
           baseData['Removidos Pontos'] = c.points?.['Removidos'] || 0;
         }
         baseData['Pontuação'] = c.pontuacao;
