@@ -248,23 +248,30 @@ export default function CollaboratorsPanel() {
   const handleExport = () => {
     if (!combinedCollaborators || combinedCollaborators.length === 0) {
       console.error("Nenhum colaborador para exportar.");
-
       return;
     }
 
-    const collaboratorsByRole = combinedCollaborators.sort((a, b) => a.nome.localeCompare(b.nome)).reduce((acc, collaborator) => {
-      const role = collaborator.role || 'Sem Função';
-      if (!acc[role]) {
-        acc[role] = [];
-      }
-      acc[role].push(collaborator);
-      return acc;
-    }, {} as { [key: string]: typeof combinedCollaborators });
+    // Agrupa por função, mas para médicos consideramos também o papel (LIDER ou REGULADOR)
+    const collaboratorsByRole = combinedCollaborators
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+      .reduce((acc, c) => {
+        // define a chave da sheet
+        let sheetKey = c.role;
+        if (c.role === 'MEDICO' && c.medicoRole) {
+          sheetKey = `MEDICO_${c.medicoRole}`; // ex: "MEDICO_LIDER" ou "MEDICO_REGULADOR"
+        }
+
+        if (!acc[sheetKey]) {
+          acc[sheetKey] = [];
+        }
+        acc[sheetKey].push(c);
+        return acc;
+      }, {} as Record<string, typeof combinedCollaborators>);
 
     const wb = XLSX.utils.book_new();
 
-    Object.keys(collaboratorsByRole).forEach(role => {
-      const sheetData = collaboratorsByRole[role].map(c => {
+    Object.entries(collaboratorsByRole).forEach(([sheetKey, collabs]) => {
+      const sheetData = collabs.map(c => {
         const baseData: Record<string, any> = {
           'Nome': c.nome,
           'Função': c.role === 'MEDICO' && c.medicoRole && c.shiftHours
@@ -272,20 +279,24 @@ export default function CollaboratorsPanel() {
             : c.role,
           'Pausa Mensal': formatTime(c.pausaMensal!),
           'Pausa Pontos': c.points?.['Pausas'] || 0,
-          'Regulação': formatTime(c.duration!),
-          'Regulação Pontos': c.points?.['Regulacao'] || 0,
 
         };
-        if (role === "FROTA") {
+
+        if (sheetKey.startsWith("FROTA")) {
           baseData['Saída VTR'] = formatTime(c.saidaVtr!);
           baseData['Saída VTR Pontos'] = c.points?.['SaidaVTR'] || 0;
         }
 
-        if (role === "MEDICO") {
-          baseData['Criticos'] = formatTime(c.criticos!);
-          baseData['Criticos Pontos'] = c.points?.['Criticos'] || 0;
+        if (c.role === 'MEDICO' && c.medicoRole === MedicoRole.LIDER) {
+          baseData['Críticos'] = formatTime(c.criticos!);
+          baseData['Críticos Pontos'] = c.points?.['Criticos'] || 0;
         }
-        if (role !== "FROTA") {
+        if (c.medicoRole !== MedicoRole.LIDER) {
+          baseData['Regulação'] = formatTime(c.duration!);
+          baseData['Regulação Pontos'] = c.points?.['Regulacao'] || 0;
+        }
+
+        if (sheetKey !== "FROTA") {
           baseData['Removidos'] = c.removidos;
           baseData['Removidos Pontos'] = c.points?.['Removidos'] || 0;
         }
@@ -295,8 +306,8 @@ export default function CollaboratorsPanel() {
       });
 
       const ws = XLSX.utils.json_to_sheet(sheetData);
-
-      const safeSheetName = role.replace(/[:\\/?*\[\]]/g, '').substring(0, 31);
+      // torna o nome seguro e curto (<=31 caracteres) para o Excel
+      const safeSheetName = sheetKey.substring(0, 31).replace(/[:\\/?*\[\]]/g, '');
       XLSX.utils.book_append_sheet(wb, ws, safeSheetName);
     });
 

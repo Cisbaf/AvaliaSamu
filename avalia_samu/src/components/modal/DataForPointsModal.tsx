@@ -78,7 +78,6 @@ export default function DataForPointsModal({
         if (initialData) {
             setFormData({
                 durationSeconds:
-                    // tenta pegar durationSeconds, depois duration, depois 0
                     initialData.durationSeconds ??
                     (initialData as any).duration ??
                     0,
@@ -212,7 +211,7 @@ export default function DataForPointsModal({
                     {isFrota && (
                         <Grid size={{ xs: 12, sm: 4 }}>
                             <TextField
-                                label="Saída VTR"
+                                label="Liberação VTR"
                                 type="time"
                                 fullWidth
                                 inputProps={{ step: 1 }}
