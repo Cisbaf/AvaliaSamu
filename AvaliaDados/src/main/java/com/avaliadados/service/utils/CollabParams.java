@@ -1,5 +1,6 @@
 package com.avaliadados.service.utils;
 
+import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.api.ApiRequest;
@@ -118,10 +119,13 @@ public class CollabParams {
             avgPauseTime = calcTime(pauses, pc.getPlantao());
         }
 
-        if (Objects.equals(collab.getId(), pc.getCollaboratorId())) {
-            pc.setRemovidos(removeds.size());
-            pc.setPausaMensalSeconds(avgPauseTime);
+        for(CollaboratorEntity collaborator: collab){
+            if (Objects.equals(collaborator.getId(), pc.getCollaboratorId())) {
+                pc.setRemovidos(removeds.size());
+                pc.setPausaMensalSeconds(avgPauseTime);
+            }
         }
+
 
 
         return Map.of(
