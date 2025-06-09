@@ -86,6 +86,7 @@ public class ProjectCollabService {
     public List<CollaboratorsResponse> getAllProjectCollaborators(String projectId) {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+        log.info("Obtendo colaboradores do projeto [{}]", projeto.getCollaborators());
 
         return projeto.getCollaborators().stream().map(
                 pc -> CollaboratorsResponse.builder()

@@ -28,6 +28,7 @@ public class CollaboratorsResponse implements Serializable {
     private ShiftHours shiftHours;
     @Enumerated(EnumType.STRING)
     private MedicoRole medicoRole;
+    private Integer plantao;
 
     private Long durationSeconds;
     private Long pausaMensalSeconds;

@@ -113,7 +113,7 @@ export default function HomePage() {
           console.warn(`Projeto com ID ${projectId} não encontrado.`);
           continue;
         }
-        const mesProjeto = projetoAtual.month || 'Mês Desconhecido';
+        const mesProjeto = `${projetoAtual.month || 'Mês Desconhecido'} - ${projetoAtual.name}`;
         mesesPresentes.add(mesProjeto);
 
         if (!projectCollaborators[projectId]) {

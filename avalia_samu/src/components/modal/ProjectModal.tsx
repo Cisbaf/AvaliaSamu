@@ -7,10 +7,11 @@ import {
   DialogContent,
   TextField,
   DialogActions,
-  Button
+  Button,
+  CircularProgress
 } from '@mui/material';
 import { useProjects } from '../../context/ProjectContext';
-import styles from "../styles/Modal.module.css"
+import styles from '../styles/Modal.module.css';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format } from 'date-fns';
@@ -25,29 +26,40 @@ export default function ProjectModal({
 }) {
   const [projectName, setProjectName] = useState('');
   const [month, setMonth] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { projects, actions: { createProject } } = useProjects();
 
-  const handleSubmit = () => {
-    if (projectName && month) {
-      const exists = projects.some(p => p.name.toLowerCase() === projectName.toLowerCase());
-      if (exists) {
-        alert('Já existe um projeto com esse nome!');
-        return;
-      }
+  const handleSubmit = async () => {
+    if (!projectName || !month) return;
 
-      createProject({
+    const exists = projects.some(
+      (p) => p.name.toLowerCase() === projectName.toLowerCase()
+    );
+    if (exists) {
+      alert('Já existe um projeto com esse nome!');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await createProject({
         name: projectName,
         month: month,
         parameters: {
           colab: {},
           tarm: {},
           frota: {},
-          medico: {},
-        },
+          medico: {}
+        }
       });
       onClose();
       setProjectName('');
       setMonth('');
+    } catch (error) {
+      console.error('Erro ao criar projeto:', error);
+      alert('Falha ao criar projeto.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -63,23 +75,45 @@ export default function ProjectModal({
           value={projectName}
           onChange={(e) => setProjectName(e.target.value)}
           sx={{ mb: 2 }}
+          disabled={isSubmitting}
         />
+
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={enGB}>
           <DatePicker
-            label={"Data do Projeto"}
+            label="Data do Projeto"
             views={['month', 'year']}
-            onChange={(date) => setMonth(date ? format(date as Date, 'MM-yyyy') : '')}
+            value={
+              month
+                ? new Date(
+                  parseInt(month.split('-')[1], 10),
+                  parseInt(month.split('-')[0], 10) - 1
+                )
+                : null
+            }
+            onChange={(date) =>
+              setMonth(date ? format(date as Date, 'MM-yyyy') : '')
+            }
+            disabled={isSubmitting}
+            slotProps={{
+              textField: { fullWidth: true, sx: { mt: 2 } }
+            }}
           />
         </LocalizationProvider>
       </DialogContent>
+
       <DialogActions className={styles.modalActions}>
-        <Button onClick={onClose}>Cancelar</Button>
+        <Button onClick={onClose} disabled={isSubmitting}>
+          Cancelar
+        </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={!projectName || !month}
+          disabled={!projectName || !month || isSubmitting}
+          startIcon={
+            isSubmitting ? <CircularProgress size={20} color="inherit" /> : null
+          }
         >
-          Criar Projeto
+          {isSubmitting ? 'Criando...' : 'Criar Projeto'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -57,7 +57,6 @@ public class CollabParams {
         section.setRemovidos((List.of(ScoringRule.builder().quantity(removeds).build())));
         pc.setRemovidos(removeds);
 
-        System.out.println("Collaborator removidos: " + pc.getRemovidos());
 
         var pausas = section.getPausas().getLast().getDuration();
         var regulacao = section.getRegulacao().getLast().getDuration();
@@ -93,13 +92,13 @@ public class CollabParams {
         );
         pc.setPoints(pontos);
 
-        System.out.println("Collaborator points: " + pontos);
 
         return pontos.get("Total");
 
     }
 
     public Map<String, Long> setDataFromApi(ProjectCollaborator pc, ProjetoEntity projeto, String idCallRout) {
+        log.info("Buscando dados da API para o colaborador {} ({})", pc.getNome(), pc.getRole());
         if (pc.getRemovidos() != null && pc.getRemovidos() > 0 &&
                 pc.getPausaMensalSeconds() != null && pc.getPausaMensalSeconds() > 0) {
             return Map.of(
@@ -111,8 +110,13 @@ public class CollabParams {
 
         ApiRequest request = getApiRequest(projeto, idCallRout);
         List<ApiResponse> removeds = apiColabData.getRemoveds(request);
-        List<ApiResponse> pauses = apiColabData.getPauses(request);
-        Long avgPauseTime = calcTime(pauses);
+        System.out.println(pc.getNome());
+
+        Long avgPauseTime = 0L;
+        if (pc.getPlantao() != null) {
+            List<ApiResponse> pauses = apiColabData.getPauses(request);
+            avgPauseTime = calcTime(pauses, pc.getPlantao());
+        }
 
         if (Objects.equals(collab.getId(), pc.getCollaboratorId())) {
             pc.setRemovidos(removeds.size());
@@ -136,11 +140,14 @@ public class CollabParams {
         String nomeMes = String.format("%02d", mesReal.getValue());
         String endData = String.format("%d/%s/%d", dia, nomeMes, anoReal.getValue());
         String initialData = String.format("01/%s/%d", nomeMes, anoReal.getValue());
+        System.out.println("Inicial: " + initialData + ", Final: " + endData);
 
         return new ApiRequest(idCallRout, initialData, endData);
     }
 
-    private Long calcTime(List<ApiResponse> pauses) {
+    private Long calcTime(List<ApiResponse> pauses, int plantao) {
+
+        //TODO: total do tempo de pausa / numero de plantoes e depois / 7
         var total = pauses.size();
         var somaTotal = pauses.stream().mapToLong(e -> {
             if (e.start() == null || e.end() == null) {
@@ -150,10 +157,11 @@ public class CollabParams {
             return duration.getSeconds();
         }).sum();
 
-        System.out.println("Total de pausas: " + total);
-        System.out.println("Soma total de segundos: " + somaTotal);
+        System.out.println("Total de pausas: " + total + ", Soma total de segundos: " + somaTotal + ", Plantão: " + plantao);
+
+
         if (total != 0) {
-            return somaTotal / total;
+            return  somaTotal / plantao;
         }
         return 0L;
     }

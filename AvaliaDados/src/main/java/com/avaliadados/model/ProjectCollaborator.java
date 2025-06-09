@@ -17,6 +17,7 @@ public class ProjectCollaborator {
     private String collaboratorId;
     private String nome;
     private String role;
+    private Integer plantao;
     private ShiftHours shiftHours;
     private MedicoRole medicoRole;
     private Long durationSeconds = 0L;

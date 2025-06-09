@@ -68,7 +68,6 @@ export default function CollaboratorsPanel() {
     if (selectedProject) {
       const inProject = projectCollaborators[selectedProject] || [];
       updateState({ roles: Array.from(new Set(inProject.map(c => c.role))) });
-      console.log(inProject)
     }
 
   }, [projectCollaborators, selectedProject]);

@@ -55,6 +55,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             Integer idxColab = encontrarIndiceColuna(cols, "COLABORADOR");
             Integer idxTarm = encontrarIndiceColuna(cols, "TEMPO REGULAÇÃO TARM", "TEMPO.REGULACAO.TARM");
             Integer idxFrota = encontrarIndiceColuna(cols, "OP. FROTA REGULAÇÃO MÉDICA", "TEMPO.REGULACAO.FROTA");
+            Integer idxPlantao = encontrarIndiceColuna(cols, "TOTAL DE PLANTÃO DE 12 HORAS", "PLANTAO");
 
             log.info("Índices encontrados → COLAB: {}, TARM: {}, FROTA: {}", idxColab, idxTarm, idxFrota);
 
@@ -70,6 +71,8 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                 String name = getCellStringValue(row, idxColab);
                 String tarmVal = idxTarm != null ? getCellStringValue(row, idxTarm) : null;
                 String frotaVal = idxFrota != null ? getCellStringValue(row, idxFrota) : null;
+                String plantaoVal = idxPlantao != null ? getCellStringValue(row, idxPlantao) : null;
+
 
                 log.debug("Linha {} → COLAB='{}', TARM='{}', FROTA='{}'", i, name, tarmVal, frotaVal);
 
@@ -83,6 +86,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
                 sr.setType(TypeAv.TARM_FROTA);
                 sr.getData().put("COLABORADOR", name);
+                sr.getData().put("PLANTAO", plantaoVal != null ? plantaoVal : "0");
 
                 // Salvar com múltiplas chaves para garantir compatibilidade
                 if (tarmVal != null) {
@@ -166,6 +170,14 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                                            ProjetoEntity projeto) {
         if (pc.getWasEdited()) return;
 
+        var plantao = data.get("PLANTAO") != null ? data.get("PLANTAO") : "0";
+
+        int plantaoQtd = (int) Math.round(Double.parseDouble(Objects.equals(plantao, "00:00:00") ? "0" : plantao));
+        pc.setPlantao(plantaoQtd);
+
+        log.info( "Atualizando Colaborador: ID={}, Nome={}, Role={}, Plantão={}",
+                pc.getCollaboratorId(), pc.getNome(), pc.getRole(), plantaoQtd);
+
 
         NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
                 .orElseGet(() -> {
@@ -195,15 +207,14 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
                 var collab = colaboradorRepository.getReferenceById(pc.getCollaboratorId());
 
-                var apiData = collabParams.setDataFromApi( pc, projeto, collab.getIdCallRote());
+                var apiData = collabParams.setDataFromApi(pc, projeto, collab.getIdCallRote());
                 var removidos = Math.toIntExact(apiData.get("removeds"));
                 var pausa = apiData.get("pauses");
                 pc.setRemovidos(removidos);
 
-                int pontos = collabParams.setParams(pc, projeto,removidos, secs, 0L, pausa, existingSaidaVtr);
+                int pontos = collabParams.setParams(pc, projeto, removidos, secs, 0L, pausa, existingSaidaVtr);
                 pc.setPontuacao(pontos);
                 pc.setDurationSeconds(secs);
-
             }
         }
     }

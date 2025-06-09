@@ -60,12 +60,17 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                     .filter(e -> e.getKey().startsWith("CRITICOS"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
 
-            log.info("Índices fuzzy → MEDICO_REGULADOR: {}, TEMPO_MED: {}, CRITICOS: {}",
-                    idxMedReg, idxTempoMed, idxCrit);
+            Integer idxPlantao = cols.entrySet().stream()
+                    .filter(e -> e.getKey().startsWith("PLANTÃO 12 HORAS"))
+                    .map(Map.Entry::getValue).findFirst().orElse(null);
+
+            log.info("Índices fuzzy → MEDICO_REGULADOR: {}, TEMPO_MED: {}, CRITICOS: {}, PLANTAO: {}",
+                    idxMedReg, idxTempoMed, idxCrit, idxPlantao);
             log.info("Índices sheets : {}", cols.keySet());
 
             String nomeMed = "";
             String tempoReg = "";
+            String plantao = "";
 
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 var row = sheet.getRow(i);
@@ -76,7 +81,10 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 if (idxTempoMed != null) {
                     tempoReg = getCellStringValue(row, idxTempoMed);
                 }
-                if (nomeMed == null || tempoReg == null) continue;
+                if (idxPlantao != null) {
+                    plantao = getCellStringValue(row, idxPlantao);
+                }
+                if (nomeMed == null || tempoReg == null || plantao == null) continue;
 
                 List<CollaboratorEntity> encontrados =
                         colaboradorRepository.findByNomeIgnoreCase(nomeMed.trim());
@@ -104,6 +112,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 sr.setType(TypeAv.MEDICO);
                 sr.getData().put("MEDICO.REGULADOR", nomeMed);
                 sr.getData().put("TEMPO.REGULACAO", tempoReg);
+                sr.getData().put("PLANTAO", plantao);
                 if (idxCrit != null) {
                     var crit = getCellStringValue(row, idxCrit);
                     if (crit != null) sr.getData().put("CRITICOS", crit);
@@ -175,7 +184,10 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
         MedicoRole medicoRole = pc.getMedicoRole();
 
-        // Lógica corrigida para cada papel
+        var plantao = data.get("PLANTAO") != null ? data.get("PLANTAO") : "0";
+        int plantaoQtd = (int) Math.round(Double.parseDouble(plantao));
+        pc.setPlantao(plantaoQtd);
+
         switch (medicoRole) {
             case REGULADOR:
                 duration = data.containsKey("TEMPO.REGULACAO")
@@ -208,7 +220,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         log.info("  -> Valores calculados para setParams: duration={}, criticos={}, quantity={}, pausaMensal={}",
                 duration, criticos, quantity, pausaMensal);
 
-
         var apiData = collabParams.setDataFromApi(pc, projeto, colaboradorRepository.getReferenceById(pc.getCollaboratorId()).getIdCallRote());
         var removidos = Math.toIntExact(apiData.get("removeds"));
         var pausas = apiData.get("pauses");
@@ -221,7 +232,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 duration,
                 criticos,
                 pausas,
-                criticos  // Novo parâmetro para críticos
+                criticos
         );
 
         log.info("  -> Pontuação final: {}. Atualizando pc.setPontuacao={}, pc.setDurationSeconds={}, pc.setCriticos={}",
@@ -230,6 +241,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         pc.setPontuacao(pontos);
         pc.setDurationSeconds(duration);
         pc.setCriticos(criticos);
+
     }
 
 }

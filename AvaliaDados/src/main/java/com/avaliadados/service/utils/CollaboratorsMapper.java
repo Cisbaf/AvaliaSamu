@@ -27,6 +27,7 @@ public class CollaboratorsMapper {
                 null,
                 null,
                 null,
+                null,
                 entity.getPontuacao(),
                 null
         );

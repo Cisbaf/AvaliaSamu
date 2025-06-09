@@ -27,44 +27,28 @@ public class ScoringService {
             Long saidaVtrSeconds,
             NestedScoringParameters params
     ) {
-        // Reduzir o nível de log para debug para evitar sobrecarga de I/O
         if (log.isDebugEnabled()) {
             log.debug("Iniciando cálculo de score para role={}, medicRole={}, shiftHour={}, duration={}s, removidos={}, pausa={}s",
                     role, medicRole, shiftHour, durationSeconds, removidos, pausaMensalSeconds);
         }
 
         Map<String, Integer> points = new HashMap<>();
-
         if (params == null || role == null) {
             log.error("Parâmetros nulos: role={}, params={}", role, params);
             return points;
         }
 
-        // Obter parâmetros de seção de forma mais eficiente
-        ScoringSectionParams sectionParams = null;
-        switch (role) {
-            case "TARM" -> sectionParams = params.getTarm();
-            case "FROTA" -> sectionParams = params.getFrota();
-            case "MEDICO" -> sectionParams = params.getMedico();
-        }
-
+        ScoringSectionParams sectionParams = switch (role) {
+            case "TARM" -> params.getTarm();
+            case "FROTA" -> params.getFrota();
+            case "MEDICO" -> params.getMedico();
+            default -> null;
+        };
         ScoringSectionParams colabParams = params.getColab();
 
-        // Logs apenas em nível debug
-        if (log.isDebugEnabled()) {
-            if (sectionParams == null && !"COLAB".equals(role)) {
-                log.debug("Nenhuma configuração específica encontrada para roleType: {}", role);
-            }
-            if (colabParams == null) {
-                log.debug("Nenhuma configuração de COLAB (pausas) encontrada.");
-            }
-        }
-
-        boolean shouldApplyMultiplier = "H24".equals(shiftHour) && "MEDICO".equals(role);
-
+        boolean applyMultiplier = "H24".equals(shiftHour) && "MEDICO".equals(role);
         int totalScore = 0;
 
-        // Calcular pontuação com base no papel
         switch (role) {
             case "TARM" -> {
                 if (sectionParams != null) {
@@ -78,20 +62,16 @@ public class ScoringService {
             }
             case "MEDICO" -> {
                 if (sectionParams != null) {
-                    totalScore += calculateMedicoScore(medicRole, durationSeconds, criticos, removidos, sectionParams, shouldApplyMultiplier, points);
+                    totalScore += calculateMedicoScore(medicRole, durationSeconds, criticos, removidos, sectionParams, applyMultiplier, points);
                 }
             }
         }
 
-        // Calcular pontuação de pausas para todos os papéis
         if (colabParams != null) {
-            totalScore += calculateColabPausasScore(pausaMensalSeconds, colabParams, shouldApplyMultiplier, points);
+            totalScore += calculateColabPausasScore(pausaMensalSeconds, colabParams, applyMultiplier, points);
         }
 
-        // Adicionar pontuação total ao mapa de pontos
         points.put("Total", totalScore);
-
-        // Log apenas em nível debug
         if (log.isDebugEnabled()) {
             log.debug("Score final para role {}: {} (shiftHour={})", role, totalScore, shiftHour);
             log.debug("Pontos calculados: {}", points);
@@ -102,115 +82,88 @@ public class ScoringService {
 
     private int calculateTarmScore(Long duration, Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
         int score = 0;
-        int point;
-
-        // Verificações rápidas para evitar processamento desnecessário
         if (removidos != null && removidos > 0 && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
-            point = matchRemovidosRule(removidos, params.getRemovidos());
-            score += point;
-            points.put("Removidos", point);
+            int pt = matchRemovidosRule(removidos, params.getRemovidos());
+            score += pt;
+            points.put("Removidos", pt);
         }
-
         if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
-            point = matchDurationRule(duration, params.getRegulacao(), false);
-            score += point;
-            points.put("Regulacao", point);
+            int pt = matchDurationRule(duration, params.getRegulacao(), false);
+            score += pt;
+            points.put("Regulacao", pt);
         }
-
         return score;
     }
 
     private int calculateFrotaScore(Long durationRegulacao, Long pausa, Long durationSaidaVtr, ScoringSectionParams params, Map<String, Integer> points) {
         int score = 0;
-        int point;
-
-        // Verificações rápidas para evitar processamento desnecessário
         if (durationRegulacao != null && durationRegulacao > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
-            point = matchDurationRule(durationRegulacao, params.getRegulacao(), false);
-            score += point;
-            points.put("Regulacao", point);
+            int pt = matchDurationRule(durationRegulacao, params.getRegulacao(), false);
+            score += pt;
+            points.put("Regulacao", pt);
         }
-
         if (durationSaidaVtr != null && durationSaidaVtr > 0 && params.getSaidaVtr() != null && !params.getSaidaVtr().isEmpty()) {
-            point = matchDurationRule(durationSaidaVtr, params.getSaidaVtr(), false);
-            score += point;
-            points.put("SaidaVTR", point);
+            int pt = matchDurationRule(durationSaidaVtr, params.getSaidaVtr(), false);
+            score += pt;
+            points.put("SaidaVTR", pt);
         }
-
         if (pausa != null && pausa > 0 && params.getPausas() != null && !params.getPausas().isEmpty()) {
-            point = matchDurationRule(pausa, params.getPausas(), false);
-            score += point;
-            points.put("Pausas", point);
+            int pt = matchDurationRule(pausa, params.getPausas(), false);
+            score += pt;
+            points.put("Pausas", pt);
         }
-
         return score;
     }
 
     private int calculateColabPausasScore(Long pausaSeconds, ScoringSectionParams colabParams, boolean applyMultiplier, Map<String, Integer> points) {
-        int score = 0;
-
-        // Verificação rápida para evitar processamento desnecessário
-        if (pausaSeconds != null && pausaSeconds > 0 && colabParams.getPausas() != null && !colabParams.getPausas().isEmpty()) {
-            int point = matchDurationRule(pausaSeconds, colabParams.getPausas(), applyMultiplier);
-            score += point;
-            points.put("Pausas", point);
+        if (pausaSeconds == null || pausaSeconds <= 0 || colabParams.getPausas() == null || colabParams.getPausas().isEmpty()) {
+            return 0;
         }
-
-        return score;
+        int pt = matchDurationRule(pausaSeconds, colabParams.getPausas(), applyMultiplier);
+        points.put("Pausas", pt);
+        return pt;
     }
 
     private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos, ScoringSectionParams params, boolean applyMultiplier, Map<String, Integer> points) {
         int score = 0;
-
-        // Verificação rápida para evitar processamento desnecessário
         if (removidos != null && removidos > 0 && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
-            int point = matchRemovidosRule(removidos, params.getRemovidos());
-            score += point;
-            points.put("Removidos", point);
+            int pt = matchRemovidosRule(removidos, params.getRemovidos());
+            score += pt;
+            points.put("Removidos", pt);
         }
-
-        // Usar switch expression para código mais limpo e eficiente
         switch (medicRole) {
             case "LIDER" -> {
                 if (criticos != null && criticos > 0 && params.getRegulacaoLider() != null && !params.getRegulacaoLider().isEmpty()) {
-                    int point = matchDurationRule(criticos, params.getRegulacaoLider(), applyMultiplier);
-                    score += point;
-                    points.put("Criticos", point);
+                    int pt = matchDurationRule(criticos, params.getRegulacaoLider(), applyMultiplier);
+                    score += pt;
+                    points.put("Criticos", pt);
                 }
             }
             case "REGULADOR" -> {
                 if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
-                    int point = matchDurationRule(duration, params.getRegulacao(), applyMultiplier);
-                    score += point;
-                    points.put("Regulacao", point);
+                    int pt = matchDurationRule(duration, params.getRegulacao(), applyMultiplier);
+                    score += pt;
+                    points.put("Regulacao", pt);
                 }
             }
             case "LIDER_REGULADOR" -> {
                 if (criticos != null && criticos > 0 && params.getRegulacaoLider() != null && !params.getRegulacaoLider().isEmpty()) {
-                    int point = matchDurationRule(criticos, params.getRegulacaoLider(), applyMultiplier);
-                    score += point;
-                    points.put("Criticos", point);
+                    int pt = matchDurationRule(criticos, params.getRegulacaoLider(), applyMultiplier);
+                    score += pt;
+                    points.put("Criticos", pt);
                 }
                 if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
-                    int point = matchDurationRule(duration, params.getRegulacao(), applyMultiplier);
-                    score += point;
-                    points.put("Regulacao", point);
-                }
-            }
-            default -> {
-                if (log.isDebugEnabled()) {
-                    log.debug("Papel médico desconhecido: {}", medicRole);
+                    int pt = matchDurationRule(duration, params.getRegulacao(), applyMultiplier);
+                    score += pt;
+                    points.put("Regulacao", pt);
                 }
             }
         }
-
         return score;
     }
 
     private int matchRemovidosRule(Integer value, List<ScoringRule> rules) {
         if (value == null || value <= 0 || rules == null || rules.isEmpty()) return 0;
-
-        // Usar cache para evitar recálculos
         String cacheKey = "removidos_" + value + "_" + rules.hashCode();
         return ruleCache.computeIfAbsent(cacheKey, k ->
                 rules.stream()
@@ -225,11 +178,8 @@ public class ScoringService {
         if (seconds == null || seconds <= 0 || rules == null || rules.isEmpty()) {
             return 0;
         }
-
-        // Usar cache para evitar recálculos
         String cacheKey = "duration_" + seconds + "_" + rules.hashCode() + "_" + applyMultiplier;
         return ruleCache.computeIfAbsent(cacheKey, k -> {
-            // Pré-processar regras aplicáveis para evitar stream repetido
             List<ScoringRule> applicableRules = rules.stream()
                     .filter(r -> r.getDuration() != null && r.getPoints() != null)
                     .map(originalRule -> {
@@ -237,7 +187,8 @@ public class ScoringService {
                         adjustedRule.setPoints(originalRule.getPoints());
                         long duration = originalRule.getDuration();
                         if (applyMultiplier) {
-                            duration = duration / 2;
+                            // dobrar o limiar para plantão de 24h
+                            duration = duration * 2;
                         }
                         adjustedRule.setDuration(duration);
                         return adjustedRule;
@@ -248,17 +199,10 @@ public class ScoringService {
             if (applicableRules.isEmpty()) {
                 return 0;
             }
-
             return applicableRules.stream()
                     .mapToInt(ScoringRule::getPoints)
                     .max()
                     .orElse(0);
         });
     }
-
-    // Método para limpar o cache quando necessário (por exemplo, quando as regras são atualizadas)
-    public void clearCache() {
-        ruleCache.clear();
-    }
 }
-
