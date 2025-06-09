@@ -21,5 +21,5 @@ public interface CollaboratorRepository extends JpaRepository<CollaboratorEntity
 
     boolean existsByIdCallRote(String idCallRote);
 
-    CollaboratorEntity getReferenceByIdCallRote(String idCallRote);
+    List<CollaboratorEntity> getReferenceByIdCallRote(String idCallRote);
 }
