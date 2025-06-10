@@ -64,10 +64,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                     .filter(e -> e.getKey().startsWith("PLANTÃO 12 HORAS"))
                     .map(Map.Entry::getValue).findFirst().orElse(null);
 
-            log.info("Índices fuzzy → MEDICO_REGULADOR: {}, TEMPO_MED: {}, CRITICOS: {}, PLANTAO: {}",
-                    idxMedReg, idxTempoMed, idxCrit, idxPlantao);
-            log.info("Índices sheets : {}", cols.keySet());
-
             String nomeMed = "";
             String tempoReg = "";
             String plantao = "";
@@ -89,9 +85,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 List<CollaboratorEntity> encontrados =
                         colaboradorRepository.findByNomeIgnoreCase(nomeMed.trim());
 
-                if (encontrados.isEmpty()) {
-                    continue;
-                } else {
+                if(!encontrados.isEmpty()) {
                     // Iterar sobre todos os colaboradores encontrados e criar um SheetRow para cada um
                     for (CollaboratorEntity colaborador : encontrados) {
                         SheetRow sr = new SheetRow();
@@ -110,11 +104,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 }
             }
         }
-
-        log.info("Planilha médica do projeto {} salva com {} linhas específicas",
-                projectId,
-                sheetRowRepo.findByProjectId(projectId).size());
-
         sincronizarColaboradores(projectId);
     }
 
@@ -157,20 +146,14 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         }
 
         projetoRepo.save(projeto);
-        log.info("Colaboradores sincronizados para projeto {}", projectId);
     }
 
     private void atualizarDadosMedico(ProjectCollaborator pc,
                                       Map<String, String> data,
                                       ProjetoEntity projeto) {
 
-        log.info("Atualizando Colaborador: ID={}, Nome={}, Role={}, Dados Planilha={}",
-                pc.getCollaboratorId(), pc.getNome(), pc.getMedicoRole(), data);
-
         long duration = 0L;
         long criticos = 0L; // Separar os dois valores
-        int quantity = 0;
-        long pausaMensal = 0L;
 
         MedicoRole medicoRole = pc.getMedicoRole();
 
@@ -182,33 +165,17 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             case REGULADOR:
                 duration = data.containsKey("TEMPO.REGULACAO")
                         ? parseTimeToSeconds(data.get("TEMPO.REGULACAO")) : 0L;
-                log.info("  -> Role REGULADOR. Usando TEMPO.REGULACAO: {}. duration={}",
-                        data.getOrDefault("TEMPO.REGULACAO", "N/A"), duration);
                 break;
 
             case LIDER:
                 criticos = data.containsKey("CRITICOS")
                         ? parseTimeToSeconds(data.get("CRITICOS")) : 0L;
-                // Adicione este log
-                log.info("  -> Role LIDER. Usando CRITICOS: {}. criticos={}",
-                        data.getOrDefault("CRITICOS", "N/A"), criticos);
                 break;
-        }
-
-        if (data.containsKey("REMOVIDOS")) {
-            quantity = Integer.parseInt(data.get("REMOVIDOS"));
-        }
-
-        if (data.containsKey("PAUSAS")) {
-            pausaMensal = parseTimeToSeconds(data.get("PAUSAS"));
         }
 
         if (pc.getShiftHours() == null) {
             pc.setShiftHours(ShiftHours.H12);
-            log.info("Definindo turno padrão H12 para colaborador {}", pc.getNome());
         }
-        log.info("  -> Valores calculados para setParams: duration={}, criticos={}, quantity={}, pausaMensal={}",
-                duration, criticos, quantity, pausaMensal);
 
         var apiData = collabParams.setDataFromApi(pc, projeto, colaboradorRepository.getReferenceById(pc.getCollaboratorId()).getIdCallRote());
         var removidos = Math.toIntExact(apiData.get("removeds"));
@@ -224,9 +191,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 pausas,
                 criticos
         );
-
-        log.info("  -> Pontuação final: {}. Atualizando pc.setPontuacao={}, pc.setDurationSeconds={}, pc.setCriticos={}",
-                pontos, pontos, duration, criticos);
 
         pc.setPontuacao(pontos);
         pc.setDurationSeconds(duration);

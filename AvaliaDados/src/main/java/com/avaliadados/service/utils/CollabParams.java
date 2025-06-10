@@ -99,7 +99,6 @@ public class CollabParams {
     }
 
     public Map<String, Long> setDataFromApi(ProjectCollaborator pc, ProjetoEntity projeto, String idCallRout) {
-        log.info("Buscando dados da API para o colaborador {} ({})", pc.getNome(), pc.getRole());
         if (pc.getRemovidos() != null && pc.getRemovidos() > 0 &&
                 pc.getPausaMensalSeconds() != null && pc.getPausaMensalSeconds() > 0) {
             return Map.of(
@@ -151,7 +150,6 @@ public class CollabParams {
 
     private Long calcTime(List<ApiResponse> pauses, int plantao) {
 
-        //TODO: total do tempo de pausa / numero de plantoes e depois / 7
         var total = pauses.size();
         var somaTotal = pauses.stream().mapToLong(e -> {
             if (e.start() == null || e.end() == null) {
