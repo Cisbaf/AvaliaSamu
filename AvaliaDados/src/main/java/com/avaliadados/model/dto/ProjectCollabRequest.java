@@ -29,7 +29,7 @@ public class ProjectCollabRequest {
     private Long durationSeconds;
 
     @NotNull(message = "A quantidade é obrigatória")
-    private Integer quantity;
+    private Integer removidos;
 
     @NotNull(message = "O tempo de críticos é obrigatório")
     private Long criticos;

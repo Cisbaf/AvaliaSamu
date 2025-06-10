@@ -78,12 +78,9 @@ public class SheetProcessingService {
                 break;
 
             default:
-                // nenhuma ação específica
                 break;
         }
     }
-
-    // ----- Métodos auxiliares (copiados e adaptados do ProjectCollabService original) -----
 
     private void processTarm(ProjectCollaborator pc, Map<String, String> data) {
         String tempo = data.get("TEMPO.REGULACAO.TARM");
@@ -130,7 +127,6 @@ public class SheetProcessingService {
                 break;
 
             default:
-                // nenhum processamento adicional
                 break;
         }
     }

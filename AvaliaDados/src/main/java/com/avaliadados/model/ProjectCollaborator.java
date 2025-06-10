@@ -17,15 +17,19 @@ public class ProjectCollaborator {
     private String collaboratorId;
     private String nome;
     private String role;
+    private Integer plantao;
     private ShiftHours shiftHours;
     private MedicoRole medicoRole;
     private Long durationSeconds = 0L;
     private Long criticos = 0L;
-    private Integer quantity = 0;
+    private Integer removidos = 0;
     private Integer pontuacao = 0;
     private Long pausaMensalSeconds = 0L;
     private Long saidaVtrSeconds = 0L;
     Map<String, Integer> points;
-    private Boolean wasEdited = false;
     private NestedScoringParameters parametros;
+    private Boolean wasEdited = false;
+    private boolean wasSearched = false;
+    private boolean fristAdd = true;
+
 }

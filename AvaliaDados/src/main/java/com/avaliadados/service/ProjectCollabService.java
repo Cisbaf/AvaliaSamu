@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -41,34 +40,40 @@ public class ProjectCollabService {
         // Se dto.getMedicoRole() vier nulo, define NENHUM
         var medicoRole = Optional.ofNullable(dto.getMedicoRole()).orElse(com.avaliadados.model.enums.MedicoRole.NENHUM);
 
+
         ProjectCollaborator pc = ProjectCollaborator.builder()
                 .collaboratorId(dto.getCollaboratorId())
                 .nome(collab.getNome())
                 .role(dto.getRole())
                 .durationSeconds(dto.getDurationSeconds())
-                .quantity(dto.getQuantity())
+                .removidos(dto.getRemovidos())
                 .pausaMensalSeconds(dto.getPausaMensalSeconds())
                 .parametros(new com.avaliadados.model.params.NestedScoringParameters())
                 .medicoRole(medicoRole)
                 .shiftHours(dto.getShiftHours())
                 .build();
+        collabParams.setDataFromApi(pc, projeto, collab.getIdCallRote());
 
-        // DELEGA: tenta encontrar a SheetRow e, se existir, popula o pc
         sheetProcessingService
                 .findAndAssociateSheetRow(dto.getCollaboratorId(), projectId, collab.getNome())
                 .ifPresent(sheetRow -> {
                     sheetProcessingService.populateFromSheet(pc, sheetRow);
 
-                    // Depois de popular o PC, calcula pontuação
+
                     long duration = Optional.ofNullable(pc.getDurationSeconds()).orElse(0L);
-                    int quantity = Optional.ofNullable(pc.getQuantity()).orElse(0);
-                    long pausaMensal = Optional.ofNullable(pc.getPausaMensalSeconds()).orElse(0L);
                     long saidaVtr = Optional.ofNullable(pc.getSaidaVtrSeconds()).orElse(0L);
                     long criticos = Optional.ofNullable(pc.getCriticos()).orElse(0L);
 
-                    int pontos = collabParams.setParams(pc, projeto, duration, criticos, quantity, pausaMensal, saidaVtr);
+                    int pontos = collabParams.setParams(
+                            pc,
+                            projeto,
+                            pc.getRemovidos(), // agora persistido
+                            duration,
+                            criticos,
+                            pc.getPausaMensalSeconds(), // agora persistido
+                            saidaVtr
+                    );
                     pc.setPontuacao(pontos);
-                    log.debug("Pontuação calculada para o colaborador: {}", pontos);
                 });
 
         // Substitui qualquer colaborador já existente com esse ID, e adiciona o novo
@@ -81,49 +86,24 @@ public class ProjectCollabService {
     public List<CollaboratorsResponse> getAllProjectCollaborators(String projectId) {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+        log.info("Obtendo colaboradores do projeto [{}]", projeto.getCollaborators());
 
-        return projeto.getCollaborators().stream()
-                .map(pc -> collaboratorRepo.findById(pc.getCollaboratorId())
-                        .map(collab -> {
-                            String cpf = collab.getCpf() != null ? collab.getCpf() : "000.000.000-00";
-                            String idCallRote = collab.getIdCallRote() != null ? collab.getIdCallRote() : "000";
-                            int pontuacao = Optional.ofNullable(pc.getPontuacao()).orElse(0);
-
-                            return new CollaboratorsResponse(
-                                    pc.getCollaboratorId(),
-                                    pc.getNome(),
-                                    cpf,
-                                    idCallRote,
-                                    pc.getRole(),
-                                    pc.getShiftHours(),
-                                    pc.getMedicoRole(),
-                                    pc.getDurationSeconds(),
-                                    pc.getPausaMensalSeconds(),
-                                    pc.getSaidaVtrSeconds(),
-                                    pc.getQuantity(),
-                                    pc.getCriticos(),
-                                    pontuacao,
-                                    pc.getPoints()
-                            );
-                        })
-                        .orElseGet(() -> new CollaboratorsResponse(
-                                pc.getCollaboratorId(),
-                                pc.getNome(),
-                                "000.000.000-00",
-                                "000",
-                                pc.getRole(),
-                                pc.getShiftHours(),
-                                pc.getMedicoRole(),
-                                pc.getDurationSeconds(),
-                                pc.getPausaMensalSeconds(),
-                                pc.getSaidaVtrSeconds(),
-                                pc.getQuantity(),
-                                pc.getCriticos(),
-                                Optional.ofNullable(pc.getPontuacao()).orElse(0),
-                                pc.getPoints()
-                        ))
-                )
-                .collect(Collectors.toList());
+        return projeto.getCollaborators().stream().map(
+                pc -> CollaboratorsResponse.builder()
+                        .id(pc.getCollaboratorId())
+                        .nome(pc.getNome())
+                        .role(pc.getRole())
+                        .medicoRole(pc.getMedicoRole())
+                        .shiftHours(pc.getShiftHours())
+                        .durationSeconds(pc.getDurationSeconds())
+                        .removidos(pc.getRemovidos())
+                        .pausaMensalSeconds(pc.getPausaMensalSeconds())
+                        .saidaVtr(pc.getSaidaVtrSeconds())
+                        .pontuacao(pc.getPontuacao())
+                        .criticos(pc.getCriticos())
+                        .points(pc.getPoints())
+                        .build()
+        ).toList();
     }
 
     @Transactional
@@ -180,22 +160,25 @@ public class ProjectCollabService {
                             .ifPresent(pc::setSaidaVtrSeconds);
                     Optional.ofNullable(dto.getDurationSeconds())
                             .ifPresent(pc::setDurationSeconds);
-                    Optional.ofNullable(dto.getQuantity())
-                            .ifPresent(pc::setQuantity);
+                    Optional.ofNullable(dto.getRemovidos())
+                            .ifPresent(pc::setRemovidos);
                     Optional.ofNullable(dto.getPausaMensalSeconds())
                             .ifPresent(pc::setPausaMensalSeconds);
 
                     log.info("Colaborador após atualizações de campos: {}", pc);
 
                     // Recalcula pontuação se houver durationSeconds
-                    if (pc.getDurationSeconds() != null) {
-                        long duration = pc.getDurationSeconds();
-                        long criticosVal = Optional.ofNullable(pc.getCriticos()).orElse(0L);
-                        int quantityVal = Optional.ofNullable(pc.getQuantity()).orElse(0);
-                        long pausaMensal = Optional.ofNullable(pc.getPausaMensalSeconds()).orElse(0L);
-                        long saidaVtr = Optional.ofNullable(pc.getSaidaVtrSeconds()).orElse(0L);
+                    if (pc.getDurationSeconds() != null || pc.getPausaMensalSeconds() != null || pc.getRemovidos() != null) {
 
-                        int pontos = collabParams.setParams(pc, projeto, duration, criticosVal, quantityVal, pausaMensal, saidaVtr);
+                        int pontos = collabParams.setParams(
+                                pc,
+                                projeto,
+                                pc.getRemovidos(), // usa valor local
+                                pc.getDurationSeconds() != null ? pc.getDurationSeconds() : 0L,
+                                Optional.ofNullable(pc.getCriticos()).orElse(0L),
+                                pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0, // usa valor local
+                                Optional.ofNullable(pc.getSaidaVtrSeconds()).orElse(0L)
+                        );
                         pc.setPontuacao(pontos);
                     }
 
@@ -221,3 +204,4 @@ public class ProjectCollabService {
         projetoRepo.saveAll(projetos);
     }
 }
+
