@@ -98,7 +98,7 @@ export default function DataForPointsModal({
             setFormData(prev => ({ ...prev, [field]: seconds }));
         };
 
-    const handleChangeNumber = (field: 'quantity') =>
+    const handleChangeNumber = (field: keyof Pick<FormData, 'criticos' | 'removidos'>) =>
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const value = Number(e.target.value);
             setFormData(prev => ({ ...prev, [field]: isNaN(value) ? 0 : value }));
@@ -190,7 +190,7 @@ export default function DataForPointsModal({
                                 type="number"
                                 fullWidth
                                 value={formData.removidos}
-                                onChange={handleChangeNumber('quantity')}
+                                onChange={handleChangeNumber('removidos')}
                             />
                         </Grid>
                     )}
