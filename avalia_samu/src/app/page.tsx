@@ -23,7 +23,6 @@ import { saveAs } from 'file-saver';
 import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
 import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
 
-
 export default function HomePage() {
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
@@ -219,10 +218,19 @@ export default function HomePage() {
       </Box>
 
       {projects.length > 0 ? (
-        <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, border: '1px solid', borderColor: 'divider' }}>
+        <List
+          sx={{
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            overflow: 'hidden',
+            transition: 'all 0.3s ease-in-out'
+          }}
+        >
           {projects.map((project) => (
             <ListItem
-              sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
               key={project.id}
               disablePadding
               secondaryAction={
@@ -240,7 +248,15 @@ export default function HomePage() {
                 role={undefined}
                 onClick={() => handleProjectSelect(project.id!)}
                 dense
-                sx={{ pr: 8 }}
+                sx={{
+                  pr: 8,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: '#fffffff',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)'
+                  }
+                }}
               >
                 <ListItemText
                   id={`checkbox-list-label-${project.id}`}

@@ -149,7 +149,9 @@ public class CollabParams {
     }
 
     private Long calcTime(List<ApiResponse> pauses, int plantao) {
-
+        if(plantao <= 0 ){
+            return 0L;
+        }
         var total = pauses.size();
         var somaTotal = pauses.stream().mapToLong(e -> {
             if (e.start() == null || e.end() == null) {

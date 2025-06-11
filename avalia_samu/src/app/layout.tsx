@@ -13,6 +13,8 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" >
       <body >
+        <title>Avaliação SAMU</title>
+        <link rel="icon" href="/logo.svg" />
         <ThemeProvider theme={theme}>
           <ProjectProvider>
             <main >

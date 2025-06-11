@@ -19,6 +19,12 @@
   text-decoration: none;
 }
 
+
+.logoLink:hover {
+  transform: scale(1.15);
+  transition: transform 0.2s ease-in-out;
+}
+
 .buttonsContainer {
   display: flex;
   gap: 15px;
