@@ -49,8 +49,6 @@ export default function CollaboratorsPanel() {
     isAddExistingModalOpen: false,
   });
 
-  // NOVO: Estados para controlar o diálogo de confirmação de exclusão
-  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [collaboratorToDelete, setCollaboratorToDelete] = useState<string | null>(null);
 
 
@@ -146,28 +144,6 @@ export default function CollaboratorsPanel() {
       updateState({ panelLoading: false });
     }
   }, [selectedProject, deleteCollaboratorFromProject, fetchProjectCollaborators]);
-
-
-  // NOVO: Handler para abrir o diálogo de confirmação
-  const handleOpenDeleteDialog = (collaboratorId: string) => {
-    setCollaboratorToDelete(collaboratorId);
-    setDeleteConfirmationOpen(true);
-  };
-
-  // NOVO: Handler para fechar o diálogo
-  const handleCloseDeleteDialog = () => {
-    setCollaboratorToDelete(null);
-    setDeleteConfirmationOpen(false);
-  };
-
-  // NOVO: Handler para confirmar a exclusão
-  const handleConfirmDelete = () => {
-    if (collaboratorToDelete) {
-      handleDelete(collaboratorToDelete);
-    }
-    handleCloseDeleteDialog();
-  };
-
 
   const handleAddExisting = useCallback(async (id: string, role: string, medicoRole?: MedicoRole, shiftHours?: ShiftHours) => {
     if (!selectedProject) return;
@@ -479,7 +455,7 @@ export default function CollaboratorsPanel() {
 
                         {/* NOVO: Atualize o onClick para abrir o diálogo */}
                         <IconButton
-                          onClick={() => handleOpenDeleteDialog(c.id!)}
+                          onClick={() => handleDelete(c.id!)}
                           disabled={state.panelLoading}
                           title="Remover colaborador"
                         >
@@ -523,15 +499,6 @@ export default function CollaboratorsPanel() {
             collaborators={availableCollaborators}
             onAdd={handleAddExisting}
             loading={state.panelLoading}
-          />
-
-          <ConfirmationDialog
-            open={deleteConfirmationOpen}
-            onClose={handleCloseDeleteDialog}
-            onConfirm={handleConfirmDelete}
-            title="Confirmar Exclusão"
-            message="Você tem certeza que deseja remover este colaborador do projeto?"
-            confirmText="Remover"
           />
 
         </>

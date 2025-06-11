@@ -25,6 +25,7 @@ import { GlobalCollaborator, Collaborator } from "@/types/project"
 import { useProjects } from '@/context/ProjectContext';
 import { Delete } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
+import ConfirmationDialog from '@/components/modal/ConfirmationModal';
 
 export default function CollaboratorsPage() {
     const [collaborators, setCollaborators] = useState<GlobalCollaborator[]>([]);
@@ -34,6 +35,8 @@ export default function CollaboratorsPage() {
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState('all');
+    const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+    const [collaboratorToDelete, setCollaboratorToDelete] = useState<string | null>(null);
 
     const { } = useProjects();
 
@@ -59,23 +62,33 @@ export default function CollaboratorsPage() {
         loadCollaborators();
     }, []);
 
-    const handleDelete = useCallback(async (id: string) => {
-        if (!id) {
-            console.error("Cannot delete collaborator without an ID");
-            return;
-        }
+    const handleDeleteClick = useCallback((id: string) => {
+        setCollaboratorToDelete(id);
+        setDeleteConfirmationOpen(true);
+    }, []);
+
+    const handleConfirmDelete = useCallback(async () => {
+        if (!collaboratorToDelete) return;
+
         try {
             setLoading(true);
             setError(null);
-            await deleteGlobalCollaboratorApi(id);
+            await deleteGlobalCollaboratorApi(collaboratorToDelete);
             await loadCollaborators();
         } catch (error: any) {
             console.error('Failed to delete collaborator:', error);
             setError(error.response?.data?.message || 'Falha ao excluir colaborador');
         } finally {
             setLoading(false);
+            setDeleteConfirmationOpen(false);
+            setCollaboratorToDelete(null);
         }
-    }, [deleteGlobalCollaboratorApi, loadCollaborators]);
+    }, [collaboratorToDelete, deleteGlobalCollaboratorApi, loadCollaborators]);
+
+    const handleCloseDeleteDialog = useCallback(() => {
+        setDeleteConfirmationOpen(false);
+        setCollaboratorToDelete(null);
+    }, []);
 
     const filteredCollaborators = useMemo(() => {
         return collaborators.filter(collaborator => {
@@ -87,7 +100,7 @@ export default function CollaboratorsPage() {
     }, [collaborators, searchTerm, filterRole]);
 
     return (
-        <div className="p-6 max-w-6xl mx-auto">
+        <div style={{ margin: '15px' }}>
             {error && (
                 <Alert severity="error" className="mb-4">
                     {error}
@@ -105,7 +118,7 @@ export default function CollaboratorsPage() {
                     <div className={styles.filters}>
                         <TextField
                             placeholder="Pesquisar por nome"
-                            variant="outlined"
+                            variant="standard"
                             size="small"
                             sx={{ mr: 2, width: '300px' }}
                             value={searchTerm}
@@ -181,7 +194,7 @@ export default function CollaboratorsPage() {
                                                     <EditIcon color="primary" />
                                                 </IconButton>
                                                 <IconButton
-                                                    onClick={() => handleDelete(collaborator.id!)}
+                                                    onClick={() => handleDeleteClick(collaborator.id!)}
                                                     aria-label={`excluir ${collaborator.nome}`}
                                                     disabled={loading}
                                                 >
@@ -205,6 +218,15 @@ export default function CollaboratorsPage() {
                 }}
                 onSuccess={loadCollaborators}
                 initialData={selectedCollaborator}
+            />
+
+            <ConfirmationDialog
+                open={deleteConfirmationOpen}
+                onClose={handleCloseDeleteDialog}
+                onConfirm={handleConfirmDelete}
+                title="Confirmar Exclusão"
+                message="Você tem certeza que deseja remover este colaborador?"
+                confirmText="Remover"
             />
         </div>
     );
