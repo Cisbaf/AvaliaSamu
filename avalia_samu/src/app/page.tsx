@@ -12,7 +12,13 @@ import {
   Typography,
   IconButton,
   Checkbox,
-  CircularProgress
+  CircularProgress,
+  // NOVO: Importe os componentes de Diálogo
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle
 } from '@mui/material';
 import Delete from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -22,6 +28,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
 import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
+import ConfirmationDialog from '@/components/modal/ConfirmationModal';
 
 export default function HomePage() {
   const router = useRouter();
@@ -36,6 +43,10 @@ export default function HomePage() {
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  // NOVO: Estados para o diálogo de confirmação de exclusão
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -60,8 +71,8 @@ export default function HomePage() {
     router.push(`/dashboard/${projectId}`);
   };
 
-  const handleDelete = async (projectId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = async (projectId: string) => {
+    // A propagação do evento é interrompida no handler que abre o diálogo
     setSelectedProjectIds(prev => prev.filter(id => id !== projectId));
     try {
       await deleteProject(projectId);
@@ -69,6 +80,28 @@ export default function HomePage() {
       console.error('Erro ao deletar projeto:', error);
     }
   };
+
+  // NOVO: Handler para ABRIR o diálogo de confirmação
+  const handleOpenDeleteDialog = (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Impede que o clique no botão de deletar acione o clique no item da lista
+    setProjectToDelete(projectId);
+    setDeleteConfirmationOpen(true);
+  };
+
+  // NOVO: Handler para FECHAR o diálogo
+  const handleCloseDeleteDialog = () => {
+    setProjectToDelete(null);
+    setDeleteConfirmationOpen(false);
+  };
+
+  // NOVO: Handler para CONFIRMAR a exclusão
+  const handleConfirmDelete = () => {
+    if (projectToDelete) {
+      handleDelete(projectToDelete);
+    }
+    handleCloseDeleteDialog();
+  };
+
 
   const handleCheckboxChange = (projectId: string, checked: boolean) => {
     setSelectedProjectIds(prev =>
@@ -89,7 +122,8 @@ export default function HomePage() {
 
   const handleExportSelectedMonthly = async () => {
     if (selectedProjectIds.length === 0) {
-      alert('Selecione pelo menos um projeto para exportar.');
+      // Use um modal ou um snackbar em vez de alert, se possível
+      console.warn('Selecione pelo menos um projeto para exportar.');
       return;
     }
 
@@ -122,7 +156,8 @@ export default function HomePage() {
             await new Promise(resolve => setTimeout(resolve, 100));
           } catch (error) {
             console.error(`Falha ao buscar colaboradores para ${projectId} durante exportação:`, error);
-            alert(`Não foi possível carregar os dados do projeto ${projetoAtual.name} (${mesProjeto}). A exportação pode estar incompleta.`);
+            // Use um modal ou um snackbar em vez de alert, se possível
+            console.error(`Não foi possível carregar os dados do projeto ${projetoAtual.name} (${mesProjeto}). A exportação pode estar incompleta.`);
             continue;
           }
         }
@@ -166,7 +201,8 @@ export default function HomePage() {
       }).sort((a, b) => String(a.Nome).localeCompare(String(b.Nome)) || String(a.Função).localeCompare(String(b.Função)));
 
       if (dadosFinais.length === 0) {
-        alert('Nenhum colaborador encontrado nos projetos selecionados.');
+        // Use um modal ou um snackbar em vez de alert, se possível
+        console.warn('Nenhum colaborador encontrado nos projetos selecionados.');
         return;
       }
 
@@ -185,7 +221,8 @@ export default function HomePage() {
 
     } catch (error) {
       console.error('Erro ao exportar dados consolidados por mês:', error);
-      alert('Ocorreu um erro ao gerar a planilha por mês.');
+      // Use um modal ou um snackbar em vez de alert, se possível
+      console.error('Ocorreu um erro ao gerar a planilha por mês.');
     } finally {
       setIsExporting(false);
     }
@@ -234,10 +271,11 @@ export default function HomePage() {
               key={project.id}
               disablePadding
               secondaryAction={
+                // NOVO: Atualize o onClick para abrir o diálogo
                 <IconButton
                   edge="end"
                   aria-label="delete"
-                  onClick={(e) => handleDelete(project.id!, e)}
+                  onClick={(e) => handleOpenDeleteDialog(project.id!, e)}
                   color="error"
                 >
                   <Delete fontSize="small" />
@@ -252,7 +290,7 @@ export default function HomePage() {
                   pr: 8,
                   transition: 'all 0.3s ease',
                   '&:hover': {
-                    background: '#fffffff',
+                    background: '#ffffff',
                     backdropFilter: 'blur(12px)',
                     WebkitBackdropFilter: 'blur(12px)'
                   }
@@ -284,6 +322,16 @@ export default function HomePage() {
       )}
 
       <ProjectModal open={modalOpen} onClose={() => setModalOpen(false)} />
+
+      <ConfirmationDialog
+        open={deleteConfirmationOpen}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        title="Confirmar exclusão do projeto"
+        message="Você tem certeza que deseja deletar este projeto?"
+        confirmText="Deletar"
+      />
+
     </Box>
   );
 }

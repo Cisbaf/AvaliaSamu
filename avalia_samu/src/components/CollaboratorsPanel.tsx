@@ -4,9 +4,11 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, Select, MenuItem, IconButton, Button, CircularProgress, Alert,
-  Typography
+  Typography,
+  // NOVO: Importe os componentes de Diálogo do Material-UI
+  Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle
 } from '@mui/material';
-import { Edit, Delete, Add, EditNote } from '@mui/icons-material';
+import { Edit, Delete, Add, EditNote, EditAttributesSharp } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
 import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ShiftHours } from '@/types/project';
 import CollaboratorModal from './modal/AddCollaboratorModal';
@@ -16,7 +18,7 @@ import ScoringParamsModal from './modal/ScoringParamsModal';
 import DataForPointsModal from './modal/DataForPointsModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { red } from '@mui/material/colors';
+import ConfirmationDialog from './modal/ConfirmationModal';
 
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
@@ -46,6 +48,11 @@ export default function CollaboratorsPanel() {
     scoringParamsModalOpen: false,
     isAddExistingModalOpen: false,
   });
+
+  // NOVO: Estados para controlar o diálogo de confirmação de exclusão
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const [collaboratorToDelete, setCollaboratorToDelete] = useState<string | null>(null);
+
 
   const [scoringParams, setScoringParams] = useState<NestedScoringParameters>();
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>();
@@ -139,6 +146,28 @@ export default function CollaboratorsPanel() {
       updateState({ panelLoading: false });
     }
   }, [selectedProject, deleteCollaboratorFromProject, fetchProjectCollaborators]);
+
+
+  // NOVO: Handler para abrir o diálogo de confirmação
+  const handleOpenDeleteDialog = (collaboratorId: string) => {
+    setCollaboratorToDelete(collaboratorId);
+    setDeleteConfirmationOpen(true);
+  };
+
+  // NOVO: Handler para fechar o diálogo
+  const handleCloseDeleteDialog = () => {
+    setCollaboratorToDelete(null);
+    setDeleteConfirmationOpen(false);
+  };
+
+  // NOVO: Handler para confirmar a exclusão
+  const handleConfirmDelete = () => {
+    if (collaboratorToDelete) {
+      handleDelete(collaboratorToDelete);
+    }
+    handleCloseDeleteDialog();
+  };
+
 
   const handleAddExisting = useCallback(async (id: string, role: string, medicoRole?: MedicoRole, shiftHours?: ShiftHours) => {
     if (!selectedProject) return;
@@ -368,7 +397,6 @@ export default function CollaboratorsPanel() {
 
             <Button
               className={styles.chromeButton}
-
               variant="contained"
               color="warning"
               onClick={() => updateState({ scoringParamsModalOpen: true })}
@@ -449,8 +477,9 @@ export default function CollaboratorsPanel() {
                           <EditNote color='success' />
                         </IconButton>
 
+                        {/* NOVO: Atualize o onClick para abrir o diálogo */}
                         <IconButton
-                          onClick={() => handleDelete(c.id!)}
+                          onClick={() => handleOpenDeleteDialog(c.id!)}
                           disabled={state.panelLoading}
                           title="Remover colaborador"
                         >
@@ -495,6 +524,16 @@ export default function CollaboratorsPanel() {
             onAdd={handleAddExisting}
             loading={state.panelLoading}
           />
+
+          <ConfirmationDialog
+            open={deleteConfirmationOpen}
+            onClose={handleCloseDeleteDialog}
+            onConfirm={handleConfirmDelete}
+            title="Confirmar Exclusão"
+            message="Você tem certeza que deseja remover este colaborador do projeto?"
+            confirmText="Remover"
+          />
+
         </>
       )}
     </div>
