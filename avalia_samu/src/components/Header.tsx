@@ -12,9 +12,6 @@ export function Header() {
   const router = useRouter();
   const pathname = usePathname();
 
-
-
-
   return (
     <header className={styles.header}>
 

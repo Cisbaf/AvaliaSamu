@@ -252,8 +252,6 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
           {renderTable('medico', 'regulacaoLider', ['Duração', 'Pontuação'])}
         </TabPanel>
 
-
-
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>

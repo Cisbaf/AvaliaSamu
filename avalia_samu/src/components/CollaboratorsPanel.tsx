@@ -4,11 +4,9 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, Select, MenuItem, IconButton, Button, CircularProgress, Alert,
-  Typography,
-  // NOVO: Importe os componentes de Diálogo do Material-UI
-  Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle
+  Typography
 } from '@mui/material';
-import { Edit, Delete, Add, EditNote, EditAttributesSharp } from '@mui/icons-material';
+import { Edit, Delete, Add, EditNote } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
 import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ShiftHours } from '@/types/project';
 import CollaboratorModal from './modal/AddCollaboratorModal';
@@ -18,7 +16,6 @@ import ScoringParamsModal from './modal/ScoringParamsModal';
 import DataForPointsModal from './modal/DataForPointsModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import ConfirmationDialog from './modal/ConfirmationModal';
 
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {

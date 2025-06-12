@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import api, {
+import {
     fetchGlobalCollaboratorsApi,
     createGlobalCollaboratorApi,
     updateGlobalCollaboratorApi,
@@ -21,7 +21,6 @@ export function useGlobalCollaborators() {
                 cpf: c.cpf,
                 idCallRote: c.idCallRote,
                 isGlobal: true,
-                // Incluir medicoRole e shiftHours se existirem nos dados
                 medicoRole: c.medicoRole as MedicoRole | undefined,
                 shiftHours: c.shiftHours as ShiftHours | undefined
             })));

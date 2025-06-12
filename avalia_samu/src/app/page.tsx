@@ -13,12 +13,6 @@ import {
   IconButton,
   Checkbox,
   CircularProgress,
-  // NOVO: Importe os componentes de Diálogo
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle
 } from '@mui/material';
 import Delete from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -44,7 +38,6 @@ export default function HomePage() {
   const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // NOVO: Estados para o diálogo de confirmação de exclusão
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
@@ -72,7 +65,6 @@ export default function HomePage() {
   };
 
   const handleDelete = async (projectId: string) => {
-    // A propagação do evento é interrompida no handler que abre o diálogo
     setSelectedProjectIds(prev => prev.filter(id => id !== projectId));
     try {
       await deleteProject(projectId);
@@ -81,20 +73,17 @@ export default function HomePage() {
     }
   };
 
-  // NOVO: Handler para ABRIR o diálogo de confirmação
   const handleOpenDeleteDialog = (projectId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Impede que o clique no botão de deletar acione o clique no item da lista
+    e.stopPropagation();
     setProjectToDelete(projectId);
     setDeleteConfirmationOpen(true);
   };
 
-  // NOVO: Handler para FECHAR o diálogo
   const handleCloseDeleteDialog = () => {
     setProjectToDelete(null);
     setDeleteConfirmationOpen(false);
   };
 
-  // NOVO: Handler para CONFIRMAR a exclusão
   const handleConfirmDelete = () => {
     if (projectToDelete) {
       handleDelete(projectToDelete);
@@ -122,7 +111,6 @@ export default function HomePage() {
 
   const handleExportSelectedMonthly = async () => {
     if (selectedProjectIds.length === 0) {
-      // Use um modal ou um snackbar em vez de alert, se possível
       console.warn('Selecione pelo menos um projeto para exportar.');
       return;
     }
@@ -156,7 +144,6 @@ export default function HomePage() {
             await new Promise(resolve => setTimeout(resolve, 100));
           } catch (error) {
             console.error(`Falha ao buscar colaboradores para ${projectId} durante exportação:`, error);
-            // Use um modal ou um snackbar em vez de alert, se possível
             console.error(`Não foi possível carregar os dados do projeto ${projetoAtual.name} (${mesProjeto}). A exportação pode estar incompleta.`);
             continue;
           }
@@ -201,7 +188,6 @@ export default function HomePage() {
       }).sort((a, b) => String(a.Nome).localeCompare(String(b.Nome)) || String(a.Função).localeCompare(String(b.Função)));
 
       if (dadosFinais.length === 0) {
-        // Use um modal ou um snackbar em vez de alert, se possível
         console.warn('Nenhum colaborador encontrado nos projetos selecionados.');
         return;
       }
@@ -221,7 +207,6 @@ export default function HomePage() {
 
     } catch (error) {
       console.error('Erro ao exportar dados consolidados por mês:', error);
-      // Use um modal ou um snackbar em vez de alert, se possível
       console.error('Ocorreu um erro ao gerar a planilha por mês.');
     } finally {
       setIsExporting(false);
@@ -271,7 +256,6 @@ export default function HomePage() {
               key={project.id}
               disablePadding
               secondaryAction={
-                // NOVO: Atualize o onClick para abrir o diálogo
                 <IconButton
                   edge="end"
                   aria-label="delete"
