@@ -49,8 +49,6 @@ export default function CollaboratorsPanel() {
     isAddExistingModalOpen: false,
   });
 
-  const [collaboratorToDelete, setCollaboratorToDelete] = useState<string | null>(null);
-
 
   const [scoringParams, setScoringParams] = useState<NestedScoringParameters>();
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>();

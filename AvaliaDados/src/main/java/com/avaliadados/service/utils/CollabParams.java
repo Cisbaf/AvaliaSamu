@@ -113,9 +113,12 @@ public class CollabParams {
         System.out.println(pc.getNome());
 
         Long avgPauseTime = 0L;
+        log.info("Colaborador: {}, ID: {}, Plantão: {}", pc.getNome(), pc.getCollaboratorId(), pc.getPlantao());
         if (pc.getPlantao() != null) {
             List<ApiResponse> pauses = apiColabData.getPauses(request);
             avgPauseTime = calcTime(pauses, pc.getPlantao());
+            log.info("{}",avgPauseTime);
+
         }
 
         for(CollaboratorEntity collaborator: collab){
