@@ -156,6 +156,7 @@ export default function CollaboratorsPage() {
                             <TableHead>
                                 <TableRow>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Nome</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>ID CallRote</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>CPF</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Função</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Ações</TableCell>
@@ -178,10 +179,13 @@ export default function CollaboratorsPage() {
                                     filteredCollaborators.map((collaborator) => (
                                         <TableRow key={collaborator.id}>
                                             <TableCell>{collaborator.nome}</TableCell>
+                                            <TableCell>{collaborator.idCallRote}</TableCell>
                                             <TableCell>
                                                 {collaborator.cpf ? collaborator.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : ''}
                                             </TableCell>
-                                            <TableCell>{collaborator.role}</TableCell>
+                                            <TableCell>
+                                                {(collaborator.role ?? '') + (collaborator.medicoRole ? ` (${collaborator.medicoRole} - ${collaborator.shiftHours})` : '')}
+                                            </TableCell>
                                             <TableCell>
                                                 <IconButton
                                                     onClick={() => {
