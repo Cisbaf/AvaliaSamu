@@ -16,7 +16,6 @@ import ScoringParamsModal from './modal/ScoringParamsModal';
 import DataForPointsModal from './modal/DataForPointsModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { red } from '@mui/material/colors';
 
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
@@ -46,6 +45,7 @@ export default function CollaboratorsPanel() {
     scoringParamsModalOpen: false,
     isAddExistingModalOpen: false,
   });
+
 
   const [scoringParams, setScoringParams] = useState<NestedScoringParameters>();
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>();
@@ -368,7 +368,6 @@ export default function CollaboratorsPanel() {
 
             <Button
               className={styles.chromeButton}
-
               variant="contained"
               color="warning"
               onClick={() => updateState({ scoringParamsModalOpen: true })}
@@ -449,6 +448,7 @@ export default function CollaboratorsPanel() {
                           <EditNote color='success' />
                         </IconButton>
 
+                        {/* NOVO: Atualize o onClick para abrir o diálogo */}
                         <IconButton
                           onClick={() => handleDelete(c.id!)}
                           disabled={state.panelLoading}
@@ -495,6 +495,7 @@ export default function CollaboratorsPanel() {
             onAdd={handleAddExisting}
             loading={state.panelLoading}
           />
+
         </>
       )}
     </div>

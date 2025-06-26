@@ -18,10 +18,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Month;
 import java.time.Year;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -113,9 +110,12 @@ public class CollabParams {
         System.out.println(pc.getNome());
 
         Long avgPauseTime = 0L;
+        log.info("Colaborador: {}, ID: {}, Plantão: {}", pc.getNome(), pc.getCollaboratorId(), pc.getPlantao());
         if (pc.getPlantao() != null) {
             List<ApiResponse> pauses = apiColabData.getPauses(request);
             avgPauseTime = calcTime(pauses, pc.getPlantao());
+            log.info("{}",avgPauseTime);
+
         }
 
         for(CollaboratorEntity collaborator: collab){
@@ -149,7 +149,9 @@ public class CollabParams {
     }
 
     private Long calcTime(List<ApiResponse> pauses, int plantao) {
-
+        if(plantao <= 0 ){
+            return 0L;
+        }
         var total = pauses.size();
         var somaTotal = pauses.stream().mapToLong(e -> {
             if (e.start() == null || e.end() == null) {

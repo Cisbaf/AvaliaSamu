@@ -81,12 +81,7 @@ public class ScoringService {
     }
 
     private int calculateTarmScore(Long duration, Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
-        int score = 0;
-        if (removidos != null && removidos > 0 && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
-            int pt = matchRemovidosRule(removidos, params.getRemovidos());
-            score += pt;
-            points.put("Removidos", pt);
-        }
+       int score =  calculateRemovidos(removidos, params, points);
         if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
             int pt = matchDurationRule(duration, params.getRegulacao(), false);
             score += pt;
@@ -94,6 +89,8 @@ public class ScoringService {
         }
         return score;
     }
+
+
 
     private int calculateFrotaScore(Long durationRegulacao, Long pausa, Long durationSaidaVtr, ScoringSectionParams params, Map<String, Integer> points) {
         int score = 0;
@@ -125,12 +122,7 @@ public class ScoringService {
     }
 
     private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos, ScoringSectionParams params, boolean applyMultiplier, Map<String, Integer> points) {
-        int score = 0;
-        if (removidos != null && removidos > 0 && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
-            int pt = matchRemovidosRule(removidos, params.getRemovidos());
-            score += pt;
-            points.put("Removidos", pt);
-        }
+        int score = calculateRemovidos(removidos, params, points);
         switch (medicRole) {
             case "LIDER" -> {
                 if (criticos != null && criticos > 0 && params.getRegulacaoLider() != null && !params.getRegulacaoLider().isEmpty()) {
@@ -158,6 +150,16 @@ public class ScoringService {
                     points.put("Regulacao", pt);
                 }
             }
+        }
+        return score;
+    }
+    private int calculateRemovidos(Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
+        int score = 0;
+        if (removidos != null && removidos > 0 && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
+            int pt = matchRemovidosRule(removidos, params.getRemovidos());
+
+            points.put("Removidos", pt);
+            return score + pt;
         }
         return score;
     }

@@ -52,11 +52,13 @@ public class ProjectCollabService {
                 .medicoRole(medicoRole)
                 .shiftHours(dto.getShiftHours())
                 .build();
-        collabParams.setDataFromApi(pc, projeto, collab.getIdCallRote());
+
+        log.info( "Dados do colaborador obtidos: {}, {}, {}", pc.getCollaboratorId(), projectId, pc.getNome());
 
         sheetProcessingService
-                .findAndAssociateSheetRow(dto.getCollaboratorId(), projectId, collab.getNome())
+                .findAndAssociateSheetRow(pc.getCollaboratorId(), projectId, pc.getNome())
                 .ifPresent(sheetRow -> {
+                    log.info( "Dados da planilha encontrados para o colaborador [{}]", dto.getCollaboratorId());
                     sheetProcessingService.populateFromSheet(pc, sheetRow);
 
 
@@ -64,22 +66,27 @@ public class ProjectCollabService {
                     long saidaVtr = Optional.ofNullable(pc.getSaidaVtrSeconds()).orElse(0L);
                     long criticos = Optional.ofNullable(pc.getCriticos()).orElse(0L);
 
+                    var params = collabParams.setDataFromApi(pc, projeto, collab.getIdCallRote());
+                    pc.setRemovidos(Math.toIntExact(params.get("removeds")));
+                    pc.setCriticos(params.get("criticos"));
+
                     int pontos = collabParams.setParams(
                             pc,
                             projeto,
-                            pc.getRemovidos(), // agora persistido
+                            pc.getRemovidos() != null ? pc.getRemovidos() : 0, // usa valor local
                             duration,
                             criticos,
-                            pc.getPausaMensalSeconds(), // agora persistido
+                            pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0, // agora persistido
                             saidaVtr
                     );
                     pc.setPontuacao(pontos);
+
                 });
 
         // Substitui qualquer colaborador já existente com esse ID, e adiciona o novo
         projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(dto.getCollaboratorId()));
         projeto.getCollaborators().add(pc);
-        log.debug("Dados do Collaborador adicionados/atualizados: {}", pc);
+        log.info("Dados do Collaborador adicionados/atualizados: {}", pc);
         return projetoRepo.save(projeto);
     }
 

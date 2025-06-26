@@ -12,7 +12,7 @@ import {
   Typography,
   IconButton,
   Checkbox,
-  CircularProgress
+  CircularProgress,
 } from '@mui/material';
 import Delete from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -22,7 +22,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
 import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
-
+import ConfirmationDialog from '@/components/modal/ConfirmationModal';
 
 export default function HomePage() {
   const router = useRouter();
@@ -37,6 +37,9 @@ export default function HomePage() {
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -61,8 +64,7 @@ export default function HomePage() {
     router.push(`/dashboard/${projectId}`);
   };
 
-  const handleDelete = async (projectId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = async (projectId: string) => {
     setSelectedProjectIds(prev => prev.filter(id => id !== projectId));
     try {
       await deleteProject(projectId);
@@ -70,6 +72,25 @@ export default function HomePage() {
       console.error('Erro ao deletar projeto:', error);
     }
   };
+
+  const handleOpenDeleteDialog = (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setProjectToDelete(projectId);
+    setDeleteConfirmationOpen(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setProjectToDelete(null);
+    setDeleteConfirmationOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (projectToDelete) {
+      handleDelete(projectToDelete);
+    }
+    handleCloseDeleteDialog();
+  };
+
 
   const handleCheckboxChange = (projectId: string, checked: boolean) => {
     setSelectedProjectIds(prev =>
@@ -90,7 +111,7 @@ export default function HomePage() {
 
   const handleExportSelectedMonthly = async () => {
     if (selectedProjectIds.length === 0) {
-      alert('Selecione pelo menos um projeto para exportar.');
+      console.warn('Selecione pelo menos um projeto para exportar.');
       return;
     }
 
@@ -123,7 +144,7 @@ export default function HomePage() {
             await new Promise(resolve => setTimeout(resolve, 100));
           } catch (error) {
             console.error(`Falha ao buscar colaboradores para ${projectId} durante exportação:`, error);
-            alert(`Não foi possível carregar os dados do projeto ${projetoAtual.name} (${mesProjeto}). A exportação pode estar incompleta.`);
+            console.error(`Não foi possível carregar os dados do projeto ${projetoAtual.name} (${mesProjeto}). A exportação pode estar incompleta.`);
             continue;
           }
         }
@@ -167,7 +188,7 @@ export default function HomePage() {
       }).sort((a, b) => String(a.Nome).localeCompare(String(b.Nome)) || String(a.Função).localeCompare(String(b.Função)));
 
       if (dadosFinais.length === 0) {
-        alert('Nenhum colaborador encontrado nos projetos selecionados.');
+        console.warn('Nenhum colaborador encontrado nos projetos selecionados.');
         return;
       }
 
@@ -186,7 +207,7 @@ export default function HomePage() {
 
     } catch (error) {
       console.error('Erro ao exportar dados consolidados por mês:', error);
-      alert('Ocorreu um erro ao gerar a planilha por mês.');
+      console.error('Ocorreu um erro ao gerar a planilha por mês.');
     } finally {
       setIsExporting(false);
     }
@@ -219,17 +240,26 @@ export default function HomePage() {
       </Box>
 
       {projects.length > 0 ? (
-        <List sx={{ bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1, border: '1px solid', borderColor: 'divider' }}>
+        <List
+          sx={{
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            overflow: 'hidden',
+            transition: 'all 0.3s ease-in-out'
+          }}
+        >
           {projects.map((project) => (
             <ListItem
-              sx={{ borderBottom: '1px solid', borderColor: 'divider' }}
               key={project.id}
               disablePadding
               secondaryAction={
                 <IconButton
                   edge="end"
                   aria-label="delete"
-                  onClick={(e) => handleDelete(project.id!, e)}
+                  onClick={(e) => handleOpenDeleteDialog(project.id!, e)}
                   color="error"
                 >
                   <Delete fontSize="small" />
@@ -240,7 +270,15 @@ export default function HomePage() {
                 role={undefined}
                 onClick={() => handleProjectSelect(project.id!)}
                 dense
-                sx={{ pr: 8 }}
+                sx={{
+                  pr: 8,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: '#ffffff',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)'
+                  }
+                }}
               >
                 <ListItemText
                   id={`checkbox-list-label-${project.id}`}
@@ -268,6 +306,16 @@ export default function HomePage() {
       )}
 
       <ProjectModal open={modalOpen} onClose={() => setModalOpen(false)} />
+
+      <ConfirmationDialog
+        open={deleteConfirmationOpen}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={handleConfirmDelete}
+        title="Confirmar exclusão do projeto"
+        message="Você tem certeza que deseja deletar este projeto?"
+        confirmText="Deletar"
+      />
+
     </Box>
   );
 }

@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static com.avaliadados.service.utils.SheetsUtils.*;
 
@@ -41,14 +43,21 @@ public class SheetProcessingService {
         List<SheetRow> todasLinhas = rowRepository.findByProjectId(projectId);
 
         return todasLinhas.stream().filter(row -> {
-            // pega "MEDICO.REGULADOR" ou, se nulo, "MEDICO.LIDER"
-            String nomeMedico = Optional.ofNullable(row.getData().get("MEDICO.REGULADOR")).orElse(row.getData().get("MEDICO.LIDER"));
-            if (nomeMedico == null) {
-                return false;
-            }
-            return similarity(normalizeName(nomeMedico), nomeNormalizado) >= 0.85;
+            // Verifica todas as chaves possíveis em ordem de prioridade
+            String nomeMedico = Stream.of(
+                            row.getData().get("MEDICO.REGULADOR"),
+                            row.getData().get("MEDICO.LIDER"),
+                            row.getData().get("COLABORADOR")  // Nova chave para TARM/FROTA
+
+                    )
+                    .filter(Objects::nonNull)
+                    .findFirst()
+                    .orElse(null);
+
+            return nomeMedico != null &&
+                    similarity(normalizeName(nomeMedico), nomeNormalizado) >= 0.85;
         }).findFirst().map(row -> {
-            // associa o collaboratorId na linha para persistir a “ligação”
+            // Atualiza e persiste a associação
             row.setCollaboratorId(collaboratorId);
             rowRepository.save(row);
             log.info("Associado colaborador [{}] à linha da planilha por similaridade de nome", collaboratorId);
@@ -84,26 +93,36 @@ public class SheetProcessingService {
 
     private void processTarm(ProjectCollaborator pc, Map<String, String> data) {
         String tempo = data.get("TEMPO.REGULACAO.TARM");
+        String plantao = data.get("PLANTAO");
+        int plantaotemp = (int) Math.round(Double.parseDouble(Objects.equals(plantao, "00:00:00") ? "0" : plantao));
+
         if (tempo != null) {
             Long segundos = parseTimeToSeconds(tempo);
             pc.setDurationSeconds(segundos);
             pc.setParametros(NestedScoringParameters.builder().tarm(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(segundos).build())).build()).build());
+            pc.setPlantao(plantaotemp);
             log.debug("Tempo de regulação TARM definido: {} segundos", segundos);
         }
     }
 
     private void processFrota(ProjectCollaborator pc, Map<String, String> data) {
         String tempo = data.get("TEMPO.REGULACAO.FROTA");
+        String plantao = data.get("PLANTAO");
+        int plantaotemp = (int) Math.round(Double.parseDouble(Objects.equals(plantao, "00:00:00") ? "0" : plantao));
+
         if (tempo != null) {
             Long segundos = parseTimeToSeconds(tempo);
             pc.setDurationSeconds(segundos);
             pc.setParametros(NestedScoringParameters.builder().frota(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(segundos).build())).build()).build());
+            pc.setPlantao(plantaotemp);
             log.debug("Tempo de regulação FROTA definido: {} segundos", segundos);
         }
     }
 
     private void processMedico(ProjectCollaborator pc, Map<String, String> data) {
         MedicoRole role = Optional.ofNullable(pc.getMedicoRole()).orElse(MedicoRole.NENHUM);
+        String plantao = data.get("PLANTAO");
+        int plantaotemp = (int) Math.round(Double.parseDouble(Objects.equals(plantao, "00:00:00") ? "0" : plantao));
 
         switch (role) {
             case REGULADOR:
@@ -112,6 +131,7 @@ public class SheetProcessingService {
                     Long segundos = parseTimeToSeconds(tempoReg);
                     pc.setDurationSeconds(segundos);
                     pc.setParametros(NestedScoringParameters.builder().medico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(segundos).build())).build()).build());
+                    pc.setPlantao(plantaotemp);
                     log.debug("Tempo de regulação MÉDICO REGULADOR definido: {} segundos", segundos);
                 }
                 break;
@@ -122,6 +142,7 @@ public class SheetProcessingService {
                     Long segundos = parseTimeToSeconds(criticos);
                     pc.setDurationSeconds(segundos);
                     pc.setParametros(NestedScoringParameters.builder().medico(ScoringSectionParams.builder().regulacaoLider(List.of(ScoringRule.builder().duration(segundos).build())).build()).build());
+                    pc.setPlantao(plantaotemp);
                     log.debug("Tempo de críticos MÉDICO LÍDER definido: {} segundos", segundos);
                 }
                 break;

@@ -12,14 +12,13 @@ export function Header() {
   const router = useRouter();
   const pathname = usePathname();
 
-
-
-
   return (
     <header className={styles.header}>
+
       <Link href="/" className={styles.logoLink}>
-        Avaliação SAMU
+        <span className={styles.logoLink}>Avaliação SAMU</span>
       </Link>
+
 
       <div className={styles.buttonsContainer}>
         {pathname !== '/colaboradores' && (
