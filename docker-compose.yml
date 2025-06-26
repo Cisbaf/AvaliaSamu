@@ -1,37 +1,4 @@
 services:
-  # Frontend Next.js (imagem do Docker Hub)
-  frontend:
-    image: gustavofogao/avaliacao_samu:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://backend:8080/api
-
-    depends_on:
-      - backend
-    networks:
-      - avaliacao-network
-
-  # Backend Spring Boot (imagem do Docker Hub)
-  backend:
-    image: gustavofogao/avalia_dados:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - DB_USER=admin
-      - DB_PASSWORD=admin
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/avaliacao
-      - SPRING_DATA_MONGODB_URI=mongodb://root:admin@mongo:27017/projeto?authSource=admin
-      - MONGO_USER=root
-      - MONGO_PASSWORD=admin
-      - SPRING_PROFILES_ACTIVE=prod
-
-    depends_on:
-      - postgres
-      - mongo
-    networks:
-      - avaliacao-network
 
   # Banco de dados PostgreSQL
   postgres:
@@ -44,7 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data 
     networks:
       - avaliacao-network
     healthcheck:

@@ -143,8 +143,7 @@ public class SheetsUtils {
                     cal.setTime(date);
                     long total = cal.get(Calendar.HOUR_OF_DAY) * 3600L
                             + cal.get(Calendar.MINUTE) * 60L
-                            + cal.get(Calendar.DAY_OF_MONTH); // fix if wrongly using DAY_OF_MONTH? should be SECOND
-                    // seconds from get(Calendar.SECOND)
+                            + cal.get(Calendar.DAY_OF_MONTH);
                     total += cal.get(Calendar.SECOND);
                     log.debug("Tempo convertido com formato {}: {}s", fmt.toPattern(), total);
                     return total;
