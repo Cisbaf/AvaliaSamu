@@ -41,8 +41,18 @@ export default function CollaboratorsPage() {
     const { } = useProjects();
 
     const memoizedRoles = useMemo(() => {
-        return [...new Set(collaborators.map(c => c.role).filter(role => typeof role === 'string'))];
+        const roles = collaborators
+            .map(c => c.role)
+            .filter(role => typeof role === 'string' && role !== 'MEDICO');
+
+        const medicoRoles = collaborators
+            .map(c => c.medicoRole)
+            .filter(medicoRole => typeof medicoRole === 'string');
+
+        return [...new Set([...roles, ...medicoRoles])];
     }, [collaborators]);
+
+
 
     const loadCollaborators = async () => {
         try {
@@ -93,7 +103,7 @@ export default function CollaboratorsPage() {
     const filteredCollaborators = useMemo(() => {
         return collaborators.filter(collaborator => {
             const nameMatch = typeof collaborator.nome === 'string' && collaborator.nome.toLowerCase().includes(searchTerm.toLowerCase());
-            const roleMatch = filterRole === 'all' || (typeof collaborator.role === 'string' && collaborator.role === filterRole);
+            const roleMatch = filterRole === 'all' || (typeof collaborator.role === 'string' && collaborator.role === filterRole || typeof collaborator.medicoRole === 'string' && collaborator.medicoRole === filterRole);
             const passesSearch = searchTerm === '' || nameMatch;
             return passesSearch && roleMatch;
         });

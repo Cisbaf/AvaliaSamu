@@ -39,6 +39,7 @@ export default function CollaboratorsPanel() {
     searchTerm: '',
     filterRole: 'all' as 'all' | string,
     roles: [] as string[],
+    medicoRole: [] as MedicoRole[],
     error: null as string | null,
     loading: false,
     panelLoading: false,
@@ -69,9 +70,10 @@ export default function CollaboratorsPanel() {
     if (selectedProject) {
       const inProject = projectCollaborators[selectedProject] || [];
       updateState({ roles: Array.from(new Set(inProject.map(c => c.role))) });
+      updateState({ medicoRole: Array.from(new Set(inProject.map(c => c.medicoRole))).filter((mr): mr is MedicoRole => mr !== undefined && mr !== ("NENHUM" as MedicoRole)) });
     }
-
   }, [projectCollaborators, selectedProject]);
+
   useEffect(() => {
     if (currentProject?.parameters) {
       setScoringParams(currentProject.parameters);
@@ -112,7 +114,7 @@ export default function CollaboratorsPanel() {
     combinedCollaborators
       .filter(c =>
         c.nome.toLowerCase().includes(state.searchTerm.toLowerCase()) &&
-        (state.filterRole === 'all' || c.role === state.filterRole)
+        (state.filterRole === 'all' || c.role === state.filterRole || c.medicoRole === state.filterRole)
       )
       .sort((a, b) => a.nome.localeCompare(b.nome)),
     [combinedCollaborators, state.searchTerm, state.filterRole]
@@ -350,6 +352,10 @@ export default function CollaboratorsPanel() {
               {state.roles.map(role => (
                 <MenuItem key={role} value={role}>{role}</MenuItem>
               ))}
+              {state.medicoRole.map(Mrole => (
+                <MenuItem key={Mrole} value={Mrole}>{Mrole}</MenuItem>
+              ))}
+
             </Select>
           </div>
 
