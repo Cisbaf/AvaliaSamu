@@ -199,7 +199,7 @@ export default function CollaboratorsPage() {
                                     filteredCollaborators.map((collaborator) => (
                                         <TableRow key={collaborator.id}>
                                             <TableCell>{collaborator.nome}</TableCell>
-                                            <TableCell>{collaborator.idCallRote}</TableCell>
+                                            <TableCell>{collaborator.idCallRote ? collaborator.idCallRote.replace(/(\d{1})(\d{11})/, '$1-$2') : ''}</TableCell>
                                             <TableCell>
                                                 {collaborator.cpf ? collaborator.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : ''}
                                             </TableCell>
