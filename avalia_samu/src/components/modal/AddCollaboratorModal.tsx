@@ -222,7 +222,7 @@ export default function CollaboratorModal({
                             }}
                         />
                         <TextField label="CPF" fullWidth margin="dense"
-                            value={formData.cpf} onChange={e => handleChange('cpf', e.target.value)}
+                            value={formData.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')} onChange={e => handleChange('cpf', e.target.value)}
                             variant={isEdit && projectId ? 'filled' : 'outlined'}
                             slotProps={{
                                 input: {
@@ -231,7 +231,7 @@ export default function CollaboratorModal({
                             }} />
                         <TextField label="ID Call Rote" fullWidth margin="dense"
                             variant={isEdit && projectId ? 'filled' : 'outlined'}
-                            value={formData.idCallRote} onChange={e => handleChange('idCallRote', e.target.value)}
+                            value={formData.idCallRote.replace(/(\d{1})(\d{11})/, '$1-$2')} onChange={e => handleChange('idCallRote', e.target.value)}
                             slotProps={{
                                 input: {
                                     readOnly: isEdit && projectId ? true : false,
