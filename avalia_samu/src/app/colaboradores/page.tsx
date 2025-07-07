@@ -106,6 +106,16 @@ export default function CollaboratorsPage() {
             const roleMatch = filterRole === 'all' || (typeof collaborator.role === 'string' && collaborator.role === filterRole || typeof collaborator.medicoRole === 'string' && collaborator.medicoRole === filterRole);
             const passesSearch = searchTerm === '' || nameMatch;
             return passesSearch && roleMatch;
+        }).sort((a, b) => {
+            const nameA = a.nome.toUpperCase();
+            const nameB = b.nome.toUpperCase();
+            if (nameA < nameB) {
+                return -1;
+            }
+            if (nameA > nameB) {
+                return 1;
+            }
+            return 0;
         });
     }, [collaborators, searchTerm, filterRole]);
 

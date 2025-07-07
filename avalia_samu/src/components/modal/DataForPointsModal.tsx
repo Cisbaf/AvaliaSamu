@@ -28,6 +28,7 @@ type FormData = {
     removidos: number;
     pausaMensalSeconds: number;
     saidaVtr: number;
+    points: number;
 };
 
 export default function DataForPointsModal({
@@ -44,7 +45,8 @@ export default function DataForPointsModal({
         criticos: 0,
         removidos: 0,
         pausaMensalSeconds: 0,
-        saidaVtr: 0
+        saidaVtr: 0,
+        points: 0,
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -77,17 +79,12 @@ export default function DataForPointsModal({
     useEffect(() => {
         if (initialData) {
             setFormData({
-                durationSeconds:
-                    initialData.durationSeconds ??
-                    (initialData as any).duration ??
-                    0,
+                durationSeconds: initialData.durationSeconds ?? (initialData as any).duration ?? 0,
                 criticos: (initialData as any).criticos ?? 0,
                 removidos: initialData.removidos ?? 0,
-                pausaMensalSeconds:
-                    initialData.pausaMensalSeconds ??
-                    (initialData as any).pausaMensal ??
-                    0,
+                pausaMensalSeconds: initialData.pausaMensalSeconds ?? (initialData as any).pausaMensal ?? 0,
                 saidaVtr: initialData.saidaVtr ?? 0,
+                points: initialData.pontuacao ?? 0, // Corrigido aqui
             });
         }
     }, [initialData]);
@@ -98,7 +95,7 @@ export default function DataForPointsModal({
             setFormData(prev => ({ ...prev, [field]: seconds }));
         };
 
-    const handleChangeNumber = (field: keyof Pick<FormData, 'criticos' | 'removidos'>) =>
+    const handleChangeNumber = (field: keyof Pick<FormData, 'criticos' | 'removidos' | 'points'>) =>
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const value = Number(e.target.value);
             setFormData(prev => ({ ...prev, [field]: isNaN(value) ? 0 : value }));
@@ -111,7 +108,7 @@ export default function DataForPointsModal({
         try {
             if (projectId) {
                 const dto: UpdateProjectCollabDto = {
-                    durationSeconds: formData.durationSeconds ?? 0, // Usar nullish coalescing
+                    durationSeconds: formData.durationSeconds ?? 0,
                     criticos: formData.criticos ?? 0,
                     removidos: formData.removidos || 0,
                     pausaMensalSeconds: formData.pausaMensalSeconds ?? 0,
@@ -120,6 +117,7 @@ export default function DataForPointsModal({
                     nome: initialData!.nome,
                     medicoRole: initialData!.medicoRole,
                     shiftHours: initialData!.shiftHours as ShiftHours,
+                    pontuacao: formData.points || 0,
                 };
 
                 await updateProjectCollaborator(
@@ -139,7 +137,7 @@ export default function DataForPointsModal({
         }
     };
 
-    const isSubmitDisabled = loading || formData.durationSeconds < 0 || formData.removidos < 0 || formData.pausaMensalSeconds < 0;
+    const isSubmitDisabled = loading || formData.durationSeconds < 0 || formData.removidos < 0 || formData.pausaMensalSeconds < 0 || formData.points < 0;
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -147,6 +145,16 @@ export default function DataForPointsModal({
             <DialogContent className={styles.modalContent}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                 <Grid container spacing={2} marginTop={2}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                        <TextField
+                            label="Pontos"
+                            type="number"
+                            fullWidth
+                            value={formData.points}
+                            onChange={handleChangeNumber('points')}
+                        />
+                    </Grid>
+
                     {!isLider && (
                         <Grid size={{ xs: 12, sm: 4 }}>
                             <TextField

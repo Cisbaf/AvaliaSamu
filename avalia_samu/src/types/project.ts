@@ -87,4 +87,5 @@ export interface UpdateProjectCollabDto {
   medicoRole?: MedicoRole;
   shiftHours?: ShiftHours;
   saidaVtr?: number;
+  pontuacao: number;
 }

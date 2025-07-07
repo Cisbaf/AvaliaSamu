@@ -121,6 +121,7 @@ export default function CollaboratorModal({
                         durationSeconds: formData.durationSeconds,
                         quantity: formData.quantity,
                         pausaMensalSeconds: formData.pausaMensalSeconds,
+                        pontuacao: (initialData as CombinedCollaboratorData)?.pontuacao ?? 0,
                     };
 
                     const medicoFields = finalRole === 'MEDICO' ? {

@@ -23,6 +23,7 @@ export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
   projectId?: string;
   medicoRole?: MedicoRole;
   shiftHours?: ShiftHours;
+  points?: Record<string, number>;
 };
 
 export default function CollaboratorsPanel() {
