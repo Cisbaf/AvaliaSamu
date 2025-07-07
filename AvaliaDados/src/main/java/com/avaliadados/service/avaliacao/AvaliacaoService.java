@@ -159,8 +159,18 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         if (!pcsToUpdate.isEmpty()) {
             collabParams.setDataFromApi(pcsToUpdate, projeto, idCallroutList);
             for ( ProjectCollaborator pc : pcsToUpdate) {
-                int pontos = collabParams.setParams(pc, projeto, pc.getRemovidos(), pc.getDurationSeconds(), 0L, pc.getPausaMensalSeconds(), pc.getSaidaVtrSeconds());
-                pc.setPontuacao(pontos);
+                if (pc.getPausaMensalSeconds() != null || pc.getDurationSeconds() != null) {
+                    int pontos = collabParams.setParams(
+                            pc,
+                            projeto,
+                            pc.getRemovidos(),
+                            pc.getDurationSeconds(),
+                            0L,
+                            pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L,
+                            pc.getSaidaVtrSeconds());
+                    pc.setPontuacao(pontos);
+                }else pc.setPontuacao(0);
+
             }
         }
 

@@ -178,24 +178,30 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 projeto.getCollaborators().stream()
                         .filter(c -> c.getCollaboratorId().equals(collabId))
                         .findFirst()
-                        .ifPresent(pc -> atualizarDadosMedico(pc, sr.getData(), projeto));
+                        .ifPresent(pc -> atualizarDadosMedico(pc, sr.getData()));
             }
         }
         if (!pcsToUpdate.isEmpty()) {
+
             collabParams.setDataFromApi(pcsToUpdate, projeto, collaboratorIdCallRotes);
             for (ProjectCollaborator pc : pcsToUpdate) {
-                int pontos = collabParams.setParams(pc, projeto, pc.getRemovidos(),
-                        pc.getDurationSeconds(), pc.getCriticos(), pc.getPausaMensalSeconds(),
-                        pc.getSaidaVtrSeconds());
-                pc.setPontuacao(pontos);
+                if (pc.getPausaMensalSeconds() != null && pc.getPausaMensalSeconds() > 0 || pc.getDurationSeconds() != null && pc.getDurationSeconds() > 0) {
+                    int pontos = collabParams.setParams(
+                            pc,
+                            projeto,
+                            pc.getRemovidos(),
+                            pc.getDurationSeconds(),
+                            pc.getCriticos(),
+                            pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L,
+                           0L);
+                    pc.setPontuacao(pontos);
+                }else pc.setPontuacao(0);
             }
         }
         projetoRepo.save(projeto);
     }
 
-    private void atualizarDadosMedico(ProjectCollaborator pc,
-                                      Map<String, String> data,
-                                      ProjetoEntity projeto) {
+    private void atualizarDadosMedico(ProjectCollaborator pc, Map<String, String> data) {
 
         long duration = 0L;
         long criticos = 0L; // Separar os dois valores

@@ -191,6 +191,7 @@ public class CollabParams {
 
         // Desliga o executor de threads
         executor.shutdown();
+        log.info("Dados de eventos processados para {} colaboradores.", projectCollaborators.size());
     }
 
 
