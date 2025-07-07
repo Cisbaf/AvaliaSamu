@@ -1,24 +1,30 @@
 package com.avaliadados.service.utils;
 
-import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
+import com.avaliadados.model.api.ApiOptions;
 import com.avaliadados.model.api.ApiRequest;
-import com.avaliadados.model.api.ApiResponse;
+import com.avaliadados.model.api.DateRange;
+import com.avaliadados.model.api.EventDetails;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
-import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.service.ScoringService;
 import com.avaliadados.service.factory.ApiColabData;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.Month;
 import java.time.Year;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
+
+import static com.avaliadados.service.utils.ApiDataProcessor.parseTimeToSeconds;
+
 
 @Slf4j
 @RequiredArgsConstructor
@@ -26,8 +32,6 @@ import java.util.*;
 public class CollabParams {
     private final ScoringService scoringService;
     private final ApiColabData apiColabData;
-    private final CollaboratorRepository collaboratorRepository;
-
 
     public int setParams(ProjectCollaborator pc, ProjetoEntity project, int removeds, long duration, long criticos, long pausaMensal, long saidaVtr) {
         if (pc.getRole() == null) return 0;
@@ -95,45 +99,102 @@ public class CollabParams {
 
     }
 
-    public Map<String, Long> setDataFromApi(ProjectCollaborator pc, ProjetoEntity projeto, String idCallRout) {
-        if (pc.getRemovidos() != null && pc.getRemovidos() > 0 &&
-                pc.getPausaMensalSeconds() != null && pc.getPausaMensalSeconds() > 0) {
-            return Map.of(
-                    "removeds", (long) pc.getRemovidos(),
-                    "pauses", pc.getPausaMensalSeconds()
-            );
-        }
-        var collab = collaboratorRepository.getReferenceByIdCallRote(idCallRout);
+    public void setDataFromApi(
+            List<ProjectCollaborator> projectCollaborators,
+            ProjetoEntity projeto,
+            List<String> idCallroutList) {
 
-        ApiRequest request = getApiRequest(projeto, idCallRout);
-        List<ApiResponse> removeds = apiColabData.getRemoveds(request);
-        System.out.println(pc.getNome());
-
-        Long avgPauseTime = 0L;
-        log.info("Colaborador: {}, ID: {}, Plantão: {}", pc.getNome(), pc.getCollaboratorId(), pc.getPlantao());
-        if (pc.getPlantao() != null) {
-            List<ApiResponse> pauses = apiColabData.getPauses(request);
-            avgPauseTime = calcTime(pauses, pc.getPlantao());
-            log.info("{}",avgPauseTime);
-
+        if (projectCollaborators == null || projectCollaborators.isEmpty()) {
+            log.warn("A lista de ProjectCollaborators está vazia. Nenhuma chamada à API será feita.");
+            return;
         }
 
-        for(CollaboratorEntity collaborator: collab){
-            if (Objects.equals(collaborator.getId(), pc.getCollaboratorId())) {
-                pc.setRemovidos(removeds.size());
-                pc.setPausaMensalSeconds(avgPauseTime);
-            }
+        // Verifica se as listas têm o mesmo tamanho
+        if (projectCollaborators.size() != idCallroutList.size()) {
+            log.error("Tamanho das listas não corresponde. Colaboradores: {}, IDs: {}",
+                    projectCollaborators.size(), idCallroutList.size());
+            return;
         }
 
+        // Filtra apenas IDs válidos
+        List<String> agentIds = idCallroutList.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
+        if (agentIds.isEmpty()) {
+            log.warn("Nenhum idCallRote válido encontrado. Nenhuma chamada à API será feita.");
+            return;
+        }
 
-        return Map.of(
-                "removeds", (long) removeds.size(),
-                "pauses", avgPauseTime
-        );
+        CompletableFuture<Map<String, Map<String, EventDetails>>> pausesFuture =
+                CompletableFuture.supplyAsync(() -> fetchEventData("pause", agentIds, true, false, projeto));
+        CompletableFuture<Map<String, Map<String, EventDetails>>> removedsFuture =
+                CompletableFuture.supplyAsync(() -> fetchEventData("removed", agentIds, false, true, projeto));
+
+        Map<String, Map<String, EventDetails>> pausesData;
+        Map<String, Map<String, EventDetails>> removedsData;
+
+        try {
+            pausesData = pausesFuture.get();
+            removedsData = removedsFuture.get();
+        } catch (Exception e) {
+            log.error("Erro ao buscar dados de eventos: {}", e.getMessage());
+            return;
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+
+        List<CompletableFuture<Void>> futures = new java.util.ArrayList<>();
+
+        // Processa cada colaborador usando o índice em paralelo
+        for (int i = 0; i < projectCollaborators.size(); i++) {
+            final int index = i; // Variável final para uso na lambda
+            futures.add(CompletableFuture.runAsync(() -> {
+                ProjectCollaborator pc = projectCollaborators.get(index);
+                String agentId = idCallroutList.get(index);
+
+                if (agentId == null) {
+                    log.warn("idCallRote nulo para o colaborador: {}", pc.getNome());
+                    return; // Continua para o próximo colaborador
+                }
+
+                // Processa pausas
+                Optional.ofNullable(pausesData.get(agentId))
+                        .map(eventMap -> eventMap.get("pause"))
+                        .ifPresent(pauseDetails -> {
+                            if (pauseDetails.getHistory() != null) {
+                                long totalPauseSeconds = pauseDetails.getHistory().stream()
+                                        .mapToLong(item -> parseTimeToSeconds(item.getDuration()))
+                                        .sum();
+
+                                long total = 0L;
+                                if (pc.getPlantao() != null && pc.getPlantao() > 0) {
+                                    total = totalPauseSeconds / pc.getPlantao();
+                                }
+                                pc.setPausaMensalSeconds(total);
+                            }
+                        });
+
+                // Processa removidos
+                Optional.ofNullable(removedsData.get(agentId))
+                        .map(eventMap -> eventMap.get("removed"))
+                        .ifPresent(removedDetails -> {
+                            if (removedDetails.getTotal() != null) {
+                                pc.setRemovidos(removedDetails.getTotal());
+                            }
+                        });
+            }, executor));
+        }
+
+        // Espera todas as tarefas paralelas serem concluídas
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        // Desliga o executor de threads
+        executor.shutdown();
     }
 
-    private static ApiRequest getApiRequest(ProjetoEntity projeto, String idCallRout) {
+
+    private Map<String, Map<String, EventDetails>> fetchEventData(String eventName, List<String> agentIds, boolean history, boolean total, ProjetoEntity projeto) {
         String[] mesAno = projeto.getMonth().split("-");
         Month mesReal = Month.of(Integer.parseInt(mesAno[0]));
         Year anoReal = Year.of(Integer.parseInt(mesAno[1]));
@@ -143,30 +204,28 @@ public class CollabParams {
         String nomeMes = String.format("%02d", mesReal.getValue());
         String endData = String.format("%d/%s/%d", dia, nomeMes, anoReal.getValue());
         String initialData = String.format("01/%s/%d", nomeMes, anoReal.getValue());
-        System.out.println("Inicial: " + initialData + ", Final: " + endData);
 
-        return new ApiRequest(idCallRout, initialData, endData);
-    }
+        ApiOptions options = ApiOptions.builder()
+                .history(history)
+                .total(total)
+                .duration_average(false)
+                .build();
 
-    private Long calcTime(List<ApiResponse> pauses, int plantao) {
-        if(plantao <= 0 ){
-            return 0L;
+        ApiRequest request = ApiRequest.builder()
+                .events(List.of(eventName))
+                .agents_id(agentIds)
+                .date_rage(DateRange.builder().start(initialData).end(endData).build())
+                .options(options)
+                .build();
+
+        try {
+            log.info("Consultando evento {} para {} agentes...", eventName, agentIds.size());
+            Map<String, Map<String, EventDetails>> response = apiColabData.consult(request);
+            return response != null ? response : Collections.emptyMap();
+        } catch (Exception e) {
+            log.error("Erro ao consultar o evento {} na API: {}", eventName, e.getMessage());
+            return Collections.emptyMap();
         }
-        var total = pauses.size();
-        var somaTotal = pauses.stream().mapToLong(e -> {
-            if (e.start() == null || e.end() == null) {
-                return 0L;
-            }
-            Duration duration = Duration.between(e.start(), e.end());
-            return duration.getSeconds();
-        }).sum();
-
-        System.out.println("Total de pausas: " + total + ", Soma total de segundos: " + somaTotal + ", Plantão: " + plantao);
-
-
-        if (total != 0) {
-            return  somaTotal / plantao;
-        }
-        return 0L;
     }
 }
+

@@ -5,6 +5,7 @@ import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.model.dto.ProjectCollabRequest;
+import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import com.avaliadados.service.utils.CollabParams;
@@ -29,8 +30,6 @@ public class ProjectCollabService {
 
     @Transactional
     public ProjetoEntity addCollaborator(String projectId, ProjectCollabRequest dto) {
-        log.info("Adicionando colaborador [{}] ao projeto [{}] com role [{}]",
-                dto.getCollaboratorId(), projectId, dto.getRole());
 
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -53,12 +52,9 @@ public class ProjectCollabService {
                 .shiftHours(dto.getShiftHours())
                 .build();
 
-        log.info( "Dados do colaborador obtidos: {}, {}, {}", pc.getCollaboratorId(), projectId, pc.getNome());
-
         sheetProcessingService
                 .findAndAssociateSheetRow(pc.getCollaboratorId(), projectId, pc.getNome())
                 .ifPresent(sheetRow -> {
-                    log.info( "Dados da planilha encontrados para o colaborador [{}]", dto.getCollaboratorId());
                     sheetProcessingService.populateFromSheet(pc, sheetRow);
 
 
@@ -66,9 +62,7 @@ public class ProjectCollabService {
                     long saidaVtr = Optional.ofNullable(pc.getSaidaVtrSeconds()).orElse(0L);
                     long criticos = Optional.ofNullable(pc.getCriticos()).orElse(0L);
 
-                    var params = collabParams.setDataFromApi(pc, projeto, collab.getIdCallRote());
-                    pc.setRemovidos(Math.toIntExact(params.get("removeds")));
-                    pc.setCriticos(params.get("criticos"));
+                    collabParams.setDataFromApi(List.of(pc), projeto, List.of(collab.getIdCallRote()));
 
                     int pontos = collabParams.setParams(
                             pc,
@@ -83,17 +77,14 @@ public class ProjectCollabService {
 
                 });
 
-        // Substitui qualquer colaborador já existente com esse ID, e adiciona o novo
         projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(dto.getCollaboratorId()));
         projeto.getCollaborators().add(pc);
-        log.info("Dados do Collaborador adicionados/atualizados: {}", pc);
         return projetoRepo.save(projeto);
     }
 
     public List<CollaboratorsResponse> getAllProjectCollaborators(String projectId) {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
-        log.info("Obtendo colaboradores do projeto [{}]", projeto.getCollaborators());
 
         return projeto.getCollaborators().stream().map(
                 pc -> CollaboratorsResponse.builder()
@@ -125,8 +116,7 @@ public class ProjectCollabService {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
         collaboratorRepo.findById(collaboratorId)
-                .orElseThrow(() -> new RuntimeException("Colaborador não encontrado"));
-
+                .orElseThrow(() -> new RuntimeException("Colaborador não encontrado: " + collaboratorId));
         boolean existsNoProjeto = projeto.getCollaborators().stream()
                 .anyMatch(c ->
                         !c.getCollaboratorId().equals(collaboratorId) &&
@@ -144,21 +134,21 @@ public class ProjectCollabService {
                 .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
                 .findFirst()
                 .ifPresent(pc -> {
-                    // Se ainda não foi editado manualmente, podemos reprojetar dados da planilha
+                    boolean pointEdited = false;
+
                     if (!wasEdited && !pc.getWasEdited()) {
                         sheetProcessingService
                                 .findAndAssociateSheetRow(collaboratorId, projectId, pc.getNome())
                                 .ifPresent(sheetRow -> sheetProcessingService.populateFromSheet(pc, sheetRow));
                     }
 
-                    // Atualiza somente campos passados no DTO
                     Optional.ofNullable(dto.getNome())
                             .ifPresent(pc::setNome);
                     Optional.ofNullable(dto.getRole())
                             .ifPresent(pc::setRole);
                     Optional.ofNullable(dto.getCriticos())
                             .ifPresent(pc::setCriticos);
-                    pc.setMedicoRole(Optional.ofNullable(dto.getMedicoRole()).orElse(com.avaliadados.model.enums.MedicoRole.NENHUM));
+                    pc.setMedicoRole(Optional.ofNullable(dto.getMedicoRole()).orElse(MedicoRole.NENHUM));
                     Optional.ofNullable(dto.getShiftHours())
                             .ifPresent(pc::setShiftHours);
 
@@ -172,15 +162,18 @@ public class ProjectCollabService {
                     Optional.ofNullable(dto.getPausaMensalSeconds())
                             .ifPresent(pc::setPausaMensalSeconds);
 
-                    log.info("Colaborador após atualizações de campos: {}", pc);
+                    if (!dto.getPontuacao().equals(pc.getPontuacao())) {
+                        Optional.of(dto.getPontuacao()).ifPresent(pc::setPontuacao);
+                        pointEdited = true;
+                    }
 
-                    // Recalcula pontuação se houver durationSeconds
-                    if (pc.getDurationSeconds() != null || pc.getPausaMensalSeconds() != null || pc.getRemovidos() != null) {
+
+                    if (!pointEdited) {
 
                         int pontos = collabParams.setParams(
                                 pc,
                                 projeto,
-                                pc.getRemovidos(), // usa valor local
+                                pc.getRemovidos() != null ? pc.getRemovidos() : 0, // usa valor local
                                 pc.getDurationSeconds() != null ? pc.getDurationSeconds() : 0L,
                                 Optional.ofNullable(pc.getCriticos()).orElse(0L),
                                 pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0, // usa valor local
@@ -188,7 +181,6 @@ public class ProjectCollabService {
                         );
                         pc.setPontuacao(pontos);
                     }
-
                     syncCollaboratorData(collaboratorId);
                 });
 
@@ -197,7 +189,6 @@ public class ProjectCollabService {
 
     @Transactional
     public void removeCollaborator(String projectId, String collaboratorId) {
-        log.warn("Removendo colaborador [{}] do projeto [{}]", collaboratorId, projectId);
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
         projeto.getCollaborators().removeIf(pc -> pc.getCollaboratorId().equals(collaboratorId));
@@ -206,7 +197,6 @@ public class ProjectCollabService {
 
     @Transactional
     public void syncCollaboratorData(String collaboratorId) {
-        log.info("Sincronizando (apenas) IDs do colaborador [{}]", collaboratorId);
         List<ProjetoEntity> projetos = projetoRepo.findByCollaboratorsCollaboratorId(collaboratorId);
         projetoRepo.saveAll(projetos);
     }

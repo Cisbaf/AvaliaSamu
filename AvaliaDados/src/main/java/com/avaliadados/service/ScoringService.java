@@ -72,16 +72,12 @@ public class ScoringService {
         }
 
         points.put("Total", totalScore);
-        if (log.isDebugEnabled()) {
-            log.debug("Score final para role {}: {} (shiftHour={})", role, totalScore, shiftHour);
-            log.debug("Pontos calculados: {}", points);
-        }
 
         return points;
     }
 
     private int calculateTarmScore(Long duration, Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
-       int score =  calculateRemovidos(removidos, params, points);
+        int score =  calculateRemovidos(removidos, params, points);
         if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
             int pt = matchDurationRule(duration, params.getRegulacao(), false);
             score += pt;
@@ -155,7 +151,7 @@ public class ScoringService {
     }
     private int calculateRemovidos(Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
         int score = 0;
-        if (removidos != null && removidos > 0 && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
+        if (removidos != null && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
             int pt = matchRemovidosRule(removidos, params.getRemovidos());
 
             points.put("Removidos", pt);
@@ -165,7 +161,7 @@ public class ScoringService {
     }
 
     private int matchRemovidosRule(Integer value, List<ScoringRule> rules) {
-        if (value == null || value <= 0 || rules == null || rules.isEmpty()) return 0;
+        if (value == null || value < 0 || rules == null || rules.isEmpty()) return 0;
         String cacheKey = "removidos_" + value + "_" + rules.hashCode();
         return ruleCache.computeIfAbsent(cacheKey, k ->
                 rules.stream()

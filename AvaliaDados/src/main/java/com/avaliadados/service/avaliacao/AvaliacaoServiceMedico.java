@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -82,11 +83,18 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 }
                 if (nomeMed == null || tempoReg == null || plantao == null) continue;
 
-                List<CollaboratorEntity> encontrados =
-                        colaboradorRepository.findByNomeIgnoreCase(nomeMed.trim());
+                String nomeNormPlanilha = normalizeName(nomeMed);
 
-                if(!encontrados.isEmpty()) {
-                    // Iterar sobre todos os colaboradores encontrados e criar um SheetRow para cada um
+                List<CollaboratorEntity> encontrados = colaboradorRepository.findAll().stream()
+                        .filter(c -> {
+                            String nomeNormRepo = normalizeName(c.getNome());
+                            return nomeNormPlanilha != null
+                                    && nomeNormPlanilha.equals(nomeNormRepo);
+                        })
+                        .toList();
+                List<SheetRow> srList = new ArrayList<>();
+
+                if (!encontrados.isEmpty()) {
                     for (CollaboratorEntity colaborador : encontrados) {
                         SheetRow sr = new SheetRow();
                         sr.setProjectId(projectId);
@@ -99,8 +107,10 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                             var crit = getCellStringValue(row, idxCrit);
                             if (crit != null) sr.getData().put("CRITICOS", crit);
                         }
-                        sheetRowRepo.save(sr);
+                        srList.add(sr);
                     }
+                    sheetRowRepo.saveAll(srList);
+
                 }
             }
         }
@@ -116,6 +126,9 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 .collect(Collectors.groupingBy(
                         m -> normalizeName(m.getNome())
                 ));
+
+        List<ProjectCollaborator> pcsToUpdate = new ArrayList<>();
+        List<String> collaboratorIdCallRotes = new ArrayList<>();
 
         for (SheetRow sr : sheetRowRepo.findByProjectId(projectId)) {
             String rawNome = Optional.ofNullable(sr.getData().get("MEDICO.REGULADOR"))
@@ -141,10 +154,42 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                             return novo;
 
                         });
-                atualizarDadosMedico(pc, sr.getData(), projeto);
+                if (pc.getWasEdited() == null) {
+                    pc.setWasEdited(false);
+                }
+                if (!pc.getWasEdited()) {
+                    pcsToUpdate.add(pc);
+                    collaboratorIdCallRotes.add(colaboradorRepository.getReferenceById(pc.getCollaboratorId()).getIdCallRote());
+                }
             }
         }
 
+
+        for (SheetRow sr : sheetRowRepo.findByProjectId(projectId)) {
+            String rawNome = Optional.ofNullable(sr.getData().get("MEDICO.REGULADOR"))
+                    .orElse("MEDICO.LIDER");
+            String nomeNorm = normalizeName(rawNome);
+
+            List<MedicoEntity> possiveis = medicosPorNome.getOrDefault(nomeNorm, List.of());
+
+            for (MedicoEntity med : possiveis) {
+                String collabId = med.getId();
+
+                projeto.getCollaborators().stream()
+                        .filter(c -> c.getCollaboratorId().equals(collabId))
+                        .findFirst()
+                        .ifPresent(pc -> atualizarDadosMedico(pc, sr.getData(), projeto));
+            }
+        }
+        if (!pcsToUpdate.isEmpty()) {
+            collabParams.setDataFromApi(pcsToUpdate, projeto, collaboratorIdCallRotes);
+            for (ProjectCollaborator pc : pcsToUpdate) {
+                int pontos = collabParams.setParams(pc, projeto, pc.getRemovidos(),
+                        pc.getDurationSeconds(), pc.getCriticos(), pc.getPausaMensalSeconds(),
+                        pc.getSaidaVtrSeconds());
+                pc.setPontuacao(pontos);
+            }
+        }
         projetoRepo.save(projeto);
     }
 
@@ -157,8 +202,16 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
         MedicoRole medicoRole = pc.getMedicoRole();
 
-        var plantao = data.get("PLANTAO") != null ? data.get("PLANTAO") : "0";
-        int plantaoQtd = (int) Math.round(Double.parseDouble(plantao));
+        var plantaoStr = data.get("PLANTAO");
+        int plantaoQtd = 0;
+        if (plantaoStr != null && !plantaoStr.isBlank()) {
+            try {
+                plantaoQtd = plantaoStr.contains(":") ? 0 : (int) Math.round(Double.parseDouble(plantaoStr));
+            } catch (NumberFormatException e) {
+                log.warn("Não foi possível converter o valor do plantão '{}' para número.", plantaoStr);
+            }
+        }
+
         pc.setPlantao(plantaoQtd);
 
         switch (medicoRole) {
@@ -177,25 +230,10 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             pc.setShiftHours(ShiftHours.H12);
         }
 
-        var apiData = collabParams.setDataFromApi(pc, projeto, colaboradorRepository.getReferenceById(pc.getCollaboratorId()).getIdCallRote());
-        var removidos = Math.toIntExact(apiData.get("removeds"));
-        var pausas = apiData.get("pauses");
-        pc.setRemovidos(removidos);
-
-        int pontos = collabParams.setParams(
-                pc,
-                projeto,
-                removidos,
-                duration,
-                criticos,
-                pausas,
-                criticos
-        );
-
-        pc.setPontuacao(pontos);
         pc.setDurationSeconds(duration);
         pc.setCriticos(criticos);
 
     }
 
 }
+

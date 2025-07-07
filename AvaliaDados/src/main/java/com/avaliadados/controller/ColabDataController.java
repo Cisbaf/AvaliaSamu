@@ -1,23 +1,20 @@
 package com.avaliadados.controller;
 
-import com.avaliadados.model.api.ApiRequest;
-import com.avaliadados.service.factory.ApiColabData;
+import com.avaliadados.service.utils.CollabParams;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/colab-data")
 @RequiredArgsConstructor
 public class ColabDataController {
-    private final ApiColabData apiColabData;
+    private final CollabParams collabParams;
 
-    @GetMapping
-    public void getColabData( @RequestBody ApiRequest apiRequest) {
-        var response = apiColabData.getCalls(apiRequest);
-        System.out.println("Colab Data Endpoint Hit " +  response);
-        System.out.println("Colab Data Endpoint Hit " +  response.size() + " records found");
+    @PostMapping("/{projectId}")
+    public Map<String, String> getColabData(@PathVariable String projectId, @RequestBody List<String> idCallrout) {
+        return null;
     }
 }

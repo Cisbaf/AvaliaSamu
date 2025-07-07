@@ -30,9 +30,6 @@ public class ProjectCollabController {
             @PathVariable String projectId, @RequestBody ProjectCollabRequest dto,
             @RequestParam(required = false) NestedScoringParameters parametros) {
 
-        logger.info("Adicionando colaborador ao projeto ID: {}", projectId);
-        logger.debug("Dados do colaborador recebidos: {}", dto);
-        logger.debug("Parâmetros recebidos: {}", parametros);
         return ResponseEntity.ok(service.addCollaborator(projectId, dto));
     }
 
