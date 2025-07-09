@@ -1,5 +1,6 @@
-package com.avaliadados.model;
+package com.avaliadados.model.roles;
 
+import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import jakarta.persistence.DiscriminatorValue;

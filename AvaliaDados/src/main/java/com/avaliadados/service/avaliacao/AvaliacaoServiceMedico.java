@@ -4,6 +4,7 @@ import com.avaliadados.model.*;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.enums.TypeAv;
+import com.avaliadados.model.roles.MedicoEntity;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.MedicoEntityRepository;
 import com.avaliadados.repository.ProjetoRepository;

@@ -3,9 +3,10 @@ package com.avaliadados.service.utils;
 import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.dto.CollaboratorRequest;
 import com.avaliadados.model.dto.CollaboratorsResponse;
-import com.avaliadados.model.FrotaEntity;
-import com.avaliadados.model.MedicoEntity;
-import com.avaliadados.model.TarmEntity;
+import com.avaliadados.model.roles.FrotaEntity;
+import com.avaliadados.model.roles.GenericEntity;
+import com.avaliadados.model.roles.MedicoEntity;
+import com.avaliadados.model.roles.TarmEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -18,8 +19,8 @@ public class CollaboratorsMapper {
                 entity.getId(),
                 entity.getNome(),
                 entity.getCpf(),
-                entity.getRole(),
                 entity.getIdCallRote(),
+                entity.getRole(),
                 null,
                 null,
                 null,
@@ -65,7 +66,14 @@ public class CollaboratorsMapper {
                         request.role(),
                         null
                 );
-                default -> throw new IllegalArgumentException("Role inválido: " + request.role());
+                default ->  new GenericEntity(
+                        request.nome().toUpperCase(),
+                        request.cpf(),
+                        request.idCallRote(),
+                        request.pontuacao(),
+                        request.role(), // Alterado para usar request.role() diretamente
+                        null
+                );
             };
         }
     }

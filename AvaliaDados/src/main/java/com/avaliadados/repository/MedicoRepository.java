@@ -1,7 +1,7 @@
 package com.avaliadados.repository;
 
 
-import com.avaliadados.model.MedicoEntity;
+import com.avaliadados.model.roles.MedicoEntity;
 import com.avaliadados.model.enums.MedicoRole;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.data.jpa.repository.JpaRepository;

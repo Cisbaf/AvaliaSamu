@@ -1,6 +1,7 @@
-package com.avaliadados.model;
+package com.avaliadados.model.roles;
 
 
+import com.avaliadados.model.CollaboratorEntity;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 import jakarta.persistence.PrimaryKeyJoinColumn;
