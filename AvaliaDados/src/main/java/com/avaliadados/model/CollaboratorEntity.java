@@ -1,19 +1,16 @@
 package com.avaliadados.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "colaborador")
 @ToString
 @Inheritance(strategy = InheritanceType.JOINED)
-@DiscriminatorColumn(name = "role")
 public class CollaboratorEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -22,7 +19,6 @@ public class CollaboratorEntity {
     private String cpf;
     private String idCallRote;
     private int pontuacao;
-    @Column(insertable = false, updatable = false)
     private String role;
     @Version
     private Long version;
@@ -37,3 +33,4 @@ public class CollaboratorEntity {
         this.version = version;
     }
 }
+

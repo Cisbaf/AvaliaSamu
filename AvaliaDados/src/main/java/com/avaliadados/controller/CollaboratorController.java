@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,14 +19,15 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/collaborator")
 @Tag(name = "Colaboradores", description = "Operações relacionadas aos colaboradores globais")
+@Slf4j
 public class CollaboratorController {
     private final CollaboratorsService service;
 
     @PostMapping
     @Operation(summary = "Cria um novo colaborador global")
     public ResponseEntity<Object> createCollaborator(@RequestBody CollaboratorRequest request) {
+        log.info("Criando colaborador global: {}", request);
         return  ResponseEntity.ok(service.createCollaborator(request));
-
     }
     @PutMapping("/{id}")
     @Operation(summary = "Atualiza um colaborador global")
