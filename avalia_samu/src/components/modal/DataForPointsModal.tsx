@@ -7,7 +7,7 @@ import {
     Button,
     TextField,
     Alert,
-    Grid
+    Grid // Importe o Grid
 } from '@mui/material';
 import styles from "../styles/Modal.module.css"
 import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
@@ -31,6 +31,9 @@ type FormData = {
     points: number;
 };
 
+// Roles permitidos para ver os campos específicos
+type Roles = 'TARM' | 'FROTA' | 'MEDICO';
+
 export default function DataForPointsModal({
     open,
     onClose,
@@ -51,8 +54,14 @@ export default function DataForPointsModal({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const isFrota = initialData?.role === 'FROTA';
+    // --- LÓGICA DE VISIBILIDADE ---
+    const role = initialData?.role as Roles;
+    const isFrota = role === 'FROTA';
     const isLider = initialData?.medicoRole === MedicoRole.LIDER;
+
+    // Variável para checar se o role é um dos relevantes
+    const showSpecificFields = role && ['TARM', 'FROTA', 'MEDICO'].includes(role);
+
 
     function formatTime(seconds: number): string {
         if (!seconds && seconds !== 0) return '00:00:00';
@@ -84,10 +93,11 @@ export default function DataForPointsModal({
                 removidos: initialData.removidos ?? 0,
                 pausaMensalSeconds: initialData.pausaMensalSeconds ?? (initialData as any).pausaMensal ?? 0,
                 saidaVtr: initialData.saidaVtr ?? 0,
-                points: initialData.pontuacao ?? 0, // Corrigido aqui
+                points: initialData.pontuacao ?? 0,
             });
         }
     }, [initialData]);
+
     const handleChangeTime = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtr' | 'criticos') =>
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const timeValue = e.target.value;
@@ -144,7 +154,9 @@ export default function DataForPointsModal({
             <DialogTitle>Editar Pontos</DialogTitle>
             <DialogContent className={styles.modalContent}>
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
                 <Grid container spacing={2} marginTop={2}>
+
                     <Grid size={{ xs: 12, sm: 4 }}>
                         <TextField
                             label="Pontos"
@@ -155,79 +167,73 @@ export default function DataForPointsModal({
                         />
                     </Grid>
 
-                    {!isLider && (
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                            <TextField
-                                label="Tempo de Regulação"
-                                type="time"
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
-                                inputProps={{
-                                    step: 1,
-                                    pattern: "[0-9]{2}:[0-9]{2}:[0-9]{2}"
-                                }}
-                                value={formatTime(formData.durationSeconds)}
-                                onChange={handleChangeTime('durationSeconds')}
-                            />
-                        </Grid>
+                    {showSpecificFields && (
+                        <>
+                            {!isLider && (
+                                <Grid size={{ xs: 12, sm: 4 }}>
+                                    <TextField
+                                        label="Tempo de Regulação"
+                                        type="time"
+                                        fullWidth
+                                        InputLabelProps={{ shrink: true }}
+                                        inputProps={{ step: 1 }}
+                                        value={formatTime(formData.durationSeconds)}
+                                        onChange={handleChangeTime('durationSeconds')}
+                                    />
+                                </Grid>
+                            )}
 
+                            {isLider && (
+                                <Grid size={{ xs: 12, sm: 4 }}>
+                                    <TextField
+                                        label="Criticos"
+                                        type="number"
+                                        fullWidth
+                                        value={formData.criticos}
+                                        onChange={handleChangeNumber('criticos')}
+                                    />
+                                </Grid>
+                            )}
+
+                            {!isFrota && (
+                                <Grid size={{ xs: 12, sm: 4 }}>
+                                    <TextField
+                                        label="Removidos"
+                                        type="number"
+                                        fullWidth
+                                        value={formData.removidos}
+                                        onChange={handleChangeNumber('removidos')}
+                                    />
+                                </Grid>
+                            )}
+
+                            {isFrota && (
+                                <Grid size={{ xs: 12, sm: 4 }}>
+                                    <TextField
+                                        label="Liberação VTR"
+                                        type="time"
+                                        fullWidth
+                                        InputLabelProps={{ shrink: true }}
+                                        inputProps={{ step: 1 }}
+                                        value={formatTime(formData.saidaVtr)}
+                                        onChange={handleChangeTime('saidaVtr')}
+                                    />
+                                </Grid>
+                            )}
+                        </>
                     )}
-
-                    {isLider && (
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                            <TextField
-                                label="Criticos"
-                                type="time"
-                                fullWidth
-                                InputLabelProps={{ shrink: true }}
-                                inputProps={{
-                                    step: 1,
-                                    pattern: "[0-9]{2}:[0-9]{2}:[0-9]{2}"
-                                }}
-                                value={formatTime(formData.criticos)}
-                                onChange={handleChangeTime('criticos')}
-                            />
-                        </Grid>
-                    )}
-
-                    {/* Mostra "Removidos" apenas se não for Frota */}
-                    {!isFrota && (
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                            <TextField
-                                label="Removidos"
-                                type="number"
-                                fullWidth
-                                value={formData.removidos}
-                                onChange={handleChangeNumber('removidos')}
-                            />
-                        </Grid>
-                    )}
-
 
                     <Grid size={{ xs: 12, sm: 4 }}>
                         <TextField
                             label="Pausas Mensais"
                             type="time"
                             fullWidth
+                            InputLabelProps={{ shrink: true }}
                             inputProps={{ step: 1 }}
                             value={formatTime(formData.pausaMensalSeconds)}
                             onChange={handleChangeTime('pausaMensalSeconds')}
                         />
                     </Grid>
-
-                    {/* Mostra "Saída VTR" apenas se for Frota */}
-                    {isFrota && (
-                        <Grid size={{ xs: 12, sm: 4 }}>
-                            <TextField
-                                label="Liberação VTR"
-                                type="time"
-                                fullWidth
-                                inputProps={{ step: 1 }}
-                                value={formatTime(formData.saidaVtr)}
-                                onChange={handleChangeTime('saidaVtr')}
-                            />
-                        </Grid>
-                    )}
                 </Grid>
             </DialogContent>
             <DialogActions>
