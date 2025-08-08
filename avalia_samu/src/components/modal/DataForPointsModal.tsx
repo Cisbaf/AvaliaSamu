@@ -187,10 +187,12 @@ export default function DataForPointsModal({
                                 <Grid size={{ xs: 12, sm: 4 }}>
                                     <TextField
                                         label="Criticos"
-                                        type="number"
+                                        type="time"
                                         fullWidth
-                                        value={formData.criticos}
-                                        onChange={handleChangeNumber('criticos')}
+                                        InputLabelProps={{ shrink: true }}
+                                        inputProps={{ step: 1 }}
+                                        value={formatTime(formData.criticos)}
+                                        onChange={handleChangeTime('criticos')}
                                     />
                                 </Grid>
                             )}

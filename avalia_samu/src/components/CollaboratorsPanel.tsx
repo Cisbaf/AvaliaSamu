@@ -277,10 +277,10 @@ export default function CollaboratorsPanel() {
     Object.entries(collaboratorsByRole).forEach(([sheetKey, collabs]) => {
       const sheetData = collabs.map(c => {
         const baseData: Record<string, any> = {
-          'Nome': c.nome,
           'Função': c.role === 'MEDICO' && c.medicoRole && c.shiftHours
             ? `${c.role} (${c.medicoRole} - ${c.shiftHours})`
             : c.role,
+          'Nome': c.nome,
           'Pausa Mensal': formatTime(c.pausaMensal!),
           'Pausa Pontos': c.points?.['Pausas'] || 0,
 

@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface CollaboratorRepository extends JpaRepository<CollaboratorEntity, String> {
 
@@ -19,8 +18,4 @@ public interface CollaboratorRepository extends JpaRepository<CollaboratorEntity
     boolean existsByCpf(String cpf);
 
     boolean existsByIdCallRote(String idCallRote);
-
-    List<CollaboratorEntity> findByIdCallRoteIn(List<String> idCallRote);
-
-    Optional<CollaboratorEntity> findByIdCallRote(String idCallRote);
 }
