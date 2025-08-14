@@ -15,11 +15,13 @@ import org.springframework.stereotype.Service;
 public class CollaboratorsMapper {
 
     public CollaboratorsResponse toCollaboratorsResponse(CollaboratorEntity entity) {
+        var idCallRote = entity.getIdCallRote().startsWith("0") ? entity.getIdCallRote().substring(1) : entity.getIdCallRote();
+
         return new CollaboratorsResponse(
                 entity.getId(),
                 entity.getNome(),
-                entity.getCpf(),
-                entity.getIdCallRote(),
+                entity.getCpf().replace(".", "").replace("-", ""),
+                idCallRote.replace("-", "").replace(".", ""),
                 entity.getRole(),
                 null,
                 null,

@@ -11,6 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 @JsonFormat(shape = JsonFormat.Shape.OBJECT)
 @Builder
+@ToString
 public class ApiRequest {
     private List<String> events;
     private List<String> agents_id;

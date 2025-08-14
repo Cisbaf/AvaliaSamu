@@ -119,17 +119,22 @@ public class CollabParams {
         // Filtra apenas IDs válidos
         List<String> agentIds = idCallroutList.stream()
                 .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+                .toList();
 
         if (agentIds.isEmpty()) {
             log.warn("Nenhum idCallRote válido encontrado. Nenhuma chamada à API será feita.");
             return;
         }
+        List<String> agentsCleaned = agentIds.stream()
+                .filter(Objects::nonNull)
+                .map(id -> id.replaceAll("-", ""))
+                .map(id -> id.startsWith("0") ? id.substring(1) : id)
+                .collect(Collectors.toList());
 
         CompletableFuture<Map<String, Map<String, EventDetails>>> pausesFuture =
-                CompletableFuture.supplyAsync(() -> fetchEventData("pause", agentIds, true, false, projeto));
+                CompletableFuture.supplyAsync(() -> fetchEventData("pause", agentsCleaned, true, false, projeto));
         CompletableFuture<Map<String, Map<String, EventDetails>>> removedsFuture =
-                CompletableFuture.supplyAsync(() -> fetchEventData("removed", agentIds, false, true, projeto));
+                CompletableFuture.supplyAsync(() -> fetchEventData("removed", agentsCleaned, false, true, projeto));
 
         Map<String, Map<String, EventDetails>> pausesData;
         Map<String, Map<String, EventDetails>> removedsData;
@@ -152,6 +157,8 @@ public class CollabParams {
             futures.add(CompletableFuture.runAsync(() -> {
                 ProjectCollaborator pc = projectCollaborators.get(index);
                 String agentId = idCallroutList.get(index);
+                agentId = agentId != null ? agentId.replaceAll("-", "") : null;
+                agentId = agentId != null && agentId.startsWith("0") ? agentId.substring(1) : agentId;
 
                 if (agentId == null) {
                     log.warn("idCallRote nulo para o colaborador: {}", pc.getNome());
