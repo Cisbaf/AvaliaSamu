@@ -153,7 +153,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                                     .build();
                             projeto.getCollaborators().add(novo);
                             return novo;
-
                         });
                 if (pc.getWasEdited() == null) {
                     pc.setWasEdited(false);
@@ -165,6 +164,29 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             }
         }
 
+        List<MedicoEntity> todosMedicos = medicoRepo.findAll();
+        for (MedicoEntity med : todosMedicos) {
+            boolean jaAdicionado = pcsToUpdate.stream()
+                    .anyMatch(pc -> pc.getCollaboratorId().equals(med.getId()));
+
+            if (!jaAdicionado) {
+                ProjectCollaborator pc = projeto.getCollaborators().stream()
+                        .filter(c -> c.getCollaboratorId().equals(med.getId()))
+                        .findFirst()
+                        .orElseGet(() -> {
+                            var novo = ProjectCollaborator.builder()
+                                    .collaboratorId(med.getId())
+                                    .nome(med.getNome())
+                                    .role(med.getRole())
+                                    .medicoRole(med.getMedicoRole())
+                                    .build();
+                            projeto.getCollaborators().add(novo);
+                            return novo;
+                        });
+                pcsToUpdate.add(pc);
+                collaboratorIdCallRotes.add(colaboradorRepository.getReferenceById(pc.getCollaboratorId()).getIdCallRote());
+            }
+        }
 
         for (SheetRow sr : sheetRowRepo.findByProjectId(projectId)) {
             String rawNome = Optional.ofNullable(sr.getData().get("MEDICO.REGULADOR"))
@@ -182,21 +204,22 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                         .ifPresent(pc -> atualizarDadosMedico(pc, sr.getData()));
             }
         }
-        if (!pcsToUpdate.isEmpty()) {
 
-            collabParams.setDataFromApi(pcsToUpdate, projeto, collaboratorIdCallRotes);
-            for (ProjectCollaborator pc : pcsToUpdate) {
-                if (pc.getPausaMensalSeconds() != null && pc.getPausaMensalSeconds() > 0 || pc.getDurationSeconds() != null && pc.getDurationSeconds() > 0) {
-                    int pontos = collabParams.setParams(
-                            pc,
-                            projeto,
-                            pc.getRemovidos(),
-                            pc.getDurationSeconds(),
-                            pc.getCriticos(),
-                            pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L,
-                           0L);
-                    pc.setPontuacao(pontos);
-                }else pc.setPontuacao(0);
+        collabParams.setDataFromApi(pcsToUpdate, projeto, collaboratorIdCallRotes);
+        for (ProjectCollaborator pc : pcsToUpdate) {
+            if ((pc.getPausaMensalSeconds() != null && pc.getPausaMensalSeconds() > 0)
+                    || (pc.getDurationSeconds() != null && pc.getDurationSeconds() > 0)) {
+                int pontos = collabParams.setParams(
+                        pc,
+                        projeto,
+                        pc.getRemovidos(),
+                        pc.getDurationSeconds(),
+                        pc.getCriticos(),
+                        pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L,
+                        0L);
+                pc.setPontuacao(pontos);
+            } else {
+                pc.setPontuacao(0);
             }
         }
         projetoRepo.save(projeto);
