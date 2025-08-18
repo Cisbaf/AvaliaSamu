@@ -13,9 +13,16 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ScoringSectionParams {
-   @Builder.Default private List<ScoringRule> removidos = new ArrayList<>();
-    @Builder.Default private List<ScoringRule> regulacao = new ArrayList<>();
-    @Builder.Default private List<ScoringRule> pausas = new ArrayList<>();
-    @Builder.Default private List<ScoringRule> saidaVtr = new ArrayList<>();
-    @Builder.Default private List<ScoringRule> regulacaoLider = new ArrayList<>();
+    @Builder.Default
+    private List<ScoringRule> removidos = new ArrayList<>();
+    @Builder.Default
+    private List<ScoringRule> removidosLider = new ArrayList<>();
+    @Builder.Default
+    private List<ScoringRule> regulacao = new ArrayList<>();
+    @Builder.Default
+    private List<ScoringRule> pausas = new ArrayList<>();
+    @Builder.Default
+    private List<ScoringRule> saidaVtr = new ArrayList<>();
+    @Builder.Default
+    private List<ScoringRule> regulacaoLider = new ArrayList<>();
 }

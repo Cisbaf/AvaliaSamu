@@ -8,6 +8,7 @@ export interface BaseCollaborator {
   medicoRole?: MedicoRole;
   pontuacao: number;
   removidos?: number;
+  removidosLider?: number;
   criticos?: number;
   durationSeconds?: number;
   pausaMensalSeconds?: number;
@@ -48,6 +49,7 @@ export interface ScoringSectionParams {
   pausas?: ScoringRule[];
   saidaVtr?: ScoringRule[];
   regulacaoLider?: ScoringRule[];
+  removidosLider?: ScoringRule[];
 }
 
 export interface NestedScoringParameters {
@@ -83,6 +85,7 @@ export interface UpdateProjectCollabDto {
   durationSeconds?: number;
   criticos?: number;
   removidos?: number;
+  removidosLider?: number;
   pausaMensalSeconds?: number;
   medicoRole?: MedicoRole;
   shiftHours?: ShiftHours;

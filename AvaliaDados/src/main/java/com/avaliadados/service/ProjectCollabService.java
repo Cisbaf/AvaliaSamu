@@ -46,6 +46,7 @@ public class ProjectCollabService {
                 .role(dto.getRole())
                 .durationSeconds(dto.getDurationSeconds())
                 .removidos(dto.getRemovidos())
+                .removidosLider(dto.getRemovidosLider())
                 .pausaMensalSeconds(dto.getPausaMensalSeconds())
                 .parametros(new com.avaliadados.model.params.NestedScoringParameters())
                 .medicoRole(medicoRole)
@@ -67,7 +68,8 @@ public class ProjectCollabService {
                     int pontos = collabParams.setParams(
                             pc,
                             projeto,
-                            pc.getRemovidos() != null ? pc.getRemovidos() : 0, // usa valor local
+                            pc.getRemovidos() != null ? pc.getRemovidos() : 0,
+                            pc.getRemovidosLider() != null ? pc.getRemovidosLider() : 0,
                             duration,
                             criticos,
                             pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0, // agora persistido
@@ -95,6 +97,7 @@ public class ProjectCollabService {
                         .shiftHours(pc.getShiftHours())
                         .durationSeconds(pc.getDurationSeconds())
                         .removidos(pc.getRemovidos())
+                        .removidosLider(pc.getRemovidosLider())
                         .pausaMensalSeconds(pc.getPausaMensalSeconds())
                         .saidaVtr(pc.getSaidaVtrSeconds())
                         .pontuacao(pc.getPontuacao())
@@ -112,6 +115,7 @@ public class ProjectCollabService {
             boolean wasEdited
     ) {
         log.info("Atualizando colaborador [{}] no projeto [{}] (wasEdited = {})", dto.getCollaboratorId(), projectId, wasEdited);
+        log.info("Dados do colaborador: {}", dto);
 
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -159,6 +163,8 @@ public class ProjectCollabService {
                             .ifPresent(pc::setDurationSeconds);
                     Optional.ofNullable(dto.getRemovidos())
                             .ifPresent(pc::setRemovidos);
+                    Optional.ofNullable(dto.getRemovidosLider())
+                            .ifPresent(pc::setRemovidosLider);
                     Optional.ofNullable(dto.getPausaMensalSeconds())
                             .ifPresent(pc::setPausaMensalSeconds);
 
@@ -174,6 +180,7 @@ public class ProjectCollabService {
                                 pc,
                                 projeto,
                                 pc.getRemovidos() != null ? pc.getRemovidos() : 0, // usa valor local
+                                pc.getRemovidosLider() != null ? pc.getRemovidosLider() : 0,
                                 pc.getDurationSeconds() != null ? pc.getDurationSeconds() : 0L,
                                 Optional.ofNullable(pc.getCriticos()).orElse(0L),
                                 pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0, // usa valor local

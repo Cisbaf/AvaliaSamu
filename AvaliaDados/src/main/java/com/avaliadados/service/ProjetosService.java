@@ -58,6 +58,7 @@ public class ProjetosService {
                 collaborator.getDurationSeconds(),
                 collaborator.getCriticos(),
                 collaborator.getRemovidos(),
+                collaborator.getRemovidosLider(),
                 collaborator.getPausaMensalSeconds(),
                 collaborator.getSaidaVtrSeconds(),
                 projeto.getParameters()

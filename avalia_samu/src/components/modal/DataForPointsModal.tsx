@@ -26,6 +26,7 @@ type FormData = {
     durationSeconds: number;
     criticos: number,
     removidos: number;
+    removidosLider?: number;
     pausaMensalSeconds: number;
     saidaVtr: number;
     points: number;
@@ -47,6 +48,7 @@ export default function DataForPointsModal({
         durationSeconds: 0,
         criticos: 0,
         removidos: 0,
+        removidosLider: 0,
         pausaMensalSeconds: 0,
         saidaVtr: 0,
         points: 0,
@@ -91,6 +93,7 @@ export default function DataForPointsModal({
                 durationSeconds: initialData.durationSeconds ?? (initialData as any).duration ?? 0,
                 criticos: (initialData as any).criticos ?? 0,
                 removidos: initialData.removidos ?? 0,
+                removidosLider: isLider ? (initialData as any).removidosLider ?? 0 : undefined,
                 pausaMensalSeconds: initialData.pausaMensalSeconds ?? (initialData as any).pausaMensal ?? 0,
                 saidaVtr: initialData.saidaVtr ?? 0,
                 points: initialData.pontuacao ?? 0,
@@ -105,7 +108,7 @@ export default function DataForPointsModal({
             setFormData(prev => ({ ...prev, [field]: seconds }));
         };
 
-    const handleChangeNumber = (field: keyof Pick<FormData, 'criticos' | 'removidos' | 'points'>) =>
+    const handleChangeNumber = (field: keyof Pick<FormData, 'criticos' | 'removidos' | 'points' | 'removidosLider'>) =>
         (e: React.ChangeEvent<HTMLInputElement>) => {
             const value = Number(e.target.value);
             setFormData(prev => ({ ...prev, [field]: isNaN(value) ? 0 : value }));
@@ -121,6 +124,7 @@ export default function DataForPointsModal({
                     durationSeconds: formData.durationSeconds ?? 0,
                     criticos: formData.criticos ?? 0,
                     removidos: formData.removidos || 0,
+                    removidosLider: isLider ? formData.removidosLider || 0 : 0,
                     pausaMensalSeconds: formData.pausaMensalSeconds ?? 0,
                     saidaVtr: isFrota ? formData.saidaVtr || 0 : 0,
                     role: initialData!.role,
@@ -147,7 +151,7 @@ export default function DataForPointsModal({
         }
     };
 
-    const isSubmitDisabled = loading || formData.durationSeconds < 0 || formData.removidos < 0 || formData.pausaMensalSeconds < 0 || formData.points < 0;
+    const isSubmitDisabled = loading || formData.durationSeconds < 0 || formData.removidos < 0 || formData.pausaMensalSeconds < 0 || formData.points < 0 || (formData.removidosLider ?? 0) < 0;
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -197,7 +201,7 @@ export default function DataForPointsModal({
                                 </Grid>
                             )}
 
-                            {!isFrota && (
+                            {!isFrota && !isLider && (
                                 <Grid size={{ xs: 12, sm: 4 }}>
                                     <TextField
                                         label="Removidos"
@@ -205,6 +209,17 @@ export default function DataForPointsModal({
                                         fullWidth
                                         value={formData.removidos}
                                         onChange={handleChangeNumber('removidos')}
+                                    />
+                                </Grid>
+                            )}
+                            {isLider && (
+                                <Grid size={{ xs: 12, sm: 4 }}>
+                                    <TextField
+                                        label="Removidos"
+                                        type="number"
+                                        fullWidth
+                                        value={formData.removidosLider}
+                                        onChange={handleChangeNumber('removidosLider')}
                                     />
                                 </Grid>
                             )}

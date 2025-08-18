@@ -23,13 +23,14 @@ public class ScoringService {
             Long durationSeconds,
             Long criticos,
             Integer removidos,
+            Integer removidosLider,
             Long pausaMensalSeconds,
             Long saidaVtrSeconds,
             NestedScoringParameters params
     ) {
         if (log.isDebugEnabled()) {
-            log.debug("Iniciando cálculo de score para role={}, medicRole={}, shiftHour={}, duration={}s, removidos={}, pausa={}s",
-                    role, medicRole, shiftHour, durationSeconds, removidos, pausaMensalSeconds);
+            log.debug("Iniciando cálculo de score para role={}, medicRole={}, shiftHour={}, duration={}s, removidos={}, removidos lider={} pausa={}s",
+                    role, medicRole, shiftHour, durationSeconds, removidos, removidosLider, pausaMensalSeconds);
         }
 
         Map<String, Integer> points = new HashMap<>();
@@ -62,7 +63,7 @@ public class ScoringService {
             }
             case "MEDICO" -> {
                 if (sectionParams != null) {
-                    totalScore += calculateMedicoScore(medicRole, durationSeconds, criticos, removidos, sectionParams, applyMultiplier, points);
+                    totalScore += calculateMedicoScore(medicRole, durationSeconds, criticos, removidos, removidosLider, sectionParams, applyMultiplier, points);
                 }
             }
         }
@@ -117,7 +118,7 @@ public class ScoringService {
         return pt;
     }
 
-    private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos, ScoringSectionParams params, boolean applyMultiplier, Map<String, Integer> points) {
+    private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos,Integer removidosLider, ScoringSectionParams params, boolean applyMultiplier, Map<String, Integer> points) {
         int score = calculateRemovidos(removidos, params, points);
         switch (medicRole) {
             case "LIDER" -> {
@@ -126,20 +127,13 @@ public class ScoringService {
                     score += pt;
                     points.put("Criticos", pt);
                 }
+                if ( removidosLider != null && removidosLider > 0 && params.getRemovidosLider() != null && !params.getRemovidosLider().isEmpty()) {
+                    int pt = matchRemovidosRule(removidosLider, params.getRemovidosLider());
+                    score += pt;
+                    points.put("RemovidosLider", pt);
+                }
             }
             case "REGULADOR" -> {
-                if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
-                    int pt = matchDurationRule(duration, params.getRegulacao(), applyMultiplier);
-                    score += pt;
-                    points.put("Regulacao", pt);
-                }
-            }
-            case "LIDER_REGULADOR" -> {
-                if (criticos != null && criticos > 0 && params.getRegulacaoLider() != null && !params.getRegulacaoLider().isEmpty()) {
-                    int pt = matchDurationRule(criticos, params.getRegulacaoLider(), applyMultiplier);
-                    score += pt;
-                    points.put("Criticos", pt);
-                }
                 if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
                     int pt = matchDurationRule(duration, params.getRegulacao(), applyMultiplier);
                     score += pt;

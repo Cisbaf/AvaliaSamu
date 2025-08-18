@@ -14,6 +14,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
 public class ProjectCollabRequest {
     @NotBlank(message = "O ID do colaborador é obrigatório")
     private String collaboratorId;
@@ -30,6 +31,9 @@ public class ProjectCollabRequest {
 
     @NotNull(message = "A quantidade é obrigatória")
     private Integer removidos;
+
+    @NotNull(message = "A quantidade é obrigatória")
+    private Integer removidosLider;
 
     @NotNull(message = "O tempo de críticos é obrigatório")
     private Long criticos;

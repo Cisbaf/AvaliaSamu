@@ -64,6 +64,12 @@ export const DEFAULT_PARAMS: NestedScoringParameters = {
             { duration: 3630, points: 4 },       // 01:00:30
             { duration: 3645, points: 1 },       // 01:00:45
             { duration: 3646, points: 0 }        // 01:00:46 (assuming typo, should be 01:00:46)
+        ],
+        removidosLider: [
+            { quantity: 60, points: 6 },
+            { quantity: 70, points: 4 },
+            { quantity: 80, points: 2 },
+            { quantity: 81, points: 0 }
         ]
     }
 };

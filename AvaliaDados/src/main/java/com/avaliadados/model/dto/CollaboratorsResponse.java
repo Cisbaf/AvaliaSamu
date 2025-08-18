@@ -34,6 +34,7 @@ public class CollaboratorsResponse implements Serializable {
     private Long pausaMensalSeconds;
     private Long saidaVtr;
     private Integer removidos;
+    private Integer removidosLider;
     private Long criticos;
     private int pontuacao;
 

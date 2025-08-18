@@ -103,7 +103,7 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
     const normalized = JSON.parse(JSON.stringify(params)) as NestedScoringParameters;
 
     for (const sec of sections) {
-      const fields: (keyof ScoringSectionParams)[] = ["removidos", "regulacao", "pausas", "saidaVtr", "regulacaoLider"];
+      const fields: (keyof ScoringSectionParams)[] = ["removidos", "removidosLider", "regulacao", "pausas", "saidaVtr", "regulacaoLider"];
 
       for (const field of fields) {
         if (!normalized[sec]) {
@@ -242,8 +242,11 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
           {renderTable('frota', 'regulacao', ['Duração', 'Pontuação'])}
         </TabPanel>
         <TabPanel value={tabIndex} index={3}>
-          <Typography variant="subtitle1">Removidos Médico</Typography>
+          <Typography variant="subtitle1">Removidos Médico Regulador</Typography>
           {renderTable('medico', 'removidos', ['Quantidade', 'Pontuação'])}
+
+          <Typography variant="subtitle1">Removidos Médico Lider</Typography>
+          {renderTable('medico', 'removidosLider', ['Quantidade', 'Pontuação'])}
 
           <Typography variant="subtitle1">Tempo de Regulação Médica</Typography>
           {renderTable('medico', 'regulacao', ['Duração', 'Pontuação'])}

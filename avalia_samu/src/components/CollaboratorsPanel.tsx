@@ -98,6 +98,7 @@ export default function CollaboratorsPanel() {
         projectId: selectedProject,
 
         removidos: pc.removidos,
+        removidosLider: pc.removidosLider,
         duration: pc.durationSeconds,
         criticos: pc.criticos,
         pausaMensal: pc.pausaMensalSeconds,
@@ -299,8 +300,11 @@ export default function CollaboratorsPanel() {
           baseData['Regulação'] = formatTime(c.duration!);
           baseData['Regulação Pontos'] = c.points?.['Regulacao'] || 0;
         }
-
-        if (sheetKey !== "FROTA") {
+        if (c.medicoRole === MedicoRole.LIDER) {
+          baseData['Removidos Líder'] = c.removidosLider || 0;
+          baseData['Removidos Líder Pontos'] = c.points?.['RemovidosLider'] || 0;
+        }
+        if (sheetKey !== "FROTA" && c.medicoRole !== MedicoRole.LIDER) {
           baseData['Removidos'] = c.removidos;
           baseData['Removidos Pontos'] = c.points?.['Removidos'] || 0;
         }

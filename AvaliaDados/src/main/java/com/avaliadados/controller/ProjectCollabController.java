@@ -3,7 +3,6 @@ package com.avaliadados.controller;
 import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.model.dto.ProjectCollabRequest;
 import com.avaliadados.model.ProjetoEntity;
-import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.service.ProjectCollabService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,8 +26,7 @@ public class ProjectCollabController {
     @PostMapping
     @Operation(summary = "Adiciona um colaborador ao projeto")
     public ResponseEntity<ProjetoEntity> add(
-            @PathVariable String projectId, @RequestBody ProjectCollabRequest dto,
-            @RequestParam(required = false) NestedScoringParameters parametros) {
+            @PathVariable String projectId, @RequestBody ProjectCollabRequest dto) {
 
         return ResponseEntity.ok(service.addCollaborator(projectId, dto));
     }

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api")
@@ -22,10 +23,9 @@ public class AvaliacaoController {
 
     @PostMapping("/{projectId}/processar")
     @Operation(summary = "Processa uma planilha de avaliação para o projeto especificado")
-    public ResponseEntity<String> processarPlanilha(@RequestParam MultipartFile arquivo, @PathVariable String projectId) throws IOException {
+    public ResponseEntity<List<String>> processarPlanilha(@RequestParam MultipartFile arquivo, @PathVariable String projectId) throws IOException {
         var processor = factory.getProcessor(arquivo);
-        processor.processarPlanilha(arquivo, projectId);
-        return ResponseEntity.ok("Processamento concluído.");
+        return ResponseEntity.ok(processor.processarPlanilha(arquivo, projectId));
     }
 
 }

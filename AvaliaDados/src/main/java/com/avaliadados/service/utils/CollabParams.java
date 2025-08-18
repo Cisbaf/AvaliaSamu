@@ -33,7 +33,7 @@ public class CollabParams {
     private final ScoringService scoringService;
     private final ApiColabData apiColabData;
 
-    public int setParams(ProjectCollaborator pc, ProjetoEntity project, int removeds, long duration, long criticos, long pausaMensal, long saidaVtr) {
+    public int setParams(ProjectCollaborator pc, ProjetoEntity project, int removeds, int removedsLider, long duration, long criticos, long pausaMensal, long saidaVtr) {
         if (pc.getRole() == null) return 0;
 
         NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
@@ -57,12 +57,14 @@ public class CollabParams {
         section.setRegulacao(List.of(ScoringRule.builder().duration(duration).build()));
         section.setRegulacaoLider(List.of(ScoringRule.builder().duration(criticos).build()));
         section.setRemovidos((List.of(ScoringRule.builder().quantity(removeds).build())));
+        section.setRemovidosLider((List.of(ScoringRule.builder().quantity(removedsLider).build())));
         pc.setRemovidos(removeds);
 
 
         var pausas = section.getPausas().getLast().getDuration();
         var regulacao = section.getRegulacao().getLast().getDuration();
         var removidos = section.getRemovidos().getLast().getQuantity();
+        var removidosLider = section.getRemovidosLider().getLast().getQuantity();
         Long saida = 0L;
         var regulacaoLider = section.getRegulacaoLider().getLast().getDuration();
 
@@ -88,6 +90,7 @@ public class CollabParams {
                 regulacao,
                 regulacaoLider,
                 removidos,
+                removidosLider,
                 pausas,
                 saida,
                 project.getParameters()
@@ -127,7 +130,7 @@ public class CollabParams {
         }
         List<String> agentsCleaned = agentIds.stream()
                 .filter(Objects::nonNull)
-                .map(id -> id.replaceAll("-", ""))
+                .map(id -> id.replaceAll("-", "").replaceAll("\\.", ""))
                 .map(id -> id.startsWith("0") ? id.substring(1) : id)
                 .collect(Collectors.toList());
 
@@ -157,7 +160,7 @@ public class CollabParams {
             futures.add(CompletableFuture.runAsync(() -> {
                 ProjectCollaborator pc = projectCollaborators.get(index);
                 String agentId = idCallroutList.get(index);
-                agentId = agentId != null ? agentId.replaceAll("-", "") : null;
+                agentId = agentId != null ? agentId.replaceAll("-", "").replaceAll("\\.", "") : null;
                 agentId = agentId != null && agentId.startsWith("0") ? agentId.substring(1) : agentId;
 
                 if (agentId == null) {
@@ -187,7 +190,11 @@ public class CollabParams {
                         .map(eventMap -> eventMap.get("removed"))
                         .ifPresent(removedDetails -> {
                             if (removedDetails.getTotal() != null) {
-                                pc.setRemovidos(removedDetails.getTotal());
+                                if (pc.getMedicoRole() == MedicoRole.LIDER) {
+                                    pc.setRemovidosLider(removedDetails.getTotal());
+                                } else {
+                                    pc.setRemovidos(removedDetails.getTotal());
+                                }
                             }
                         });
             }, executor));
@@ -225,11 +232,19 @@ public class CollabParams {
                 .date_rage(DateRange.builder().start(initialData).end(endData).build())
                 .options(options)
                 .build();
+        log.info("Request : {}", request);
 
         try {
             log.info("Consultando evento {} para {} agentes...", eventName, agentIds.size());
             Map<String, Map<String, EventDetails>> response = apiColabData.consult(request);
-            return response != null ? response : Collections.emptyMap();
+            if (response.isEmpty()) {
+                log.error("Nenhum dado retornado para {} - IDs: {}", response, agentIds);
+                return Collections.emptyMap();
+            } else {
+                log.info("Dados recebidos para {}: {} registros", response, response.size());
+            }
+
+            return response;
         } catch (Exception e) {
             log.error("Erro ao consultar o evento {} na API: {}", eventName, e.getMessage());
             return Collections.emptyMap();
