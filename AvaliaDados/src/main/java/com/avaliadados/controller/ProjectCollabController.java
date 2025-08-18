@@ -20,7 +20,6 @@ import java.util.List;
 @Tag(name = "Collaboradores do Projeto", description = "Operações relacionadas aos colaboradores de um projeto")
 public class ProjectCollabController {
 
-    private static final Logger logger = LoggerFactory.getLogger(ProjectCollabController.class);
     private final ProjectCollabService service;
 
     @PostMapping

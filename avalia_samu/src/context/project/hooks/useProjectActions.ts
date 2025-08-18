@@ -37,8 +37,8 @@ export function useProjectActions() {
                         m.removidos,
                         m.pausaMensalSeconds,
                         undefined,
-                        m.medicoRole, // Garantido pelo filtro
-                        m.shiftHours   // Garantido pelo filtro
+                        m.medicoRole,
+                        m.shiftHours
                     )
                 ),
                 ...outrosColabs.map(o =>
