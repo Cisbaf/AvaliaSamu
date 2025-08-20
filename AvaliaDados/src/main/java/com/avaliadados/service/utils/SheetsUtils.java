@@ -1,6 +1,7 @@
 package com.avaliadados.service.utils;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.text.similarity.LevenshteinDistance;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DateUtil;
@@ -170,7 +171,7 @@ public class SheetsUtils {
 
     public static double similarity(String a, String b) {
         if (a == null || b == null) return 0;
-        int dist = org.apache.commons.text.similarity.LevenshteinDistance
+        int dist = LevenshteinDistance
                 .getDefaultInstance()
                 .apply(a, b);
         return 1.0 - (double) dist / Math.max(a.length(), b.length());

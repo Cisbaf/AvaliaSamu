@@ -1,6 +1,5 @@
 package com.avaliadados.service.avaliacao;
 
-import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.ProjectCollaborator;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.SheetRow;
@@ -39,13 +38,12 @@ public class AvaliacaoService implements AvaliacaoProcessor {
     private final SheetRowRepository sheetRowRepository;
     private final CollabParams collabParams;
 
-    // Constantes para as chaves de dados
     private static final String KEY_TEMPO_REGULACAO_TARM = "TEMPO_REGULACAO_TARM";
     private static final String KEY_TEMPO_REGULACAO_FROTA = "TEMPO_REGULACAO_FROTA";
 
 
     @Transactional
-    public void processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
+    public List<String> processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
         sheetRowRepository.deleteByProjectIdAndType(projectId, TypeAv.TARM_FROTA);
 
         try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
@@ -100,7 +98,9 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             }
             sheetRowRepository.saveAll(srList);
         }
-        atualizarColaboradoresDoProjeto(projectId);
+        return !atualizarColaboradoresDoProjeto(projectId).isEmpty() ?
+                atualizarColaboradoresDoProjeto(projectId) :
+                List.of();
     }
 
     private Integer encontrarIndiceColuna(Map<String, Integer> cols, String... possiveisNomes) {
@@ -124,41 +124,81 @@ public class AvaliacaoService implements AvaliacaoProcessor {
     }
 
     @Transactional
-    public void atualizarColaboradoresDoProjeto(String projectId) {
+    public List<String> atualizarColaboradoresDoProjeto(String projectId) {
         ProjetoEntity projeto = projetoRepository.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado: " + projectId));
 
-        Map<String, CollaboratorEntity> colaboradores = colaboradorRepository.findAll().stream()
+        List<ProjectCollaborator> tarmFrotaColabs = projeto.getCollaborators().stream()
+                .filter(pc -> "TARM".equals(pc.getRole()) || "FROTA".equals(pc.getRole()))
+                .toList();
+
+
+        Map<String, ProjectCollaborator> colaboradores = tarmFrotaColabs.stream()
                 .collect(Collectors.toMap(
-                        c -> normalizeName(c.getNome()), c -> c, (a, b) -> a));
+                        pc -> normalizeName(pc.getNome()),
+                        pc -> pc,
+                        (a, b) -> a));
 
         List<SheetRow> rows = sheetRowRepository.findByProjectIdAndType(projectId, TypeAv.TARM_FROTA);
 
         List<ProjectCollaborator> pcsToUpdate = new ArrayList<>();
         List<String> idCallroutList = new ArrayList<>();
-        
+
+        // Lógica existente para atualizar colaboradores que estão na planilha
         for (SheetRow sr : rows) {
             String nomeNorm = normalizeName(sr.getData().get("COLABORADOR"));
             colaboradores.entrySet().stream()
                     .filter(e -> similarity(e.getKey(), nomeNorm) >= 0.85)
                     .max(Comparator.comparingDouble(e -> similarity(e.getKey(), nomeNorm)))
                     .ifPresent(match -> {
-                        CollaboratorEntity colEnt = match.getValue();
+                        ProjectCollaborator colEnt = match.getValue();
                         projeto.getCollaborators().stream()
-                                .filter(pc -> pc.getCollaboratorId().equals(colEnt.getId()))
+                                .filter(pc -> pc.getCollaboratorId().equals(colEnt.getCollaboratorId()))
                                 .findFirst()
                                 .ifPresent(pc -> {
                                     atualizarDadosColaborador(pc, sr.getData());
                                     pcsToUpdate.add(pc);
-                                    idCallroutList.add(colEnt.getIdCallRote());
+                                    idCallroutList.add(
+                                            colaboradorRepository.getReferenceById(pc.getCollaboratorId()).getIdCallRote());
                                 });
                     });
         }
+        List<String> naoEncontrados = new ArrayList<>();
 
-        for (ProjectCollaborator pc : projeto.getCollaborators()) {
-            boolean jaAdicionado = pcsToUpdate.stream()
-                    .anyMatch(p -> p.getCollaboratorId().equals(pc.getCollaboratorId()));
-            if (!jaAdicionado) {
+        // Nova lógica para identificar colaboradores TARM/FROTA que não estão na planilha
+        log.info("\n--- Verificando colaboradores TARM/FROTA ausentes na planilha ---");
+        for (ProjectCollaborator pc : tarmFrotaColabs) {
+            String normalizedCollabName = normalizeName(pc.getNome());
+
+            // Verifica se existe na planilha com similaridade >= 0.85
+            boolean encontrado = rows.stream().anyMatch(sr ->
+                    similarity(normalizeName(sr.getData().get("COLABORADOR")), normalizedCollabName) >= 0.75
+            );
+
+            if (!encontrado) {
+                log.warn("Colaborador TARM/FROTA ausente na planilha: {}", pc.getNome());
+
+                // Restante da lógica de matching...
+                String bestMatchName = null;
+                double highestScore = 0.0;
+                for (SheetRow sr : rows) {
+                    String sheetName = sr.getData().get("COLABORADOR");
+                    double currentScore = similarity(normalizedCollabName, normalizeName(sheetName));
+                    if (currentScore > highestScore) {
+                        highestScore = currentScore;
+                        bestMatchName = sheetName;
+                    }
+                }
+
+                if (bestMatchName != null && highestScore >= 0.4) {
+                    naoEncontrados.add(String.format("%s (possível correspondência: %s)", normalizedCollabName, bestMatchName));
+                    log.warn("{} (possível correspondência: {})", normalizedCollabName, bestMatchName);
+                } else {
+                    naoEncontrados.add(normalizedCollabName + " (nenhuma correspondência próxima encontrada)");
+                    log.warn("{} (nenhuma correspondência próxima encontrada)", normalizedCollabName);
+                }
+            }
+            if (!pcsToUpdate.contains(pc)) {
                 pcsToUpdate.add(pc);
                 idCallroutList.add(
                         colaboradorRepository.getReferenceById(pc.getCollaboratorId()).getIdCallRote()
@@ -167,12 +207,15 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         }
 
         collabParams.setDataFromApi(pcsToUpdate, projeto, idCallroutList);
+
+
         for (ProjectCollaborator pc : pcsToUpdate) {
             if (pc.getPausaMensalSeconds() != null || pc.getDurationSeconds() != null) {
                 int pontos = collabParams.setParams(
                         pc,
                         projeto,
                         pc.getRemovidos(),
+                        pc.getRemovidosLider() != null ? pc.getRemovidosLider() : 0,
                         pc.getDurationSeconds(),
                         0L,
                         pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L,
@@ -184,6 +227,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         }
 
         projetoRepository.save(projeto);
+        return naoEncontrados;
     }
 
     private void atualizarDadosColaborador(ProjectCollaborator pc,

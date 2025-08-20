@@ -20,10 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.avaliadados.service.utils.SheetsUtils.*;
@@ -41,7 +38,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
 
     @Transactional
-    public void processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
+    public List<String> processarPlanilha(MultipartFile arquivo, String projectId) throws IOException {
         sheetRowRepo.deleteByProjectIdAndType(projectId, TypeAv.MEDICO);
 
         try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
@@ -115,11 +112,14 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 }
             }
         }
-        sincronizarColaboradores(projectId);
+        return !sincronizarColaboradores(projectId).isEmpty() ?
+                sincronizarColaboradores(projectId) :
+                List.of();
+
     }
 
     @Transactional
-    public void sincronizarColaboradores(String projectId) {
+    public List<String> sincronizarColaboradores(String projectId) {
         var projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado: " + projectId));
 
@@ -131,7 +131,50 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         List<ProjectCollaborator> pcsToUpdate = new ArrayList<>();
         List<String> collaboratorIdCallRotes = new ArrayList<>();
 
-        for (SheetRow sr : sheetRowRepo.findByProjectId(projectId)) {
+        // Coletar nomes da planilha
+        List<SheetRow> sheetRows = sheetRowRepo.findByProjectId(projectId);
+        Set<String> normalizedSheetNames = sheetRows.stream()
+                .map(sr -> normalizeName(sr.getData().get("MEDICO.REGULADOR")))
+                .collect(Collectors.toSet());
+
+        // Lista para colaboradores não encontrados
+        List<String> naoEncontrados = new ArrayList<>();
+
+        // Identificar médicos do projeto
+        List<ProjectCollaborator> medicosNoProjeto = projeto.getCollaborators().stream()
+                .filter(pc -> "MEDICO".equals(pc.getRole()))
+                .toList();
+
+        // Verificar médicos ausentes na planilha
+        for (ProjectCollaborator pc : medicosNoProjeto) {
+            String nomeOriginal = colaboradorRepository.getReferenceById(pc.getCollaboratorId()).getNome();
+            String nomeNorm = normalizeName(nomeOriginal);
+
+            if (!normalizedSheetNames.contains(nomeNorm)) {
+                // Buscar melhor correspondência na planilha
+                String bestMatchName = null;
+                double highestScore = 0.0;
+
+                for (String sheetName : normalizedSheetNames) {
+                    double currentScore = similarity(nomeNorm, sheetName);
+                    if (currentScore > highestScore) {
+                        highestScore = currentScore;
+                        bestMatchName = sheetName;
+                    }
+                }
+
+                if (bestMatchName != null && highestScore >= 0.5) {
+                    naoEncontrados.add(nomeOriginal + " (possível correspondência: " + bestMatchName + ")");
+                    log.warn("Médico ausente na planilha: {} (possível correspondência: {})", nomeOriginal, bestMatchName);
+                } else {
+                    naoEncontrados.add(nomeOriginal + " (nenhuma correspondência próxima encontrada)");
+                    log.warn("Médico ausente na planilha: {} (nenhuma correspondência próxima encontrada)", nomeOriginal);
+                }
+            }
+        }
+
+        // Processar registros da planilha
+        for (SheetRow sr : sheetRows) {
             String rawNome = Optional.ofNullable(sr.getData().get("MEDICO.REGULADOR"))
                     .orElse("MEDICO.LIDER");
             String nomeNorm = normalizeName(rawNome);
@@ -164,6 +207,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             }
         }
 
+        // Garantir que todos os médicos estejam no projeto
         List<MedicoEntity> todosMedicos = medicoRepo.findAll();
         for (MedicoEntity med : todosMedicos) {
             boolean jaAdicionado = pcsToUpdate.stream()
@@ -188,7 +232,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             }
         }
 
-        for (SheetRow sr : sheetRowRepo.findByProjectId(projectId)) {
+        // Atualizar dados dos médicos
+        for (SheetRow sr : sheetRows) {
             String rawNome = Optional.ofNullable(sr.getData().get("MEDICO.REGULADOR"))
                     .orElse("MEDICO.LIDER");
             String nomeNorm = normalizeName(rawNome);
@@ -213,6 +258,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                         pc,
                         projeto,
                         pc.getRemovidos(),
+                        pc.getRemovidosLider() != null ? pc.getRemovidosLider() : 0,
                         pc.getDurationSeconds(),
                         pc.getCriticos(),
                         pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L,
@@ -223,6 +269,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             }
         }
         projetoRepo.save(projeto);
+
+        return naoEncontrados;
     }
 
     private void atualizarDadosMedico(ProjectCollaborator pc, Map<String, String> data) {

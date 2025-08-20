@@ -16,6 +16,7 @@ import ScoringParamsModal from './modal/ScoringParamsModal';
 import DataForPointsModal from './modal/DataForPointsModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import UploadWarningsModal from './modal/UploadWarningsModal';
 
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
@@ -56,6 +57,9 @@ export default function CollaboratorsPanel() {
   // Atualização de estado simplificada
   const updateState = (newState: Partial<typeof state>) => setState(prev => ({ ...prev, ...newState }));
   const currentProject = projects.find(p => p.id === selectedProject);
+
+  const [uploadWarnings, setUploadWarnings] = useState<string[]>([]);
+  const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
 
 
   // Efeitos
@@ -192,9 +196,17 @@ export default function CollaboratorsPanel() {
         }
       );
 
+      // Processar a resposta JSON independentemente do status
+      const responseData = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Erro ${response.status}: ${response.statusText}`);
+        throw new Error(responseData.message || `Erro ${response.status}: ${response.statusText}`);
+      }
+
+      // Verificar se a resposta contém mensagens de alerta
+      if (responseData.length > 0) {
+        setUploadWarnings(responseData);
+        setIsWarningModalOpen(true);
       }
 
       await fetchProjectCollaborators(selectedProject);
@@ -206,6 +218,34 @@ export default function CollaboratorsPanel() {
       });
     } finally {
       updateState({ loading: false });
+    }
+  };
+
+  const extractCollaboratorFromWarning = (warning: string): CombinedCollaboratorData | undefined => {
+    // Extrai o nome cadastrado (antes do parêntese)
+    const match = warning.match(/^([^(]+) \(/);
+    if (match) {
+      const nomeCadastrado = match[1].trim();
+
+      // Busca exata pelo nome cadastrado
+      return combinedCollaborators.find(c =>
+        c.nome.toLowerCase() === nomeCadastrado.toLowerCase()
+      );
+    }
+
+    return undefined;
+  };
+
+  const handleEditCollaboratorFromWarning = (warning: string) => {
+    const collaborator = extractCollaboratorFromWarning(warning);
+    if (collaborator) {
+      setEditingCollaboratorInitialData(collaborator);
+    } else {
+      // Tenta extrair o nome para mostrar na mensagem de erro
+      const nomeCadastrado = warning.match(/^([^(]+) \(/)?.[1]?.trim() || warning;
+      updateState({
+        error: `Não foi possível encontrar o colaborador "${nomeCadastrado}" na lista de colaboradores do projeto.`
+      });
     }
   };
 
@@ -505,6 +545,12 @@ export default function CollaboratorsPanel() {
             collaborators={availableCollaborators}
             onAdd={handleAddExisting}
             loading={state.panelLoading}
+          />
+          <UploadWarningsModal
+            open={isWarningModalOpen}
+            warnings={uploadWarnings}
+            onClose={() => setIsWarningModalOpen(false)}
+            onEditCollaborator={handleEditCollaboratorFromWarning}
           />
 
         </>
