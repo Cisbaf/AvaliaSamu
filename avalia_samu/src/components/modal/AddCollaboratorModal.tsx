@@ -214,12 +214,7 @@ export default function CollaboratorModal({
                     <div className={styles.formGrid}>
                         <TextField label="Nome" fullWidth margin="dense"
                             value={formData.nome} onChange={e => handleChange('nome', e.target.value)}
-                            variant={isEdit && projectId ? 'filled' : 'outlined'}
-                            slotProps={{
-                                input: {
-                                    readOnly: isEdit && projectId ? true : false,
-                                }
-                            }}
+                            variant='outlined'
                         />
                         <TextField label="CPF" fullWidth margin="dense"
                             value={formData.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')} onChange={e => handleChange('cpf', e.target.value)}
