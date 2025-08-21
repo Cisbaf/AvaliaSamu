@@ -119,7 +119,7 @@ public class ScoringService {
     }
 
     private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos,Integer removidosLider, ScoringSectionParams params, boolean applyMultiplier, Map<String, Integer> points) {
-        int score = calculateRemovidos(removidos, params, points);
+        int score = 0;
         switch (medicRole) {
             case "LIDER" -> {
                 if (criticos != null && criticos > 0 && params.getRegulacaoLider() != null && !params.getRegulacaoLider().isEmpty()) {
@@ -139,6 +139,11 @@ public class ScoringService {
                     score += pt;
                     points.put("Regulacao", pt);
                 }
+                if (removidos != null && removidos > 0 && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
+                    int pt = matchRemovidosRule(removidos, params.getRemovidos());
+                    score += pt;
+                }
+
             }
         }
         return score;
