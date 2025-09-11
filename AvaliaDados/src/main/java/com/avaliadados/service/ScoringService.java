@@ -47,7 +47,6 @@ public class ScoringService {
         };
         ScoringSectionParams colabParams = params.getColab();
 
-        boolean applyMultiplier = "H24".equals(shiftHour) && "MEDICO".equals(role);
         int totalScore = 0;
 
         switch (role) {
@@ -63,13 +62,13 @@ public class ScoringService {
             }
             case "MEDICO" -> {
                 if (sectionParams != null) {
-                    totalScore += calculateMedicoScore(medicRole, durationSeconds, criticos, removidos, removidosLider, sectionParams, applyMultiplier, points);
+                    totalScore += calculateMedicoScore(medicRole, durationSeconds, criticos, removidos, removidosLider, sectionParams, points);
                 }
             }
         }
 
         if (colabParams != null) {
-            totalScore += calculateColabPausasScore(pausaMensalSeconds, colabParams, applyMultiplier, points);
+            totalScore += calculateColabPausasScore(pausaMensalSeconds, colabParams, points);
         }
 
         points.put("Total", totalScore);
@@ -80,7 +79,7 @@ public class ScoringService {
     private int calculateTarmScore(Long duration, Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
         int score =  calculateRemovidos(removidos, params, points);
         if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
-            int pt = matchDurationRule(duration, params.getRegulacao(), false);
+            int pt = matchDurationRule(duration, params.getRegulacao());
             score += pt;
             points.put("Regulacao", pt);
         }
@@ -92,38 +91,38 @@ public class ScoringService {
     private int calculateFrotaScore(Long durationRegulacao, Long pausa, Long durationSaidaVtr, ScoringSectionParams params, Map<String, Integer> points) {
         int score = 0;
         if (durationRegulacao != null && durationRegulacao > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
-            int pt = matchDurationRule(durationRegulacao, params.getRegulacao(), false);
+            int pt = matchDurationRule(durationRegulacao, params.getRegulacao());
             score += pt;
             points.put("Regulacao", pt);
         }
         if (durationSaidaVtr != null && durationSaidaVtr > 0 && params.getSaidaVtr() != null && !params.getSaidaVtr().isEmpty()) {
-            int pt = matchDurationRule(durationSaidaVtr, params.getSaidaVtr(), false);
+            int pt = matchDurationRule(durationSaidaVtr, params.getSaidaVtr());
             score += pt;
             points.put("SaidaVTR", pt);
         }
         if (pausa != null && pausa > 0 && params.getPausas() != null && !params.getPausas().isEmpty()) {
-            int pt = matchDurationRule(pausa, params.getPausas(), false);
+            int pt = matchDurationRule(pausa, params.getPausas());
             score += pt;
             points.put("Pausas", pt);
         }
         return score;
     }
 
-    private int calculateColabPausasScore(Long pausaSeconds, ScoringSectionParams colabParams, boolean applyMultiplier, Map<String, Integer> points) {
+    private int calculateColabPausasScore(Long pausaSeconds, ScoringSectionParams colabParams, Map<String, Integer> points) {
         if (pausaSeconds == null || pausaSeconds <= 0 || colabParams.getPausas() == null || colabParams.getPausas().isEmpty()) {
             return 0;
         }
-        int pt = matchDurationRule(pausaSeconds, colabParams.getPausas(), applyMultiplier);
+        int pt = matchDurationRule(pausaSeconds, colabParams.getPausas());
         points.put("Pausas", pt);
         return pt;
     }
 
-    private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos,Integer removidosLider, ScoringSectionParams params, boolean applyMultiplier, Map<String, Integer> points) {
+    private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos,Integer removidosLider, ScoringSectionParams params, Map<String, Integer> points) {
         int score = 0;
         switch (medicRole) {
             case "LIDER" -> {
                 if (criticos != null && criticos > 0 && params.getRegulacaoLider() != null && !params.getRegulacaoLider().isEmpty()) {
-                    int pt = matchDurationRule(criticos, params.getRegulacaoLider(), applyMultiplier);
+                    int pt = matchDurationRule(criticos, params.getRegulacaoLider());
                     score += pt;
                     points.put("Criticos", pt);
                 }
@@ -135,7 +134,7 @@ public class ScoringService {
             }
             case "REGULADOR" -> {
                 if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
-                    int pt = matchDurationRule(duration, params.getRegulacao(), applyMultiplier);
+                    int pt = matchDurationRule(duration, params.getRegulacao());
                     score += pt;
                     points.put("Regulacao", pt);
                 }
@@ -171,11 +170,11 @@ public class ScoringService {
         );
     }
 
-    private int matchDurationRule(Long seconds, List<ScoringRule> rules, boolean applyMultiplier) {
+    private int matchDurationRule(Long seconds, List<ScoringRule> rules) {
         if (seconds == null || seconds <= 0 || rules == null || rules.isEmpty()) {
             return 0;
         }
-        String cacheKey = "duration_" + seconds + "_" + rules.hashCode() + "_" + applyMultiplier;
+        String cacheKey = "duration_" + seconds + "_" + rules.hashCode() ;
         return ruleCache.computeIfAbsent(cacheKey, k -> {
             List<ScoringRule> applicableRules = rules.stream()
                     .filter(r -> r.getDuration() != null && r.getPoints() != null)
@@ -183,10 +182,7 @@ public class ScoringService {
                         ScoringRule adjustedRule = new ScoringRule();
                         adjustedRule.setPoints(originalRule.getPoints());
                         long duration = originalRule.getDuration();
-                        if (applyMultiplier) {
-                            // dobrar o limiar para plantão de 24h
-                            duration = duration * 2;
-                        }
+
                         adjustedRule.setDuration(duration);
                         return adjustedRule;
                     })

@@ -23,8 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-import static com.avaliadados.service.utils.ApiDataProcessor.parseTimeToSeconds;
-
+import static com.avaliadados.service.utils.SheetsUtils.parseTimeToSeconds;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -232,7 +231,6 @@ public class CollabParams {
                 .date_rage(DateRange.builder().start(initialData).end(endData).build())
                 .options(options)
                 .build();
-        log.info("Request : {}", request);
 
         try {
             log.info("Consultando evento {} para {} agentes...", eventName, agentIds.size());
@@ -240,8 +238,6 @@ public class CollabParams {
             if (response.isEmpty()) {
                 log.error("Nenhum dado retornado para {} - IDs: {}", response, agentIds);
                 return Collections.emptyMap();
-            } else {
-                log.info("Dados recebidos para {}: {} registros", response, response.size());
             }
 
             return response;

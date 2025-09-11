@@ -225,11 +225,10 @@ export default function CollaboratorModal({
                                 }
                             }} />
                         <TextField label="ID Call Rote" fullWidth margin="dense"
-                            variant={isEdit && projectId ? 'filled' : 'outlined'}
+                            variant='outlined'
                             value={formData.idCallRote.replace(/(\d{1})(\d{11})/, '$1-$2')} onChange={e => handleChange('idCallRote', e.target.value)}
                             slotProps={{
                                 input: {
-                                    readOnly: isEdit && projectId ? true : false,
                                 }
                             }} />
                         <FormControl fullWidth margin="dense">
