@@ -12,8 +12,10 @@ import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.service.ScoringService;
 import com.avaliadados.service.factory.ApiColabData;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.sql.Time;
 import java.time.Month;
 import java.time.Year;
 import java.util.*;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 
 import static com.avaliadados.service.utils.SheetsUtils.parseTimeToSeconds;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class CollabParams {
@@ -223,11 +226,12 @@ public class CollabParams {
                 .build();
 
         try {
+            log.info("Fetching data for event: {}, on time {}", eventName, new Time(System.currentTimeMillis()));
             Map<String, Map<String, EventDetails>> response = apiColabData.consult(request);
             if (response.isEmpty()) {
                 return Collections.emptyMap();
             }
-
+            log.info( "Response received for event: {} on time {}", eventName, new Time(System.currentTimeMillis()));
             return response;
         } catch (Exception e) {
             return Collections.emptyMap();

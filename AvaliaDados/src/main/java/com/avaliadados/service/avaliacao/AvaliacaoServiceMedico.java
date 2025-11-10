@@ -1,6 +1,8 @@
 package com.avaliadados.service.avaliacao;
 
-import com.avaliadados.model.*;
+import com.avaliadados.model.CollaboratorEntity;
+import com.avaliadados.model.ProjectCollaborator;
+import com.avaliadados.model.SheetRow;
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.enums.TypeAv;
@@ -12,7 +14,6 @@ import com.avaliadados.repository.SheetRowRepository;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
 import com.avaliadados.service.utils.CollabParams;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.springframework.stereotype.Service;
@@ -26,7 +27,6 @@ import java.util.stream.Collectors;
 import static com.avaliadados.service.utils.SheetsUtils.*;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
@@ -112,9 +112,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 }
             }
         }
-        return !sincronizarColaboradores(projectId).isEmpty() ?
-                sincronizarColaboradores(projectId) :
-                List.of();
+        var resultadoSincronizacao = sincronizarColaboradores(projectId);
+        return !resultadoSincronizacao.isEmpty() ? resultadoSincronizacao : List.of();
 
     }
 
@@ -165,10 +164,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
                 if (bestMatchName != null && highestScore >= 0.5) {
                     naoEncontrados.add(nomeOriginal + " (possível correspondência: " + bestMatchName + ")");
-                    log.warn("Médico ausente na planilha: {} (possível correspondência: {})", nomeOriginal, bestMatchName);
                 } else {
                     naoEncontrados.add(nomeOriginal + " (nenhuma correspondência próxima encontrada)");
-                    log.warn("Médico ausente na planilha: {} (nenhuma correspondência próxima encontrada)", nomeOriginal);
                 }
             }
         }
@@ -251,25 +248,29 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         }
 
         collabParams.setDataFromApi(pcsToUpdate, projeto, collaboratorIdCallRotes);
-        for (ProjectCollaborator pc : pcsToUpdate) {
-            if ((pc.getPausaMensalSeconds() != null && pc.getPausaMensalSeconds() > 0)
-                    || (pc.getDurationSeconds() != null && pc.getDurationSeconds() > 0)) {
-                int pontos = collabParams.setParams(
-                        pc,
-                        projeto,
-                        pc.getRemovidos(),
-                        pc.getRemovidosLider() != null ? pc.getRemovidosLider() : 0,
-                        pc.getDurationSeconds(),
-                        pc.getCriticos(),
-                        pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L,
-                        0L);
-                pc.setPontuacao(pontos);
-            } else {
-                pc.setPontuacao(0);
+        if (!pcsToUpdate.isEmpty() && !collaboratorIdCallRotes.isEmpty()) {
+            collabParams.setDataFromApi(pcsToUpdate, projeto, collaboratorIdCallRotes);
+
+            for (ProjectCollaborator pc : pcsToUpdate) {
+                if ((pc.getPausaMensalSeconds() != null && pc.getPausaMensalSeconds() > 0)
+                        || (pc.getDurationSeconds() != null && pc.getDurationSeconds() > 0)) {
+                    int pontos = collabParams.setParams(
+                            pc,
+                            projeto,
+                            pc.getRemovidos(),
+                            pc.getRemovidosLider() != null ? pc.getRemovidosLider() : 0,
+                            pc.getDurationSeconds(),
+                            pc.getCriticos(),
+                            pc.getPausaMensalSeconds() != null ? pc.getPausaMensalSeconds() : 0L,
+                            0L);
+                    pc.setPontuacao(pontos);
+                } else {
+                    pc.setPontuacao(0);
+                }
             }
         }
-        projetoRepo.save(projeto);
 
+        projetoRepo.save(projeto);
         return naoEncontrados;
     }
 
@@ -286,7 +287,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             try {
                 plantaoQtd = plantaoStr.contains(":") ? 0 : (int) Math.round(Double.parseDouble(plantaoStr));
             } catch (NumberFormatException e) {
-                log.warn("Não foi possível converter o valor do plantão '{}' para número.", plantaoStr);
+                throw new IllegalArgumentException("Erro ao converter PLANTAO para número: " + plantaoStr, e);
             }
         }
 

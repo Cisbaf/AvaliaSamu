@@ -98,9 +98,8 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             }
             sheetRowRepository.saveAll(srList);
         }
-        return !atualizarColaboradoresDoProjeto(projectId).isEmpty() ?
-                atualizarColaboradoresDoProjeto(projectId) :
-                List.of();
+        List<String> result = atualizarColaboradoresDoProjeto(projectId);
+        return !result.isEmpty() ? result : List.of();
     }
 
     private Integer encontrarIndiceColuna(Map<String, Integer> cols, String... possiveisNomes) {
@@ -132,7 +131,6 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                 .filter(pc -> "TARM".equals(pc.getRole()) || "FROTA".equals(pc.getRole()))
                 .toList();
 
-
         Map<String, ProjectCollaborator> colaboradores = tarmFrotaColabs.stream()
                 .collect(Collectors.toMap(
                         pc -> normalizeName(pc.getNome()),
@@ -163,6 +161,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                                 });
                     });
         }
+
         List<String> naoEncontrados = new ArrayList<>();
 
         // Nova lógica para identificar colaboradores TARM/FROTA que não estão na planilha
@@ -175,7 +174,6 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             );
 
             if (!encontrado) {
-
                 // Restante da lógica de matching...
                 String bestMatchName = null;
                 double highestScore = 0.0;
@@ -194,6 +192,8 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                     naoEncontrados.add(normalizedCollabName + " (nenhuma correspondência próxima encontrada)");
                 }
             }
+
+            // Adiciona colaborador à lista de atualização se não foi adicionado anteriormente
             if (!pcsToUpdate.contains(pc)) {
                 pcsToUpdate.add(pc);
                 idCallroutList.add(
@@ -202,9 +202,10 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             }
         }
 
+        // *** MOVER A CHAMADA DA API PARA AQUI - DEPOIS DE COMPLETAR AS LISTAS ***
         collabParams.setDataFromApi(pcsToUpdate, projeto, idCallroutList);
 
-
+        // Resto do código para calcular pontuação...
         for (ProjectCollaborator pc : pcsToUpdate) {
             if (pc.getPausaMensalSeconds() != null || pc.getDurationSeconds() != null) {
                 int pontos = collabParams.setParams(
