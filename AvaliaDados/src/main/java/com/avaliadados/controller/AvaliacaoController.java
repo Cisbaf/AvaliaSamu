@@ -4,7 +4,6 @@ import com.avaliadados.service.factory.AvaliacaoServiceFactory;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-@Slf4j
 @Tag(name = "Avaliação", description = "Operações relacionadas à avaliação de planilhas")
 public class AvaliacaoController {
 

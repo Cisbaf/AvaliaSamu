@@ -54,7 +54,6 @@ public class ProjetosService {
         Map<String, Integer> pontos = scoringService.calculateCollaboratorScore(
                 collaborator.getRole(),
                 collaborator.getMedicoRole().name(),
-                "H12",
                 collaborator.getDurationSeconds(),
                 collaborator.getCriticos(),
                 collaborator.getRemovidos(),
