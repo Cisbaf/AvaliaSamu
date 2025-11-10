@@ -8,7 +8,6 @@ import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
 import com.avaliadados.repository.SheetRowRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,7 +18,6 @@ import java.util.stream.Stream;
 
 import static com.avaliadados.service.utils.SheetsUtils.*;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SheetProcessingService {
@@ -60,7 +58,6 @@ public class SheetProcessingService {
             // Atualiza e persiste a associação
             row.setCollaboratorId(collaboratorId);
             rowRepository.save(row);
-            log.info("Associado colaborador [{}] à linha da planilha por similaridade de nome", collaboratorId);
             return row;
         });
     }
@@ -70,7 +67,6 @@ public class SheetProcessingService {
      * carrega os campos (durationSeconds, NestedScoringParameters, criticos etc.), dependendo da role e médicoRole.
      */
     public void populateFromSheet(ProjectCollaborator pc, SheetRow sheetRow) {
-        log.info("Dados da planilha encontrados para o colaborador [{}]", pc.getCollaboratorId());
         Map<String, String> data = sheetRow.getData();
 
         switch (pc.getRole()) {
@@ -101,7 +97,6 @@ public class SheetProcessingService {
             pc.setDurationSeconds(segundos);
             pc.setParametros(NestedScoringParameters.builder().tarm(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(segundos).build())).build()).build());
             pc.setPlantao(plantaotemp);
-            log.debug("Tempo de regulação TARM definido: {} segundos", segundos);
         }
     }
 
@@ -115,7 +110,6 @@ public class SheetProcessingService {
             pc.setDurationSeconds(segundos);
             pc.setParametros(NestedScoringParameters.builder().frota(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(segundos).build())).build()).build());
             pc.setPlantao(plantaotemp);
-            log.debug("Tempo de regulação FROTA definido: {} segundos", segundos);
         }
     }
 
@@ -132,7 +126,6 @@ public class SheetProcessingService {
                     pc.setDurationSeconds(segundos);
                     pc.setParametros(NestedScoringParameters.builder().medico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(segundos).build())).build()).build());
                     pc.setPlantao(plantaotemp);
-                    log.debug("Tempo de regulação MÉDICO REGULADOR definido: {} segundos", segundos);
                 }
                 break;
 
@@ -143,7 +136,6 @@ public class SheetProcessingService {
                     pc.setDurationSeconds(segundos);
                     pc.setParametros(NestedScoringParameters.builder().medico(ScoringSectionParams.builder().regulacaoLider(List.of(ScoringRule.builder().duration(segundos).build())).build()).build());
                     pc.setPlantao(plantaotemp);
-                    log.debug("Tempo de críticos MÉDICO LÍDER definido: {} segundos", segundos);
                 }
                 break;
 

@@ -13,7 +13,6 @@ import com.avaliadados.service.factory.AvaliacaoProcessor;
 import com.avaliadados.service.utils.CollabParams;
 import com.avaliadados.service.utils.SheetsUtils;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -29,7 +28,6 @@ import java.util.stream.Collectors;
 import static com.avaliadados.service.utils.SheetsUtils.*;
 
 @Service
-@Slf4j
 @RequiredArgsConstructor
 public class AvaliacaoService implements AvaliacaoProcessor {
 
@@ -58,7 +56,6 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             List<SheetRow> srList = new ArrayList<>();
 
             if (idxColab == null) {
-                log.error("Coluna de colaborador não encontrada na planilha");
                 throw new RuntimeException("Coluna de colaborador não encontrada na planilha");
             }
 
@@ -74,13 +71,16 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                 if (name == null || (tarmVal == null && frotaVal == null)) {
                     continue;
                 }
+                if (plantaoVal == null || !plantaoVal.matches("\\d+(\\.\\d+)?")) {
+                    plantaoVal = "0";
+                }
 
                 SheetRow sr = new SheetRow();
                 sr.setProjectId(projectId);
 
                 sr.setType(TypeAv.TARM_FROTA);
                 sr.getData().put("COLABORADOR", name);
-                sr.getData().put("PLANTAO", plantaoVal != null ? plantaoVal : "0");
+                sr.getData().put("PLANTAO", plantaoVal);
 
                 // Salvar com múltiplas chaves para garantir compatibilidade
                 if (tarmVal != null) {
@@ -166,7 +166,6 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         List<String> naoEncontrados = new ArrayList<>();
 
         // Nova lógica para identificar colaboradores TARM/FROTA que não estão na planilha
-        log.info("\n--- Verificando colaboradores TARM/FROTA ausentes na planilha ---");
         for (ProjectCollaborator pc : tarmFrotaColabs) {
             String normalizedCollabName = normalizeName(pc.getNome());
 
@@ -176,7 +175,6 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             );
 
             if (!encontrado) {
-                log.warn("Colaborador TARM/FROTA ausente na planilha: {}", pc.getNome());
 
                 // Restante da lógica de matching...
                 String bestMatchName = null;
@@ -192,10 +190,8 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
                 if (bestMatchName != null && highestScore >= 0.4) {
                     naoEncontrados.add(String.format("%s (possível correspondência: %s)", normalizedCollabName, bestMatchName));
-                    log.warn("{} (possível correspondência: {})", normalizedCollabName, bestMatchName);
                 } else {
                     naoEncontrados.add(normalizedCollabName + " (nenhuma correspondência próxima encontrada)");
-                    log.warn("{} (nenhuma correspondência próxima encontrada)", normalizedCollabName);
                 }
             }
             if (!pcsToUpdate.contains(pc)) {

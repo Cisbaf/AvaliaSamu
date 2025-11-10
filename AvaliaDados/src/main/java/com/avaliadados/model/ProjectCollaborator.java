@@ -27,6 +27,7 @@ public class ProjectCollaborator {
     private Integer pontuacao = 0;
     private Long pausaMensalSeconds = 0L;
     private Long saidaVtrSeconds = 0L;
+    private String idCallRote;
     Map<String, Integer> points;
     private NestedScoringParameters parametros;
     private Boolean wasEdited = false;

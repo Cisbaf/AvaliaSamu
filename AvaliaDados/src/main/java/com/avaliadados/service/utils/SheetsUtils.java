@@ -1,6 +1,5 @@
 package com.avaliadados.service.utils;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.text.similarity.LevenshteinDistance;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -14,7 +13,6 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 
 @Service
-@Slf4j
 public class SheetsUtils {
 
     public static Map<String, Integer> getColumnMapping(Row headerRow) {
@@ -22,7 +20,7 @@ public class SheetsUtils {
         for (int i = 0; i < headerRow.getLastCellNum(); i++) {
             Cell cell = headerRow.getCell(i);
             if (cell != null) {
-                String value = cell.getStringCellValue();
+                String value = getCellStringValue(cell);
                 if (value != null && !value.isBlank()) {
                     map.put(value, i);
                 }
@@ -31,11 +29,9 @@ public class SheetsUtils {
         return map;
     }
 
-    public static String getCellStringValue(Row row, int idx) {
-        Cell cell = row.getCell(idx);
+    public static String getCellStringValue(Cell cell) {
         if (cell == null) return null;
 
-        log.debug("Lendo célula [{}] do tipo: {}", idx, cell.getCellType());
 
         switch (cell.getCellType()) {
             case STRING:
@@ -44,7 +40,6 @@ public class SheetsUtils {
             case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
                     Date date = cell.getDateCellValue();
-                    log.debug("Valor de data/hora detectado: {}", date);
                     return formattedTime(date);
                 } else {
                     double numericValue = cell.getNumericCellValue();
@@ -54,9 +49,7 @@ public class SheetsUtils {
                         long minutes = (totalSeconds % 3600) / 60;
                         long seconds = totalSeconds % 60;
 
-                        String formatted = String.format("%02d:%02d:%02d", hours, minutes, seconds);
-                        log.debug("Valor numérico {} interpretado como tempo: {} ({}s)", numericValue, formatted, totalSeconds);
-                        return formatted;
+                        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
                     }
                     return String.valueOf(numericValue);
                 }
@@ -66,12 +59,10 @@ public class SheetsUtils {
 
             case FORMULA:
                 CellType resultType = cell.getCachedFormulaResultType();
-                log.debug("Fórmula detectada, tipo do resultado: {}", resultType);
                 switch (resultType) {
                     case NUMERIC:
                         if (DateUtil.isCellDateFormatted(cell)) {
                             Date date = cell.getDateCellValue();
-                            log.debug("Resultado da fórmula é data/hora: {}", date);
                             return formattedTime(date);
                         } else {
                             return String.valueOf(cell.getNumericCellValue());
@@ -88,47 +79,43 @@ public class SheetsUtils {
         }
     }
 
+    public static String getCellStringValue(Row row, int idx) {
+        Cell cell = row.getCell(idx);
+        return getCellStringValue(cell);
+    }
+
     private static String formattedTime(Date date) {
         Calendar cal = Calendar.getInstance();
         cal.setTime(date);
         int hours = cal.get(Calendar.HOUR_OF_DAY);
         int minutes = cal.get(Calendar.MINUTE);
         int seconds = cal.get(Calendar.SECOND);
-        String formatted = String.format("%02d:%02d:%02d", hours, minutes, seconds);
-        log.debug("Tempo formatado: {}", formatted);
-        return formatted;
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
     }
 
     public static Long parseTimeToSeconds(String timeStr) {
         if (timeStr == null || timeStr.isBlank()) {
             return 0L;
         }
-        log.debug("Convertendo tempo: '{}'", timeStr);
         timeStr = timeStr.trim();
 
         try {
             // HH:mm:ss
             if (timeStr.matches("\\d{1,2}:\\d{2}:\\d{2}")) {
                 String[] parts = timeStr.split(":");
-                long total = Long.parseLong(parts[0]) * 3600
+                return Long.parseLong(parts[0]) * 3600
                         + Long.parseLong(parts[1]) * 60
                         + Long.parseLong(parts[2]);
-                log.debug("Tempo convertido: {}s", total);
-                return total;
             }
             // HH:mm
             if (timeStr.matches("\\d{1,2}:\\d{2}")) {
                 String[] parts = timeStr.split(":");
-                long total = Long.parseLong(parts[0]) * 3600
+                return Long.parseLong(parts[0]) * 3600
                         + Long.parseLong(parts[1]) * 60;
-                log.debug("Tempo convertido: {}s", total);
-                return total;
             }
             // numérico direto
             if (timeStr.matches("\\d+(\\.\\d+)?")) {
-                long seconds = Math.round(Double.parseDouble(timeStr));
-                log.debug("Tempo convertido numericamente: {}s", seconds);
-                return seconds;
+                return Math.round(Double.parseDouble(timeStr));
             }
             // formatos com SimpleDateFormat
             SimpleDateFormat[] formats = {
@@ -146,15 +133,13 @@ public class SheetsUtils {
                             + cal.get(Calendar.MINUTE) * 60L
                             + cal.get(Calendar.DAY_OF_MONTH);
                     total += cal.get(Calendar.SECOND);
-                    log.debug("Tempo convertido com formato {}: {}s", fmt.toPattern(), total);
                     return total;
                 } catch (ParseException ignored) {
                 }
             }
         } catch (Exception e) {
-            log.error("Erro ao converter tempo '{}': {}", timeStr, e.getMessage());
+            throw new RuntimeException("Erro ao converter tempo: " + timeStr, e);
         }
-        log.warn("Não foi possível converter '{}', retornando 0", timeStr);
         return 0L;
     }
 

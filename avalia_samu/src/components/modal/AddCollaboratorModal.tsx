@@ -30,6 +30,7 @@ import {
     createGlobalCollaboratorApi,
     updateGlobalCollaboratorApi
 } from '@/lib/api';
+import { id } from 'date-fns/locale';
 
 interface CollaboratorModalProps {
     open: boolean;
@@ -122,6 +123,7 @@ export default function CollaboratorModal({
                         quantity: formData.quantity,
                         pausaMensalSeconds: formData.pausaMensalSeconds,
                         pontuacao: (initialData as CombinedCollaboratorData)?.pontuacao ?? 0,
+                        idCallRote: formData.idCallRote,
                     };
 
                     const medicoFields = finalRole === 'MEDICO' ? {
@@ -146,6 +148,7 @@ export default function CollaboratorModal({
                         durationSeconds: formData.durationSeconds,
                         quantity: formData.quantity,
                         pausaMensalSeconds: formData.pausaMensalSeconds,
+                        idCallRote: formData.idCallRote,
                         ...(finalRole === 'MEDICO' && {
                             medicoRole: formData.medicoRole,
                             shiftHours: formData.shiftHours,

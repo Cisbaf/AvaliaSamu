@@ -1,10 +1,10 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.roles.MedicoEntity;
 import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.dto.CollaboratorRequest;
 import com.avaliadados.model.dto.CollaboratorsResponse;
+import com.avaliadados.model.roles.MedicoEntity;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.MedicoRepository;
 import com.avaliadados.repository.ProjetoRepository;
@@ -12,12 +12,10 @@ import com.avaliadados.service.utils.CollaboratorsMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CollaboratorsService {
@@ -33,15 +31,12 @@ public class CollaboratorsService {
 
         if (request.medicoRole() == null) {
             if (collaboratorRepo.existsByNome(request.nome().trim())) {
-                log.warn("Colaborador com nome {} já existe.", request.nome());
                 throw new IllegalArgumentException("Colaborador com nome já existente: " + request.nome());
             }
             if (collaboratorRepo.existsByCpf((request.cpf()))) {
-                log.warn("Colaborador com CPF ");
                 throw new IllegalArgumentException("Colaborador com CPF: " + request.cpf());
             }
             if (collaboratorRepo.existsByIdCallRote(request.idCallRote())) {
-                log.warn("Colaborador com ID de Call Rote já existe.");
                 throw new IllegalArgumentException("Colaborador com ID de Call Rote já existente: " + request.idCallRote());
             }
         } else if (medicoRepo.existsByNomeAndMedicoRole(request.nome(), request.medicoRole())) {
@@ -76,10 +71,8 @@ public class CollaboratorsService {
                         entity -> {
                             collaboratorRepo.delete(entity);
                             collaboratorRepo.flush();
-                            log.info("Colaborador com ID {} deletado.", id);
                         },
                         () -> {
-                            log.warn("Tentativa de deletar colaborador com ID {}, mas não foi encontrado.", id);
                             throw new EntityNotFoundException("Colaborador não encontrado para deleção com ID: " + id);
                         }
                 );
@@ -136,11 +129,9 @@ public class CollaboratorsService {
     }
 
     public void syncIds(String oldId, String newId) {
-        log.info("Atualizando ID do colaborador de [{}] para [{}]", oldId, newId);
 
         List<ProjetoEntity> projetos = projetoRepository.findByCollaboratorsCollaboratorId(oldId);
         if (projetos.isEmpty()) {
-            log.warn("Nenhum projeto encontrado para o colaborador com ID [{}]", oldId);
             return;
         }
         projetos.forEach(projeto -> {
@@ -151,8 +142,6 @@ public class CollaboratorsService {
             });
             projetoRepository.save(projeto);
         });
-
-        log.info("ID do colaborador atualizado com sucesso em todos os projetos.");
     }
 
 }

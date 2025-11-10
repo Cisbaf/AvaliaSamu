@@ -3,7 +3,6 @@ package com.avaliadados.service;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.model.params.ScoringSectionParams;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -11,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Slf4j
 @Service
 public class ScoringService {
     private final ConcurrentHashMap<String, Integer> ruleCache = new ConcurrentHashMap<>();
@@ -19,7 +17,6 @@ public class ScoringService {
     public Map<String, Integer> calculateCollaboratorScore(
             String role,
             String medicRole,
-            String shiftHour,
             Long durationSeconds,
             Long criticos,
             Integer removidos,
@@ -28,15 +25,11 @@ public class ScoringService {
             Long saidaVtrSeconds,
             NestedScoringParameters params
     ) {
-        if (log.isDebugEnabled()) {
-            log.debug("Iniciando cálculo de score para role={}, medicRole={}, shiftHour={}, duration={}s, removidos={}, removidos lider={} pausa={}s",
-                    role, medicRole, shiftHour, durationSeconds, removidos, removidosLider, pausaMensalSeconds);
-        }
+
 
         Map<String, Integer> points = new HashMap<>();
         if (params == null || role == null) {
-            log.error("Parâmetros nulos: role={}, params={}", role, params);
-            return points;
+            throw new IllegalArgumentException("Parâmetros nulos: role= " + role + " , params= " + params);
         }
 
         ScoringSectionParams sectionParams = switch (role) {
@@ -77,7 +70,7 @@ public class ScoringService {
     }
 
     private int calculateTarmScore(Long duration, Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
-        int score =  calculateRemovidos(removidos, params, points);
+        int score = calculateRemovidos(removidos, params, points);
         if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
             int pt = matchDurationRule(duration, params.getRegulacao());
             score += pt;
@@ -85,7 +78,6 @@ public class ScoringService {
         }
         return score;
     }
-
 
 
     private int calculateFrotaScore(Long durationRegulacao, Long pausa, Long durationSaidaVtr, ScoringSectionParams params, Map<String, Integer> points) {
@@ -117,7 +109,7 @@ public class ScoringService {
         return pt;
     }
 
-    private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos,Integer removidosLider, ScoringSectionParams params, Map<String, Integer> points) {
+    private int calculateMedicoScore(String medicRole, Long duration, Long criticos, Integer removidos, Integer removidosLider, ScoringSectionParams params, Map<String, Integer> points) {
         int score = 0;
         switch (medicRole) {
             case "LIDER" -> {
@@ -126,7 +118,7 @@ public class ScoringService {
                     score += pt;
                     points.put("Criticos", pt);
                 }
-                if ( removidosLider != null && removidosLider > 0 && params.getRemovidosLider() != null && !params.getRemovidosLider().isEmpty()) {
+                if (removidosLider != null && removidosLider > 0 && params.getRemovidosLider() != null && !params.getRemovidosLider().isEmpty()) {
                     int pt = matchRemovidosRule(removidosLider, params.getRemovidosLider());
                     score += pt;
                     points.put("RemovidosLider", pt);
@@ -147,6 +139,7 @@ public class ScoringService {
         }
         return score;
     }
+
     private int calculateRemovidos(Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
         int score = 0;
         if (removidos != null && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
@@ -174,7 +167,7 @@ public class ScoringService {
         if (seconds == null || seconds <= 0 || rules == null || rules.isEmpty()) {
             return 0;
         }
-        String cacheKey = "duration_" + seconds + "_" + rules.hashCode() ;
+        String cacheKey = "duration_" + seconds + "_" + rules.hashCode();
         return ruleCache.computeIfAbsent(cacheKey, k -> {
             List<ScoringRule> applicableRules = rules.stream()
                     .filter(r -> r.getDuration() != null && r.getPoints() != null)

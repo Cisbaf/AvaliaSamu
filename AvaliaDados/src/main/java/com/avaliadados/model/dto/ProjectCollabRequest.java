@@ -55,4 +55,7 @@ public class ProjectCollabRequest {
 
     @NotNull(message = "O turno é obrigatório")
     private ShiftHours shiftHours;
+
+    @NotBlank(message = "O ID do CallRote é obrigatório")
+    private String idCallRote;
 }

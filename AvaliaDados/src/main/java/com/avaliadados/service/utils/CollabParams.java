@@ -12,7 +12,6 @@ import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.service.ScoringService;
 import com.avaliadados.service.factory.ApiColabData;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Month;
@@ -25,7 +24,6 @@ import java.util.stream.Collectors;
 
 import static com.avaliadados.service.utils.SheetsUtils.parseTimeToSeconds;
 
-@Slf4j
 @RequiredArgsConstructor
 @Service
 public class CollabParams {
@@ -48,7 +46,6 @@ public class CollabParams {
             case "TARM" -> section = params.getTarm();
             case "FROTA" -> section = params.getFrota();
             case "MEDICO" -> section = params.getMedico();
-            default -> log.warn("Role não informada: {}", pc.getRole());
         }
 
 
@@ -80,12 +77,10 @@ public class CollabParams {
 
         if (pc.getMedicoRole() == null) {
             pc.setMedicoRole(MedicoRole.NENHUM);
-            log.warn("MedicoRole não informada para colaborador {}, definindo como NENHUM", pc.getNome());
         }
         Map<String, Integer> pontos = scoringService.calculateCollaboratorScore(
                 pc.getRole(),
                 pc.getMedicoRole().name(),
-                pc.getShiftHours() != null ? pc.getShiftHours().name() : "H12",
                 regulacao,
                 regulacaoLider,
                 removidos,
@@ -107,15 +102,14 @@ public class CollabParams {
             List<String> idCallroutList) {
 
         if (projectCollaborators == null || projectCollaborators.isEmpty()) {
-            log.warn("A lista de ProjectCollaborators está vazia. Nenhuma chamada à API será feita.");
             return;
         }
 
         // Verifica se as listas têm o mesmo tamanho
         if (projectCollaborators.size() != idCallroutList.size()) {
-            log.error("Tamanho das listas não corresponde. Colaboradores: {}, IDs: {}",
-                    projectCollaborators.size(), idCallroutList.size());
-            return;
+
+            throw new IllegalArgumentException("Tamanho das listas de colaboradores e IDs não corresponde." +
+                    " Colaboradores: " + projectCollaborators.size() + ", IDs: " + idCallroutList.size());
         }
 
         // Filtra apenas IDs válidos
@@ -124,7 +118,6 @@ public class CollabParams {
                 .toList();
 
         if (agentIds.isEmpty()) {
-            log.warn("Nenhum idCallRote válido encontrado. Nenhuma chamada à API será feita.");
             return;
         }
         List<String> agentsCleaned = agentIds.stream()
@@ -145,7 +138,6 @@ public class CollabParams {
             pausesData = pausesFuture.get();
             removedsData = removedsFuture.get();
         } catch (Exception e) {
-            log.error("Erro ao buscar dados de eventos: {}", e.getMessage());
             return;
         }
 
@@ -163,7 +155,6 @@ public class CollabParams {
                 agentId = agentId != null && agentId.startsWith("0") ? agentId.substring(1) : agentId;
 
                 if (agentId == null) {
-                    log.warn("idCallRote nulo para o colaborador: {}", pc.getNome());
                     return; // Continua para o próximo colaborador
                 }
 
@@ -204,7 +195,6 @@ public class CollabParams {
 
         // Desliga o executor de threads
         executor.shutdown();
-        log.info("Dados de eventos processados para {} colaboradores.", projectCollaborators.size());
     }
 
 
@@ -233,16 +223,13 @@ public class CollabParams {
                 .build();
 
         try {
-            log.info("Consultando evento {} para {} agentes...", eventName, agentIds.size());
             Map<String, Map<String, EventDetails>> response = apiColabData.consult(request);
             if (response.isEmpty()) {
-                log.error("Nenhum dado retornado para {} - IDs: {}", response, agentIds);
                 return Collections.emptyMap();
             }
 
             return response;
         } catch (Exception e) {
-            log.error("Erro ao consultar o evento {} na API: {}", eventName, e.getMessage());
             return Collections.emptyMap();
         }
     }

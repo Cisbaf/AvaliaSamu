@@ -11,14 +11,12 @@ import com.avaliadados.repository.ProjetoRepository;
 import com.avaliadados.service.utils.CollabParams;
 import com.avaliadados.service.utils.SheetProcessingService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProjectCollabService {
@@ -51,6 +49,7 @@ public class ProjectCollabService {
                 .parametros(new com.avaliadados.model.params.NestedScoringParameters())
                 .medicoRole(medicoRole)
                 .shiftHours(dto.getShiftHours())
+                .idCallRote(collab.getIdCallRote())
                 .build();
 
         sheetProcessingService
@@ -103,6 +102,7 @@ public class ProjectCollabService {
                         .pontuacao(pc.getPontuacao())
                         .criticos(pc.getCriticos())
                         .points(pc.getPoints())
+                        .idCallRote(pc.getIdCallRote())
                         .build()
         ).toList();
     }
@@ -114,8 +114,6 @@ public class ProjectCollabService {
             ProjectCollabRequest dto,
             boolean wasEdited
     ) {
-        log.info("Atualizando colaborador [{}] no projeto [{}] (wasEdited = {})", dto.getCollaboratorId(), projectId, wasEdited);
-        log.info("Dados do colaborador: {}", dto);
 
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
@@ -129,8 +127,6 @@ public class ProjectCollabService {
                 );
 
         if (existsNoProjeto) {
-            log.warn("Colaborador com nome [{}] e médicoRole [{}] já existe no projeto [{}].",
-                    dto.getNome(), dto.getMedicoRole(), projectId);
             throw new RuntimeException("Colaborador com mesmo nome e médicoRole já existe no projeto.");
         }
 
@@ -155,6 +151,7 @@ public class ProjectCollabService {
                     pc.setMedicoRole(Optional.ofNullable(dto.getMedicoRole()).orElse(MedicoRole.NENHUM));
                     Optional.ofNullable(dto.getShiftHours())
                             .ifPresent(pc::setShiftHours);
+                    Optional.ofNullable(dto.getIdCallRote()).ifPresent(pc::setIdCallRote);
 
                     pc.setWasEdited(wasEdited || pc.getWasEdited());
                     Optional.ofNullable(dto.getSaidaVtr())
