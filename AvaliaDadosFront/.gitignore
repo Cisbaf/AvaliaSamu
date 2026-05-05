@@ -1,6 +1,6 @@
-.next/
 node_modules
-private-folder-alias.json
-folder-alias.json
+dist
 .env
-.idea/
+.vscode
+.idea
+

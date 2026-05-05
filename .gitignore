@@ -1,4 +1,13 @@
+node_modules
+.next
+dist
+.env
+
+# IDEs
+.vscode
+.idea
+
+# arquivos específicos
 avalia_samu/src/components/Vazio.tsx
 Vazio.tsx
-.idea
 docker-compose.yml

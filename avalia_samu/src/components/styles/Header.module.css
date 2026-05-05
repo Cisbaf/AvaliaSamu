@@ -1,0 +1,67 @@
+.header {
+  padding: 0 20px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  border-bottom: 2px solid rgb(214, 213, 213);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  background: white;
+}
+
+.logoLink {
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  color: black;
+  font-size: 24px;
+  text-decoration: none;
+}
+
+
+.logoLink:hover {
+  transform: scale(1.15);
+  transition: transform 0.2s ease-in-out;
+}
+
+.buttonsContainer {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.addButton {
+  background-color: #1976d2 !important;
+  padding: 10px 20px !important;
+}
+
+.collaboratorButton {
+  background-color: #1976d2 !important;
+  padding: 10px 20px !important;
+}
+
+.addButton:hover {
+  background-color: #1565c0 !important;
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 0 10px;
+    height: 50px;
+  }
+
+  .logoLink {
+    font-size: 20px;
+  }
+
+  .buttonsContainer {
+    gap: 10px;
+  }
+
+  .addButton,
+  .collaboratorButton {
+    padding: 8px 15px !important;
+    font-size: 0.875rem !important;
+  }
+}

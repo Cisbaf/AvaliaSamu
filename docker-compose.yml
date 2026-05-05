@@ -1,0 +1,62 @@
+services:
+
+  # Banco de dados PostgreSQL
+  postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: avaliacao
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data 
+    networks:
+      - avaliacao-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d avaliacao"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Banco de dados MongoDB
+  mongo:
+    image: mongo:latest
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: admin
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - avaliacao-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Interface web para MongoDB (opcional)
+  mongo-express:
+    image: mongo-express:latest
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_SERVER: mongo
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: admin
+    depends_on:
+      - mongo
+    networks:
+      - avaliacao-network
+
+networks:
+  avaliacao-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
