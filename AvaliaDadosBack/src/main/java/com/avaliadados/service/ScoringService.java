@@ -1,0 +1,180 @@
+package com.avaliadados.service;
+
+import com.avaliadados.model.params.NestedScoringParameters;
+import com.avaliadados.model.params.ScoringRule;
+import com.avaliadados.model.params.ScoringSectionParams;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+public class ScoringService {
+
+    private final ConcurrentHashMap<String, Integer> ruleCache = new ConcurrentHashMap<>();
+
+    public void invalidateCache() {
+        ruleCache.clear();
+    }
+
+    public Map<String, Integer> calculateCollaboratorScore(
+            String role,
+            String medicRole,
+            Long durationSeconds,
+            Long criticos,
+            Integer removidos,
+            Integer removidosLider,
+            Long pausaMensalSeconds,
+            Long saidaVtrSeconds,
+            NestedScoringParameters params
+    ) {
+        Map<String, Integer> points = new HashMap<>();
+        if (params == null || role == null) {
+            throw new IllegalArgumentException("Parâmetros nulos: role= " + role + " , params= " + params);
+        }
+
+        ScoringSectionParams sectionParams = switch (role) {
+            case "TARM"   -> params.getTarm();
+            case "FROTA"  -> params.getFrota();
+            case "MEDICO" -> params.getMedico();
+            default       -> null;
+        };
+        ScoringSectionParams colabParams = params.getColab();
+
+        int totalScore = 0;
+
+        switch (role) {
+            case "TARM" -> {
+                if (sectionParams != null)
+                    totalScore += calculateTarmScore(durationSeconds, removidos, sectionParams, points);
+            }
+            case "FROTA" -> {
+                if (sectionParams != null)
+                    totalScore += calculateFrotaScore(durationSeconds, pausaMensalSeconds, saidaVtrSeconds, sectionParams, points);
+            }
+            case "MEDICO" -> {
+                if (sectionParams != null)
+                    totalScore += calculateMedicoScore(medicRole, durationSeconds, criticos, removidos, removidosLider, sectionParams, points);
+            }
+        }
+
+        if (colabParams != null)
+            totalScore += calculateColabPausasScore(pausaMensalSeconds, colabParams, points);
+
+        points.put("Total", totalScore);
+        return points;
+    }
+
+    private int calculateTarmScore(Long duration, Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
+        int score = calculateRemovidos(removidos, params, points);
+        if (duration != null && duration > 0 && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
+            int pt = matchDurationRule(duration, params.getRegulacao());
+            score += pt;
+            points.put("Regulacao", pt);
+        }
+        return score;
+    }
+
+    private int calculateFrotaScore(Long durationRegulacao, Long pausa, Long durationSaidaVtr,
+                                    ScoringSectionParams params, Map<String, Integer> points) {
+        int score = 0;
+        if (durationRegulacao != null && durationRegulacao > 0
+                && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
+            int pt = matchDurationRule(durationRegulacao, params.getRegulacao());
+            score += pt;
+            points.put("Regulacao", pt);
+        }
+        if (durationSaidaVtr != null && durationSaidaVtr > 0
+                && params.getSaidaVtr() != null && !params.getSaidaVtr().isEmpty()) {
+            int pt = matchDurationRule(durationSaidaVtr, params.getSaidaVtr());
+            score += pt;
+            points.put("SaidaVTR", pt);
+        }
+        if (pausa != null && pausa > 0
+                && params.getPausas() != null && !params.getPausas().isEmpty()) {
+            int pt = matchDurationRule(pausa, params.getPausas());
+            score += pt;
+            points.put("Pausas", pt);
+        }
+        return score;
+    }
+
+    private int calculateColabPausasScore(Long pausaSeconds, ScoringSectionParams colabParams, Map<String, Integer> points) {
+        if (pausaSeconds == null || pausaSeconds <= 0
+                || colabParams.getPausas() == null || colabParams.getPausas().isEmpty()) return 0;
+        int pt = matchDurationRule(pausaSeconds, colabParams.getPausas());
+        points.put("Pausas", pt);
+        return pt;
+    }
+
+    private int calculateMedicoScore(String medicRole, Long duration, Long criticos,
+                                     Integer removidos, Integer removidosLider,
+                                     ScoringSectionParams params, Map<String, Integer> points) {
+        int score = 0;
+        switch (medicRole) {
+            case "LIDER" -> {
+                if (criticos != null && criticos > 0
+                        && params.getRegulacaoLider() != null && !params.getRegulacaoLider().isEmpty()) {
+                    int pt = matchDurationRule(criticos, params.getRegulacaoLider());
+                    score += pt;
+                    points.put("Criticos", pt);
+                }
+                if (removidosLider != null && removidosLider > 0
+                        && params.getRemovidosLider() != null && !params.getRemovidosLider().isEmpty()) {
+                    int pt = matchRemovidosRule(removidosLider, params.getRemovidosLider());
+                    score += pt;
+                    points.put("RemovidosLider", pt);
+                }
+            }
+            case "REGULADOR" -> {
+                if (duration != null && duration > 0
+                        && params.getRegulacao() != null && !params.getRegulacao().isEmpty()) {
+                    int pt = matchDurationRule(duration, params.getRegulacao());
+                    score += pt;
+                    points.put("Regulacao", pt);
+                }
+                if (removidos != null && removidos > 0
+                        && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
+                    int pt = matchRemovidosRule(removidos, params.getRemovidos());
+                    score += pt;
+                }
+            }
+        }
+        return score;
+    }
+
+    private int calculateRemovidos(Integer removidos, ScoringSectionParams params, Map<String, Integer> points) {
+        if (removidos != null && params.getRemovidos() != null && !params.getRemovidos().isEmpty()) {
+            int pt = matchRemovidosRule(removidos, params.getRemovidos());
+            points.put("Removidos", pt);
+            return pt;
+        }
+        return 0;
+    }
+
+    private int matchRemovidosRule(Integer value, List<ScoringRule> rules) {
+        if (value == null || value < 0 || rules == null || rules.isEmpty()) return 0;
+        String cacheKey = "removidos_" + value + "_" + rules.hashCode();
+        return ruleCache.computeIfAbsent(cacheKey, k ->
+                rules.stream()
+                        .filter(r -> r.getQuantity() != null && r.getPoints() != null && value <= r.getQuantity())
+                        .mapToInt(ScoringRule::getPoints)
+                        .max()
+                        .orElse(0)
+        );
+    }
+
+    private int matchDurationRule(Long seconds, List<ScoringRule> rules) {
+        if (seconds == null || seconds <= 0 || rules == null || rules.isEmpty()) return 0;
+        String cacheKey = "duration_" + seconds + "_" + rules.hashCode();
+        return ruleCache.computeIfAbsent(cacheKey, k ->
+                rules.stream()
+                        .filter(r -> r.getDuration() != null && r.getPoints() != null && seconds <= r.getDuration())
+                        .mapToInt(ScoringRule::getPoints)
+                        .max()
+                        .orElse(0)
+        );
+    }
+}
