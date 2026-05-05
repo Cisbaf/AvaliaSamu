@@ -1,0 +1,6 @@
+.next/
+node_modules
+private-folder-alias.json
+folder-alias.json
+.env
+.idea/
