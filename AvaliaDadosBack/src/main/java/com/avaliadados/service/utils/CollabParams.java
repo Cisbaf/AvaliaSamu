@@ -109,22 +109,10 @@ public class CollabParams {
 
         if (agentsCleaned.isEmpty()) return;
 
-        CompletableFuture<Map<String, Map<String, EventDetails>>> pausesFuture =
-                CompletableFuture.supplyAsync(() -> fetchEventData("pause", agentsCleaned, true, false, projeto));
-        CompletableFuture<Map<String, Map<String, EventDetails>>> removedsFuture =
-                CompletableFuture.supplyAsync(() -> fetchEventData("removed", agentsCleaned, false, true, projeto));
+        // Combine events into one request
+        Map<String, Map<String, EventDetails>> allData = fetchEventData(List.of("pause", "removed"), agentsCleaned, true, true, projeto);
 
-        Map<String, Map<String, EventDetails>> pausesData;
-        Map<String, Map<String, EventDetails>> removedsData;
-
-        try {
-            CompletableFuture.allOf(pausesFuture, removedsFuture).join();
-            pausesData = pausesFuture.get();
-            removedsData = removedsFuture.get();
-        } catch (Exception e) {
-            log.error("Erro ao buscar dados da API", e);
-            return;
-        }
+        if (allData.isEmpty()) return;
 
         for (Map.Entry<ProjectCollaborator, String> entry : pcToIdMap.entrySet()) {
             ProjectCollaborator pc = entry.getKey();
@@ -134,48 +122,38 @@ public class CollabParams {
 
             String agentId = rawId.replaceAll("[^0-9]", "").replaceFirst("^0+(?!$)", "");
 
-            log.info("[MATCH] colaborador={}, agentId={}, found={}",
-                    pc.getNome(), agentId, pausesData.containsKey(agentId));
-
-            if (pausesData.containsKey(agentId)) {
-                EventDetails pauseDetails = pausesData.get(agentId).get("pause");
-                if (pauseDetails != null && pauseDetails.getHistory() != null) {
-
-                    // ✅ Log todos os itens brutos antes de qualquer filtro
-                    log.info("[HISTORICO BRUTO] colaborador={}, totalItens={}",
-                            pc.getNome(), pauseDetails.getHistory().size());
-                    pauseDetails.getHistory().forEach(h ->
-                            log.info("[ITEM BRUTO] type={}, duration='{}'", h.getType(), h.getDuration())
-                    );
-
-                    long totalPauseSeconds = pauseDetails.getHistory().stream()
-                            .filter(h -> !"CONFERENCE".equals(h.getType()))
-                            .filter(h -> h.getDuration() != null && !h.getDuration().isBlank())
-                            .filter(h -> !h.getDuration().trim().startsWith("-")) // ✅ ignora negativos
-                            .mapToLong(item -> parseTimeToSeconds(item.getDuration()))
-                            .filter(s -> s > 0)
-                            .sum();
-                    Integer plantao = pc.getPlantao();
-                    if (plantao != null && plantao > 0) {
-                        log.info("[PAUSA] Colaborador={}, plantao={}, totalPauseSeconds={}, resultado={}s",
-                                pc.getNome(), plantao, totalPauseSeconds, totalPauseSeconds / plantao);
-                        pc.setPausaMensalSeconds(totalPauseSeconds / plantao);
-                    } else {
-                        pc.setPausaMensalSeconds(0L);
-                    }
-                }
-            } else {
-                log.warn("[PAUSA NÃO ENCONTRADA] colaborador={}, agentId={}", pc.getNome(), agentId);
+            Map<String, EventDetails> agentData = allData.get(agentId);
+            if (agentData == null) {
+                log.warn("[DADOS NÃO ENCONTRADOS] colaborador={}, agentId={}", pc.getNome(), agentId);
+                continue;
             }
 
-            if (removedsData.containsKey(agentId)) {
-                EventDetails removedDetails = removedsData.get(agentId).get("removed");
-                if (removedDetails != null && removedDetails.getTotal() != null) {
-                    if (pc.getMedicoRole() == MedicoRole.LIDER) {
-                        pc.setRemovidosLider(removedDetails.getTotal());
-                    } else {
-                        pc.setRemovidos(removedDetails.getTotal());
-                    }
+            // Process pauses
+            EventDetails pauseDetails = agentData.get("pause");
+            if (pauseDetails != null && pauseDetails.getHistory() != null) {
+                long totalPauseSeconds = pauseDetails.getHistory().stream()
+                        .filter(h -> !"CONFERENCE".equals(h.getType()))
+                        .filter(h -> h.getDuration() != null && !h.getDuration().isBlank())
+                        .filter(h -> !h.getDuration().trim().startsWith("-"))
+                        .mapToLong(item -> parseTimeToSeconds(item.getDuration()))
+                        .filter(s -> s > 0)
+                        .sum();
+
+                Integer plantao = pc.getPlantao();
+                if (plantao != null && plantao > 0) {
+                    pc.setPausaMensalSeconds(totalPauseSeconds / plantao);
+                } else {
+                    pc.setPausaMensalSeconds(0L);
+                }
+            }
+
+            // Process removals
+            EventDetails removedDetails = agentData.get("removed");
+            if (removedDetails != null && removedDetails.getTotal() != null) {
+                if (pc.getMedicoRole() == MedicoRole.LIDER) {
+                    pc.setRemovidosLider(removedDetails.getTotal());
+                } else {
+                    pc.setRemovidos(removedDetails.getTotal());
                 }
             }
         }
@@ -189,7 +167,7 @@ public class CollabParams {
         setDataFromApi(map, projeto);
     }
 
-    private Map<String, Map<String, EventDetails>> fetchEventData(String eventName, List<String> agentIds, boolean history, boolean total, ProjetoEntity projeto) {
+    private Map<String, Map<String, EventDetails>> fetchEventData(List<String> eventNames, List<String> agentIds, boolean history, boolean total, ProjetoEntity projeto) {
         String[] mesAno = projeto.getMonth().split("-");
         Month mesReal = Month.of(Integer.parseInt(mesAno[0]));
         Year anoReal = Year.of(Integer.parseInt(mesAno[1]));
@@ -205,22 +183,40 @@ public class CollabParams {
                 .duration_average(false)
                 .build();
 
-        ApiRequest request = ApiRequest.builder()
-                .events(List.of(eventName))
-                .agents_id(agentIds)
-                .date_rage(DateRange.builder().start(initialData).end(endData).build())
-                .options(options)
-                .build();
-
-        try {
-            Map<String, Map<String, EventDetails>> response = apiColabData.consult(request);
-            if (response.isEmpty()) {
-                return Collections.emptyMap();
-            }
-            return response;
-        } catch (Exception e) {
-            return Collections.emptyMap();
+        // Chunking agent IDs to avoid large request payloads or API timeouts
+        int chunkSize = 50;
+        List<List<String>> chunks = new ArrayList<>();
+        for (int i = 0; i < agentIds.size(); i += chunkSize) {
+            chunks.add(agentIds.subList(i, Math.min(i + chunkSize, agentIds.size())));
         }
+
+        List<CompletableFuture<Map<String, Map<String, EventDetails>>>> futures = chunks.stream()
+                .map(chunk -> CompletableFuture.supplyAsync(() -> {
+                    ApiRequest request = ApiRequest.builder()
+                            .events(eventNames)
+                            .agents_id(chunk)
+                            .date_rage(DateRange.builder().start(initialData).end(endData).build())
+                            .options(options)
+                            .build();
+                    try {
+                        return apiColabData.consult(request);
+                    } catch (Exception e) {
+                        log.error("Erro ao buscar chunk da API", e);
+                        return Collections.<String, Map<String, EventDetails>>emptyMap();
+                    }
+                }))
+                .toList();
+
+        Map<String, Map<String, EventDetails>> combinedResults = new HashMap<>();
+        for (CompletableFuture<Map<String, Map<String, EventDetails>>> future : futures) {
+            try {
+                combinedResults.putAll(future.get());
+            } catch (Exception e) {
+                log.error("Erro ao combinar resultados da API", e);
+            }
+        }
+
+        return combinedResults;
     }
 }
 

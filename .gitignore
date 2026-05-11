@@ -11,3 +11,5 @@ dist
 avalia_samu/src/components/Vazio.tsx
 Vazio.tsx
 docker-compose.yml
+folder-alias.json
+private-folder-alias.json

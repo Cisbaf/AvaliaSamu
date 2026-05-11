@@ -12,10 +12,19 @@ import java.text.Normalizer;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Service
 @Slf4j
 public class SheetsUtils {
+
+    private static final Pattern PATTERN_DAYS_HMS = Pattern.compile("\\d+\\s*d\\s*\\d{1,3}:\\d{2}:\\d{2}");
+    private static final Pattern PATTERN_DAYS_HM = Pattern.compile("\\d+\\s*d\\s*\\d{1,3}:\\d{2}");
+    private static final Pattern PATTERN_HMS = Pattern.compile("\\d{1,3}:\\d{2}:\\d{2}");
+    private static final Pattern PATTERN_HM = Pattern.compile("\\d{1,3}:\\d{2}");
+    private static final Pattern PATTERN_NUMERIC = Pattern.compile("-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?");
+    private static final Pattern PATTERN_WHITESPACE_D = Pattern.compile("\\s*d\\s*");
+    private static final Pattern PATTERN_COLON = Pattern.compile(":");
 
     public static Map<String, Integer> getColumnMapping(Row headerRow) {
         Map<String, Integer> map = new HashMap<>();
@@ -153,10 +162,10 @@ public class SheetsUtils {
 
         try {
             // Novo formato: Xd HH:mm:ss (ex: "3d 78:59:11")
-            if (timeStr.matches("\\d+\\s*d\\s*\\d{1,3}:\\d{2}:\\d{2}")) {
-                String[] dayTimeParts = timeStr.split("\\s*d\\s*");
+            if (PATTERN_DAYS_HMS.matcher(timeStr).matches()) {
+                String[] dayTimeParts = PATTERN_WHITESPACE_D.split(timeStr);
                 long days = Long.parseLong(dayTimeParts[0]);
-                String[] timeParts = dayTimeParts[1].split(":");
+                String[] timeParts = PATTERN_COLON.split(dayTimeParts[1]);
                 long hours = Long.parseLong(timeParts[0]);
                 long minutes = Long.parseLong(timeParts[1]);
                 long seconds = Long.parseLong(timeParts[2]);
@@ -166,10 +175,10 @@ public class SheetsUtils {
             }
 
             // Novo formato: Xd HH:mm (ex: "3d 78:59")
-            if (timeStr.matches("\\d+\\s*d\\s*\\d{1,3}:\\d{2}")) {
-                String[] dayTimeParts = timeStr.split("\\s*d\\s*");
+            if (PATTERN_DAYS_HM.matcher(timeStr).matches()) {
+                String[] dayTimeParts = PATTERN_WHITESPACE_D.split(timeStr);
                 long days = Long.parseLong(dayTimeParts[0]);
-                String[] timeParts = dayTimeParts[1].split(":");
+                String[] timeParts = PATTERN_COLON.split(dayTimeParts[1]);
                 long hours = Long.parseLong(timeParts[0]);
                 long minutes = Long.parseLong(timeParts[1]);
                 long total = days * 24 * 3600 + hours * 3600 + minutes * 60;
@@ -178,8 +187,8 @@ public class SheetsUtils {
             }
 
             // HH:mm:ss (permite horas com até 3 dígitos para casos como "78:59:11")
-            if (timeStr.matches("\\d{1,3}:\\d{2}:\\d{2}")) {
-                String[] parts = timeStr.split(":");
+            if (PATTERN_HMS.matcher(timeStr).matches()) {
+                String[] parts = PATTERN_COLON.split(timeStr);
                 long total = Long.parseLong(parts[0]) * 3600
                         + Long.parseLong(parts[1]) * 60
                         + Long.parseLong(parts[2]);
@@ -188,8 +197,8 @@ public class SheetsUtils {
             }
 
             // HH:mm (permite horas com até 3 dígitos)
-            if (timeStr.matches("\\d{1,3}:\\d{2}")) {
-                String[] parts = timeStr.split(":");
+            if (PATTERN_HM.matcher(timeStr).matches()) {
+                String[] parts = PATTERN_COLON.split(timeStr);
                 long total = Long.parseLong(parts[0]) * 3600
                         + Long.parseLong(parts[1]) * 60;
                 log.debug("Tempo convertido: {}s", total);
@@ -197,7 +206,7 @@ public class SheetsUtils {
             }
 
             // numérico direto (incluindo notação científica)
-            if (timeStr.matches("-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?")) {
+            if (PATTERN_NUMERIC.matcher(timeStr).matches()) {
                 double value = Double.parseDouble(timeStr);
                 long seconds;
 

@@ -197,8 +197,16 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         Map<String, List<MedicoEntity>> medicosPorNome = medicoRepo.findAll().stream()
                 .collect(Collectors.groupingBy(m -> normalizeName(m.getNome())));
 
-        // ✅ Map garante alinhamento perfeito entre pc e idCallRote
-        Map<ProjectCollaborator, String> pcToIdMap = new LinkedHashMap<>();
+        List<ProjectCollaborator> medicosNoProjeto = projeto.getCollaborators().stream()
+                .filter(pc -> "MEDICO".equals(pc.getRole()))
+                .toList();
+
+        Map<String, CollaboratorEntity> collaboratorMap = colaboradorRepository
+                .findAllById(medicosNoProjeto.stream()
+                        .map(ProjectCollaborator::getCollaboratorId)
+                        .toList())
+                .stream()
+                .collect(Collectors.toMap(CollaboratorEntity::getId, c -> c));
 
         List<SheetRow> sheetRows = sheetRowRepo.findByProjectId(projectId);
         Set<String> normalizedSheetNames = sheetRows.stream()
@@ -208,17 +216,13 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         List<String> naoEncontrados = new ArrayList<>();
 
         // Verificar médicos do projeto ausentes na planilha
-        List<ProjectCollaborator> medicosNoProjeto = projeto.getCollaborators().stream()
-                .filter(pc -> "MEDICO".equals(pc.getRole()))
-                .toList();
-
         for (ProjectCollaborator pc : medicosNoProjeto) {
-            var collabOpt = colaboradorRepository.findById(pc.getCollaboratorId());
-            if (collabOpt.isEmpty()) {
+            CollaboratorEntity collab = collaboratorMap.get(pc.getCollaboratorId());
+            if (collab == null) {
                 log.warn("⚠️ Colaborador ID {} listado no projeto mas não existe no banco!", pc.getCollaboratorId());
                 continue;
             }
-            String nomeOriginal = collabOpt.get().getNome();
+            String nomeOriginal = collab.getNome();
             String nomeNorm = normalizeName(nomeOriginal);
 
             if (!normalizedSheetNames.contains(nomeNorm)) {
@@ -240,6 +244,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 }
             }
         }
+
+        Map<ProjectCollaborator, String> pcToIdMap = new LinkedHashMap<>();
 
         // Processar registros da planilha
         for (SheetRow sr : sheetRows) {
@@ -270,9 +276,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                     pc.setWasEdited(false);
                 }
                 if (!pc.getWasEdited()) {
-                    String idCallRote = colaboradorRepository.findById(pc.getCollaboratorId())
-                            .map(CollaboratorEntity::getIdCallRote)
-                            .orElse("");
+                    CollaboratorEntity c = collaboratorMap.get(pc.getCollaboratorId());
+                    String idCallRote = (c != null && c.getIdCallRote() != null) ? c.getIdCallRote() : "";
                     pcToIdMap.put(pc, idCallRote);
                 }
             }
@@ -299,9 +304,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                             projeto.getCollaborators().add(novo);
                             return novo;
                         });
-                String idCallRote = colaboradorRepository.findById(pc.getCollaboratorId())
-                        .map(CollaboratorEntity::getIdCallRote)
-                        .orElse("");
+                CollaboratorEntity c = collaboratorMap.get(pc.getCollaboratorId());
+                String idCallRote = (c != null && c.getIdCallRote() != null) ? c.getIdCallRote() : "";
                 pcToIdMap.put(pc, idCallRote);
             }
         }
