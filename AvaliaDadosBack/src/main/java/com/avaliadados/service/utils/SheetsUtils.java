@@ -26,50 +26,6 @@ public class SheetsUtils {
     private static final Pattern PATTERN_WHITESPACE_D = Pattern.compile("\\s*d\\s*");
     private static final Pattern PATTERN_COLON = Pattern.compile(":");
 
-    public static Map<String, Integer> getColumnMapping(Row headerRow) {
-        Map<String, Integer> map = new HashMap<>();
-        for (int i = 0; i < headerRow.getLastCellNum(); i++) {
-            Cell cell = headerRow.getCell(i);
-            if (cell != null) {
-                String value = getCellStringValueForHeader(cell);
-                if (value != null && !value.isBlank()) {
-                    map.put(value, i);
-                }
-            }
-        }
-        return map;
-    }
-
-    private static String getCellStringValueForHeader(Cell cell) {
-        if (cell == null) return null;
-
-        switch (cell.getCellType()) {
-            case STRING:
-                return cell.getStringCellValue();
-
-            case NUMERIC:
-                return String.valueOf(cell.getNumericCellValue());
-
-            case BOOLEAN:
-                return String.valueOf(cell.getBooleanCellValue());
-
-            case FORMULA:
-                CellType resultType = cell.getCachedFormulaResultType();
-                switch (resultType) {
-                    case NUMERIC:
-                        return String.valueOf(cell.getNumericCellValue());
-                    case STRING:
-                        return cell.getStringCellValue();
-                    case BOOLEAN:
-                        return String.valueOf(cell.getBooleanCellValue());
-                    default:
-                        return cell.getCellFormula();
-                }
-            default:
-                return null;
-        }
-    }
-
     public static String getCellStringValue(Row row, int idx) {
         Cell cell = row.getCell(idx);
         if (cell == null) return null;
@@ -267,6 +223,9 @@ public class SheetsUtils {
         normalized = normalized.replaceAll("[^A-Z0-9 ]", " ")
                 .replaceAll(" +", " ")
                 .trim();
+
+        normalized = normalized.replaceAll("\\b(DE|DA|DO|DAS|DOS)\\b", " ");
+        normalized = normalized.replaceAll("\\s+", " ").trim();
 
         return normalized.isEmpty() ? null : normalized;
     }

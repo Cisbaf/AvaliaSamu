@@ -10,6 +10,7 @@ import com.avaliadados.model.roles.MedicoEntity;
 import com.avaliadados.repository.*;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
 import com.avaliadados.service.utils.CollabParams;
+import com.avaliadados.service.utils.SheetsUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -69,10 +70,14 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
                 if (isBlank(nomeMed) || isBlank(tempoReg)) continue;
 
-                String nomeNormPlanilha = normalize(nomeMed);
-
+                String nomeNormPlanilha = SheetsUtils.normalizeName(nomeMed);
                 List<CollaboratorEntity> encontrados = colaboradorRepository.findAll().stream()
-                        .filter(c -> normalize(c.getNome()).equals(nomeNormPlanilha))
+                        .filter(c -> {
+                            String nomeBase = SheetsUtils.normalizeName(c.getNome());
+                            if (nomeBase == null) return false;
+                            // Se for igual OU tiver mais de 85% de similaridade, a gente considera
+                            return nomeBase.equals(nomeNormPlanilha) || SheetsUtils.similarity(nomeBase, nomeNormPlanilha) > 0.85;
+                        })
                         .toList();
 
                 if (!encontrados.isEmpty()) {
