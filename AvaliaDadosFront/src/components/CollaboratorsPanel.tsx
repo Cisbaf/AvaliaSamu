@@ -196,15 +196,29 @@ export default function CollaboratorsPanel() {
         }
       );
 
-      // Processar a resposta JSON independentemente do status
-      const responseData = await response.json();
+      const responseText = await response.text();
+      let responseData: any = null;
+
+      if (responseText) {
+        try {
+          responseData = JSON.parse(responseText);
+        } catch {
+          responseData = responseText;
+        }
+      }
+
+      const parsedMessage = Array.isArray(responseData)
+        ? responseData[0]
+        : typeof responseData === 'object'
+          ? responseData?.message || responseData?.error || responseData?.details || null
+          : responseData;
 
       if (!response.ok) {
-        throw new Error(responseData.message || `Erro ${response.status}: ${response.statusText}`);
+        throw new Error(parsedMessage || `Erro ${response.status}: ${response.statusText}`);
       }
 
       // Verificar se a resposta contém mensagens de alerta
-      if (responseData.length > 0) {
+      if (Array.isArray(responseData) && responseData.length > 0) {
         setUploadWarnings(responseData);
         setIsWarningModalOpen(true);
       }

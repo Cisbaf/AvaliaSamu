@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
+import FormData from "form-data";
+
+// Polyfill: em algumas versões/runtimes do Node, `File` não está exposto
+// globalmente (fica só atrás de node:buffer, com warning "experimental").
+// O parser interno de request.formData() do Next/undici espera
+// globalThis.File existir; sem isso, o parsing falha com "File is not defined".
+if (typeof (globalThis as any).File === "undefined") {
+    try {
+        const { File } = require("node:buffer");
+        if (File) {
+            (globalThis as any).File = File;
+        }
+    } catch {
+        // Node muito antigo sem buffer.File; segue sem polyfill.
+    }
+}
 
 const API_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL)?.replace(/\/$/, "");
 
@@ -91,16 +107,34 @@ async function handleProxy(request: NextRequest) {
         let axiosResponse;
 
         if (contentType && contentType.includes("multipart/form-data")) {
-            const formData = await request.formData();
-            const headers = Object.fromEntries(request.headers.entries());
-            delete headers['content-type'];
+            const incomingFormData = await request.formData();
+            const outgoingFormData = new FormData();
+
+            for (const [key, value] of incomingFormData.entries()) {
+                const isFileLike =
+                    typeof value === "object" &&
+                    value !== null &&
+                    typeof (value as any).arrayBuffer === "function" &&
+                    "name" in value;
+
+                if (isFileLike) {
+                    const fileValue = value as unknown as { arrayBuffer: () => Promise<ArrayBuffer>; name: string; type?: string };
+                    const buffer = Buffer.from(await fileValue.arrayBuffer());
+                    outgoingFormData.append(key, buffer, {
+                        filename: fileValue.name,
+                        contentType: fileValue.type || "application/octet-stream",
+                    } as any);
+                } else {
+                    outgoingFormData.append(key, value as string);
+                }
+            }
 
             axiosResponse = await axios.request({
                 url: targetUrl,
                 method: request.method,
-                data: formData,
+                data: outgoingFormData,
                 headers: {
-                    ...headers,
+                    ...outgoingFormData.getHeaders(),
                     'Accept': 'application/json',
                 },
             });
