@@ -1,4 +1,5 @@
 'use client';
+import type { ReactNode } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import { ProjectProvider } from '../context/ProjectContext';
 import theme from '../theme/theme';
@@ -8,7 +9,7 @@ import { Header } from '@/components/Header';
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <html lang="pt-BR" >

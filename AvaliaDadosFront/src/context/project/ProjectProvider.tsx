@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { useProjectActions } from './hooks/useProjectActions';
 import { useGlobalCollaborators } from './hooks/useGlobalCollaborators';
 import { useProjectCollaborators } from './hooks/useProjectCollaborators';
@@ -10,7 +10,7 @@ import { GlobalCollaborator } from '@/types/project';
 const ProjectContext = createContext<ProjectContextType | null>(null);
 
 
-export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     const projectState = useProjectActions();
     const globalState = useGlobalCollaborators();
     const projectCollabState = useProjectCollaborators();

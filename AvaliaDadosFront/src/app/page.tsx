@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -73,7 +73,7 @@ export default function HomePage() {
     }
   };
 
-  const handleOpenDeleteDialog = (projectId: string, e: React.MouseEvent) => {
+  const handleOpenDeleteDialog = (projectId: string, e: MouseEvent) => {
     e.stopPropagation();
     setProjectToDelete(projectId);
     setDeleteConfirmationOpen(true);

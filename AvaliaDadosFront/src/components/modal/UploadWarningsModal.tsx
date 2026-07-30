@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -26,12 +26,12 @@ interface UploadWarningsModalProps {
     onEditCollaborator: (warning: string) => void;
 }
 
-const UploadWarningsModal: React.FC<UploadWarningsModalProps> = ({
+export default function UploadWarningsModal({
     open,
     warnings,
     onClose,
     onEditCollaborator
-}) => {
+}: UploadWarningsModalProps) {
     const [localWarnings, setLocalWarnings] = useState<string[]>([]);
 
     useEffect(() => {
@@ -110,6 +110,4 @@ const UploadWarningsModal: React.FC<UploadWarningsModalProps> = ({
             </DialogActions>
         </Dialog>
     );
-};
-
-export default UploadWarningsModal;
+}

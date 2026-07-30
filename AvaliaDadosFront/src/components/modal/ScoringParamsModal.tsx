@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -22,6 +22,7 @@ import {
 } from '@mui/material';
 import { NestedScoringParameters, ScoringRule, ScoringSectionParams } from '@/types/project';
 import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
+import { formatSecondsToTime, parseTimeInputToSeconds } from '../utils';
 
 interface ScoringParamsModalProps {
   open: boolean;
@@ -30,7 +31,7 @@ interface ScoringParamsModalProps {
   initialParams?: NestedScoringParameters;
 }
 
-function TabPanel({ children, value, index }: { children?: React.ReactNode; value: number; index: number }) {
+function TabPanel({ children, value, index }: { children?: ReactNode; value: number; index: number }) {
   return (
     <div hidden={value !== index}>
       {value === index && <Box sx={{ p: 2 }}>{children}</Box>}
@@ -93,11 +94,6 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
     });
   };
 
-  function timeStringToSeconds(val: string): number {
-    const [h = "0", m = "0", s = "0"] = val.split(":");
-    return Number(h) * 3600 + Number(m) * 60 + Number(s);
-  }
-
   function normalizeParams(params: NestedScoringParameters): NestedScoringParameters {
     const sections: (keyof NestedScoringParameters)[] = ["colab", "tarm", "frota", "medico"];
     const normalized = JSON.parse(JSON.stringify(params)) as NestedScoringParameters;
@@ -122,7 +118,7 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
             quantity: r.quantity !== undefined ? r.quantity : undefined,
             points: r.points !== undefined ? r.points : 0,
             duration: r.duration !== undefined
-              ? (typeof r.duration === "string" ? timeStringToSeconds(r.duration) : r.duration)
+              ? (typeof r.duration === "string" ? parseTimeInputToSeconds(r.duration) : r.duration)
               : 0
           }));
         }
@@ -138,14 +134,6 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
     columns: string[]
   ) => {
     const arr = params[section][field] as ScoringRule[];
-    function formatTime(seconds: number) {
-      const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-      const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-      const s = (seconds % 60).toString().padStart(2, '0');
-      return `${h}:${m}:${s}`;
-    }
-
-
 
     return (
       <>
@@ -177,7 +165,7 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
                           size="small"
                           type={isDur ? 'time' : 'number'}
                           inputProps={isDur ? { step: 1 } : {}}
-                          value={isDur && typeof val === 'number' ? formatTime(val) : String(val)}
+                          value={isDur && typeof val === 'number' ? formatSecondsToTime(val) : String(val)}
                           onChange={e =>
                             handleParamChange(section, field, i, fieldKey, e.target.value)
                           }

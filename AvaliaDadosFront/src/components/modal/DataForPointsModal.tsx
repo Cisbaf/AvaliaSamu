@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type ChangeEvent } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -13,6 +13,7 @@ import styles from "../styles/Modal.module.css"
 import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
 import { CombinedCollaboratorData } from '../CollaboratorsPanel';
 import { UpdateProjectCollabDto, GlobalCollaborator, ShiftHours, MedicoRole } from '@/types/project';
+import { formatSecondsToTime, parseTimeInputToSeconds } from '../utils';
 
 interface DataForPointsModalProps {
     open: boolean;
@@ -65,28 +66,6 @@ export default function DataForPointsModal({
     const showSpecificFields = role && ['TARM', 'FROTA', 'MEDICO'].includes(role);
 
 
-    function formatTime(seconds: number): string {
-        if (!seconds && seconds !== 0) return '00:00:00';
-
-        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-        const s = (seconds % 60).toString().padStart(2, '0');
-
-        return `${h}:${m}:${s}`;
-    }
-
-    function timeStringToSeconds(val: string): number {
-        if (!val) return 0;
-
-        const cleanVal = val.replace(/\D/g, '').padEnd(6, '0');
-
-        const h = parseInt(cleanVal.substring(0, 2)) || 0;
-        const m = parseInt(cleanVal.substring(2, 4)) || 0;
-        const s = parseInt(cleanVal.substring(4, 6)) || 0;
-
-        return (h * 3600) + (m * 60) + s;
-    }
-
     useEffect(() => {
         if (initialData) {
             setFormData({
@@ -102,14 +81,14 @@ export default function DataForPointsModal({
     }, [initialData]);
 
     const handleChangeTime = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtr' | 'criticos') =>
-        (e: React.ChangeEvent<HTMLInputElement>) => {
+        (e: ChangeEvent<HTMLInputElement>) => {
             const timeValue = e.target.value;
-            const seconds = timeStringToSeconds(timeValue);
+            const seconds = parseTimeInputToSeconds(timeValue);
             setFormData(prev => ({ ...prev, [field]: seconds }));
         };
 
     const handleChangeNumber = (field: keyof Pick<FormData, 'criticos' | 'removidos' | 'points' | 'removidosLider'>) =>
-        (e: React.ChangeEvent<HTMLInputElement>) => {
+        (e: ChangeEvent<HTMLInputElement>) => {
             const value = Number(e.target.value);
             setFormData(prev => ({ ...prev, [field]: isNaN(value) ? 0 : value }));
         };
@@ -181,7 +160,7 @@ export default function DataForPointsModal({
                                         fullWidth
                                         InputLabelProps={{ shrink: true }}
                                         inputProps={{ step: 1 }}
-                                        value={formatTime(formData.durationSeconds)}
+                                        value={formatSecondsToTime(formData.durationSeconds)}
                                         onChange={handleChangeTime('durationSeconds')}
                                     />
                                 </Grid>
@@ -195,7 +174,7 @@ export default function DataForPointsModal({
                                         fullWidth
                                         InputLabelProps={{ shrink: true }}
                                         inputProps={{ step: 1 }}
-                                        value={formatTime(formData.criticos)}
+                                        value={formatSecondsToTime(formData.criticos)}
                                         onChange={handleChangeTime('criticos')}
                                     />
                                 </Grid>
@@ -232,7 +211,7 @@ export default function DataForPointsModal({
                                         fullWidth
                                         InputLabelProps={{ shrink: true }}
                                         inputProps={{ step: 1 }}
-                                        value={formatTime(formData.saidaVtr)}
+                                        value={formatSecondsToTime(formData.saidaVtr)}
                                         onChange={handleChangeTime('saidaVtr')}
                                     />
                                 </Grid>
@@ -247,7 +226,7 @@ export default function DataForPointsModal({
                             fullWidth
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ step: 1 }}
-                            value={formatTime(formData.pausaMensalSeconds)}
+                            value={formatSecondsToTime(formData.pausaMensalSeconds)}
                             onChange={handleChangeTime('pausaMensalSeconds')}
                             placeholder="HH:MM:SS"
                         />

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     Table,
     TableBody,
@@ -21,8 +21,7 @@ import styles from '@/components/styles/CollaboratorsPanel.module.css';
 import EditIcon from '@mui/icons-material/Edit';
 import CollaboratorModal from '@/components/modal/AddCollaboratorModal';
 import api, { deleteGlobalCollaboratorApi } from '@/lib/api';
-import { GlobalCollaborator, Collaborator } from "@/types/project"
-import { useProjects } from '@/context/ProjectContext';
+import { GlobalCollaborator } from "@/types/project"
 import { Delete } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import ConfirmationDialog from '@/components/modal/ConfirmationModal';
@@ -38,8 +37,6 @@ export default function CollaboratorsPage() {
     const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
     const [collaboratorToDelete, setCollaboratorToDelete] = useState<string | null>(null);
 
-    const { } = useProjects();
-
     const memoizedRoles = useMemo(() => {
         const roles = collaborators
             .map(c => c.role)
@@ -54,7 +51,7 @@ export default function CollaboratorsPage() {
 
 
 
-    const loadCollaborators = async () => {
+    const loadCollaborators = useCallback(async () => {
         try {
             setLoading(true);
             const response = await api.get('/collaborator');
@@ -66,11 +63,11 @@ export default function CollaboratorsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         loadCollaborators();
-    }, []);
+    }, [loadCollaborators]);
 
     const handleDeleteClick = useCallback((id: string) => {
         setCollaboratorToDelete(id);
@@ -93,7 +90,7 @@ export default function CollaboratorsPage() {
             setDeleteConfirmationOpen(false);
             setCollaboratorToDelete(null);
         }
-    }, [collaboratorToDelete, deleteGlobalCollaboratorApi, loadCollaborators]);
+    }, [collaboratorToDelete, loadCollaborators]);
 
     const handleCloseDeleteDialog = useCallback(() => {
         setDeleteConfirmationOpen(false);

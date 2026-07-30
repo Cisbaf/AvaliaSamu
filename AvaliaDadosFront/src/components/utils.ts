@@ -28,6 +28,13 @@ export const parseTimeToSeconds = (timeString: string): number | null => {
   return hours * 3600 + minutes * 60 + seconds;
 };
 
+export const parseTimeInputToSeconds = (value: string): number => {
+  if (!value) return 0;
+
+  const [hours = '0', minutes = '0', seconds = '0'] = value.split(':');
+  return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+};
+
 // Formata segundos totais para string HH:MM:SS
 export const formatSecondsToTime = (totalSeconds: number | null | undefined): string => {
   if (totalSeconds === null || typeof totalSeconds === 'undefined' || isNaN(totalSeconds) || totalSeconds < 0) {

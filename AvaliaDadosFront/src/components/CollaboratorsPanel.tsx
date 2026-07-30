@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, type ChangeEvent } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TextField, Select, MenuItem, IconButton, Button, CircularProgress, Alert,
@@ -17,6 +17,7 @@ import DataForPointsModal from './modal/DataForPointsModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import UploadWarningsModal from './modal/UploadWarningsModal';
+import { formatSecondsToTime } from './utils';
 
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
@@ -50,7 +51,6 @@ export default function CollaboratorsPanel() {
   });
 
 
-  const [scoringParams, setScoringParams] = useState<NestedScoringParameters>();
   const [editingCollaboratorInitialData, setEditingCollaboratorInitialData] = useState<CombinedCollaboratorData | undefined>();
   const [editingCollaboratorPointsData, setEditingCollaboratorPointsData] = useState<CombinedCollaboratorData | undefined>();
 
@@ -78,12 +78,6 @@ export default function CollaboratorsPanel() {
       updateState({ medicoRole: Array.from(new Set(inProject.map(c => c.medicoRole))).filter((mr): mr is MedicoRole => mr !== undefined && mr !== ("NENHUM" as MedicoRole)) });
     }
   }, [projectCollaborators, selectedProject]);
-
-  useEffect(() => {
-    if (currentProject?.parameters) {
-      setScoringParams(currentProject.parameters);
-    }
-  }, [currentProject]);
 
   // Dados processados
   const combinedCollaborators = useMemo(() => {
@@ -176,7 +170,7 @@ export default function CollaboratorsPanel() {
     }
   }, [selectedProject, addCollaboratorToProject, fetchProjectCollaborators, globalCollaborators]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.length || !selectedProject) return;
 
     updateState({ loading: true, error: null });
@@ -272,7 +266,7 @@ export default function CollaboratorsPanel() {
           err.response?.data?.message ||
           err.message ||
           'Erro ao salvar colaborador';
-        updateState(errorMessage);
+        updateState({ error: errorMessage });
       }
     }
   };
@@ -285,7 +279,6 @@ export default function CollaboratorsPanel() {
     try {
       await updateProjectParameters(selectedProject, params);
       await fetchProjectCollaborators(selectedProject);
-      setScoringParams(params);
       updateState({ scoringParamsModalOpen: false });
     } catch (err: any) {
       updateState({ error: err.response?.data?.message || 'Falha ao salvar parâmetros' });
@@ -293,16 +286,6 @@ export default function CollaboratorsPanel() {
       updateState({ panelLoading: false });
     }
   };
-
-  function formatTime(seconds: number): string {
-    if (!seconds && seconds !== 0) return '00:00:00';
-
-    const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-
-    return `${h}:${m}:${s}`;
-  }
 
   const handleExport = () => {
     if (!combinedCollaborators || combinedCollaborators.length === 0) {
@@ -336,22 +319,22 @@ export default function CollaboratorsPanel() {
             ? `${c.role} (${c.medicoRole} - ${c.shiftHours})`
             : c.role,
           'Nome': c.nome,
-          'Pausa Mensal': formatTime(c.pausaMensal!),
+          'Pausa Mensal': formatSecondsToTime(c.pausaMensal),
           'Pausa Pontos': c.points?.['Pausas'] || 0,
 
         };
 
         if (sheetKey.startsWith("FROTA")) {
-          baseData['Saída VTR'] = formatTime(c.saidaVtr!);
+          baseData['Saída VTR'] = formatSecondsToTime(c.saidaVtr);
           baseData['Saída VTR Pontos'] = c.points?.['SaidaVTR'] || 0;
         }
 
         if (c.role === 'MEDICO' && c.medicoRole === MedicoRole.LIDER) {
-          baseData['Críticos'] = formatTime(c.criticos!);
+          baseData['Críticos'] = formatSecondsToTime(c.criticos);
           baseData['Críticos Pontos'] = c.points?.['Criticos'] || 0;
         }
         if (c.medicoRole !== MedicoRole.LIDER) {
-          baseData['Regulação'] = formatTime(c.duration!);
+          baseData['Regulação'] = formatSecondsToTime(c.duration);
           baseData['Regulação Pontos'] = c.points?.['Regulacao'] || 0;
         }
         if (c.medicoRole === MedicoRole.LIDER) {
@@ -420,7 +403,6 @@ export default function CollaboratorsPanel() {
 
           <div className={styles.actionButtons}>
             <Button
-              className={styles.chromeButton}
               variant="contained"
               color="warning"
               startIcon={<Add />}
@@ -432,7 +414,6 @@ export default function CollaboratorsPanel() {
             </Button>
 
             <Button
-              className={styles.chromeButton}
               variant="contained"
               color="warning"
               onClick={() => updateState({ scoringParamsModalOpen: true })}
@@ -443,7 +424,6 @@ export default function CollaboratorsPanel() {
             </Button>
 
             <Button
-              className={styles.chromeButton}
               variant="contained"
               color="success"
               component="label"
@@ -454,7 +434,6 @@ export default function CollaboratorsPanel() {
               <input type="file" hidden accept=".xlsx,.xls" onChange={handleUpload} />
             </Button>
             <Button
-              className={styles.chromeButton}
               variant="contained"
               color="success"
               component="label"

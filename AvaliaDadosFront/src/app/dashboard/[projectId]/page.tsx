@@ -8,7 +8,12 @@ import { useParams } from 'next/navigation';
 
 export default function DashboardPage() {
   const params = useParams();
-  const projectId = typeof params?.projectId === 'string' ? params.projectId : Array.isArray(params?.projectId) ? params.projectId[0] : ''; const { projects, setSelectedProject } = useProjects();
+  const projectId = typeof params?.projectId === 'string'
+    ? params.projectId
+    : Array.isArray(params?.projectId)
+      ? params.projectId[0]
+      : '';
+  const { projects, setSelectedProject } = useProjects();
   useEffect(() => {
     if (typeof projectId === 'string') {
       setSelectedProject(projectId);

@@ -31,20 +31,6 @@
   align-items: center;
 }
 
-.addButton {
-  background-color: #1976d2 !important;
-  padding: 10px 20px !important;
-}
-
-.collaboratorButton {
-  background-color: #1976d2 !important;
-  padding: 10px 20px !important;
-}
-
-.addButton:hover {
-  background-color: #1565c0 !important;
-}
-
 @media (max-width: 768px) {
   .header {
     padding: 0 10px;
@@ -59,9 +45,4 @@
     gap: 10px;
   }
 
-  .addButton,
-  .collaboratorButton {
-    padding: 8px 15px !important;
-    font-size: 0.875rem !important;
-  }
 }

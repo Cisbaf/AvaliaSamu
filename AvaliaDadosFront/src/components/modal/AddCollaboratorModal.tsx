@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -30,7 +30,6 @@ import {
     createGlobalCollaboratorApi,
     updateGlobalCollaboratorApi
 } from '@/lib/api';
-import { id } from 'date-fns/locale';
 
 interface CollaboratorModalProps {
     open: boolean;

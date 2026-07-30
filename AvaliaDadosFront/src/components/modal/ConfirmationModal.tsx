@@ -1,4 +1,3 @@
-import React from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -19,7 +18,7 @@ interface ConfirmationDialogProps {
     confirmColor?: 'primary' | 'secondary' | 'error' | 'success' | 'info' | 'warning';
 }
 
-const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
+export default function ConfirmationDialog({
     open,
     onClose,
     onConfirm,
@@ -28,7 +27,7 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     cancelText = "Cancelar",
     confirmText = "Confirmar",
     confirmColor = "error"
-}) => {
+}: ConfirmationDialogProps) {
     return (
         <Dialog open={open} onClose={onClose}>
             <DialogTitle>{title}</DialogTitle>
@@ -43,6 +42,4 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             </DialogActions>
         </Dialog>
     );
-};
-
-export default ConfirmationDialog;
+}
