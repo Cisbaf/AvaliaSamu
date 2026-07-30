@@ -7,8 +7,6 @@ import com.avaliadados.service.ProjectCollabService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -40,14 +38,14 @@ public class ProjectCollabController {
 
     @PutMapping("/{collaboratorId}")
     @Operation(summary = "Atualiza um colaborador do projeto")
-    public ResponseEntity<ProjetoEntity> update(@PathVariable String projectId, @PathVariable String collaboratorId, @RequestBody ProjectCollabRequest dto, @RequestParam  Boolean wasEdited) {
+    public ResponseEntity<ProjetoEntity> update(@PathVariable String projectId, @PathVariable String collaboratorId, @RequestBody ProjectCollabRequest dto, @RequestParam Boolean wasEdited) {
 
         return ResponseEntity.ok(service.updateProjectCollaborator(
-                        projectId,
-                        collaboratorId,
-                        dto,
-                        wasEdited
-                )
+                projectId,
+                collaboratorId,
+                dto,
+                wasEdited
+        )
         );
     }
 

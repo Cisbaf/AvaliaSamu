@@ -171,9 +171,6 @@ public class ProjectCollabService {
                         pc.setPontuacao(pontos);
                     }
 
-                    // FIX: removida chamada a syncCollaboratorData() daqui.
-                    // Ela disparava findByCollaboratorsCollaboratorId + saveAll em todos os projetos
-                    // do colaborador a cada update — o projetoRepo.save(projeto) abaixo já persiste tudo.
                 });
 
         return projetoRepo.save(projeto);

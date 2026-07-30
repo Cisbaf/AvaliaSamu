@@ -2,16 +2,11 @@ package com.avaliadados.model.dto;
 
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
-import com.mongodb.lang.Nullable;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 import java.io.Serializable;
 
-
-/**
- * DTO for {@link com.avaliadados.model.CollaboratorEntity}
- */
 public record CollaboratorRequest(
         String id,
         @NotBlank(message = "Campo nome é obrigatorio")
@@ -26,9 +21,7 @@ public record CollaboratorRequest(
         @NotBlank
         String role,
 
-        @Nullable
         MedicoRole medicoRole,
-        @Nullable
         ShiftHours shiftHours
 
 )

@@ -37,9 +37,6 @@ public class ProjetosService {
 
             p.setParameters(newParams);
 
-            // FIX: invalida o cache antes de recalcular — garante que as novas regras sejam usadas
-            // O cache usa rules.hashCode() como chave; após atualizar parâmetros o hashCode muda
-            // e entradas antigas nunca seriam limpas, tornando o cache ineficaz para as novas regras
             scoringService.invalidateCache();
 
             p.getCollaborators().forEach(collab -> recalculateCollaboratorPoints(collab, p));

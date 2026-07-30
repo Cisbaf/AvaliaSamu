@@ -14,8 +14,8 @@ import java.util.List;
 @AllArgsConstructor
 public class EventDetails {
     private List<HistoryItem> history;
-    private Integer total; // Mapeia o campo "total" que pode ser um número.
+    private Integer total;
 
-    @JsonProperty("duration_average") // Garante o mapeamento correto do JSON para o campo
+    @JsonProperty("duration_average")
     private String durationAverage;
 }

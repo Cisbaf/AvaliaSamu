@@ -9,9 +9,6 @@ import lombok.*;
 import java.io.Serializable;
 import java.util.Map;
 
-/**
- * DTO for {@link CollaboratorRequest}
- */
 @Getter
 @Setter
 @NoArgsConstructor

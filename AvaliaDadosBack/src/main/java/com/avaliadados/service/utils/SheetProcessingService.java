@@ -24,28 +24,20 @@ public class SheetProcessingService {
 
     private final SheetRowRepository rowRepository;
 
-    /**
-     * Tenta buscar a SheetRow para esse colaborador:
-     * 1) procura por (collaboratorId, projectId)
-     * 2) se não achar, varre todas as linhas do projeto e tenta associar por similaridade de nome
-     */
     public Optional<SheetRow> findAndAssociateSheetRow(String collaboratorId, String projectId, String collaboratorName) {
-        // 1) busca direta por ID
         SheetRow sheetColab = rowRepository.findByCollaboratorIdAndProjectId(collaboratorId, projectId);
         if (sheetColab != null) {
             return Optional.of(sheetColab);
         }
 
-        // 2) se não encontrou, tenta por similaridade de nome
         String nomeNormalizado = normalizeName(collaboratorName);
         List<SheetRow> todasLinhas = rowRepository.findByProjectId(projectId);
 
         return todasLinhas.stream().filter(row -> {
-            // Verifica todas as chaves possíveis em ordem de prioridade
             String nomeMedico = Stream.of(
                             row.getData().get("MEDICO.REGULADOR"),
                             row.getData().get("MEDICO.LIDER"),
-                            row.getData().get("COLABORADOR")  // Nova chave para TARM/FROTA
+                            row.getData().get("COLABORADOR")
 
                     )
                     .filter(Objects::nonNull)
@@ -55,17 +47,12 @@ public class SheetProcessingService {
             return nomeMedico != null &&
                     similarity(normalizeName(nomeMedico), nomeNormalizado) >= 0.85;
         }).findFirst().map(row -> {
-            // Atualiza e persiste a associação
             row.setCollaboratorId(collaboratorId);
             rowRepository.save(row);
             return row;
         });
     }
 
-    /**
-     * Dado um ProjectCollaborator e a linha de planilha correspondente,
-     * carrega os campos (durationSeconds, NestedScoringParameters, criticos etc.), dependendo da role e médicoRole.
-     */
     public void populateFromSheet(ProjectCollaborator pc, SheetRow sheetRow) {
         Map<String, String> data = sheetRow.getData();
 

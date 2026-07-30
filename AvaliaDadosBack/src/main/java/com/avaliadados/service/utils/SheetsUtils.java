@@ -41,22 +41,8 @@ public class SheetsUtils {
                     Date date = cell.getDateCellValue();
                     log.debug("Valor de data/hora detectado: {}", date);
                     return formattedTime(date);
-                } else {
-                    double numericValue = cell.getNumericCellValue();
-
-                    // TRATAMENTO PARA VALORES NUMÉRICOS QUE REPRESENTAM TEMPO
-                    if (numericValue >= 0 && numericValue < 1) {
-                        long totalSeconds = Math.round(numericValue * 24 * 60 * 60);
-                        long hours = totalSeconds / 3600;
-                        long minutes = (totalSeconds % 3600) / 60;
-                        long seconds = totalSeconds % 60;
-
-                        String formatted = String.format("%02d:%02d:%02d", hours, minutes, seconds);
-                        log.debug("Valor numérico {} interpretado como tempo: {} ({}s)", numericValue, formatted, totalSeconds);
-                        return formatted;
-                    }
-                    return String.valueOf(numericValue);
                 }
+                return formatNumericValue(cell.getNumericCellValue());
 
             case BOOLEAN:
                 return String.valueOf(cell.getBooleanCellValue());
@@ -70,22 +56,8 @@ public class SheetsUtils {
                             Date date = cell.getDateCellValue();
                             log.debug("Resultado da fórmula é data/hora: {}", date);
                             return formattedTime(date);
-                        } else {
-                            double numericValue = cell.getNumericCellValue();
-
-                            // TRATAMENTO PARA FÓRMULAS NUMÉRICAS QUE REPRESENTAM TEMPO
-                            if (numericValue >= 0 && numericValue < 1) {
-                                long totalSeconds = Math.round(numericValue * 24 * 60 * 60);
-                                long hours = totalSeconds / 3600;
-                                long minutes = (totalSeconds % 3600) / 60;
-                                long seconds = totalSeconds % 60;
-
-                                String formatted = String.format("%02d:%02d:%02d", hours, minutes, seconds);
-                                log.debug("Valor de fórmula numérica {} interpretado como tempo: {} ({}s)", numericValue, formatted, totalSeconds);
-                                return formatted;
-                            }
-                            return String.valueOf(numericValue);
                         }
+                        return formatNumericValue(cell.getNumericCellValue());
                     case STRING:
                         return cell.getStringCellValue();
                     case BOOLEAN:
@@ -96,6 +68,17 @@ public class SheetsUtils {
             default:
                 return null;
         }
+    }
+
+    private static String formatNumericValue(double numericValue) {
+        if (numericValue >= 0 && numericValue < 1) {
+            long totalSeconds = Math.round(numericValue * 24 * 60 * 60);
+            String formatted = formatSeconds(totalSeconds);
+            log.debug("Valor numérico {} interpretado como tempo: {} ({}s)", numericValue, formatted, totalSeconds);
+            return formatted;
+        }
+
+        return String.valueOf(numericValue);
     }
 
     private static String formattedTime(Date date) {
@@ -109,6 +92,13 @@ public class SheetsUtils {
         return formatted;
     }
 
+    private static String formatSeconds(long totalSeconds) {
+        long hours = totalSeconds / 3600;
+        long minutes = (totalSeconds % 3600) / 60;
+        long seconds = totalSeconds % 60;
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
+
     public static Long parseTimeToSeconds(String timeStr) {
         if (timeStr == null || timeStr.isBlank()) {
             return 0L;
@@ -117,7 +107,6 @@ public class SheetsUtils {
         timeStr = timeStr.trim().toLowerCase();
 
         try {
-            // Novo formato: Xd HH:mm:ss (ex: "3d 78:59:11")
             if (PATTERN_DAYS_HMS.matcher(timeStr).matches()) {
                 String[] dayTimeParts = PATTERN_WHITESPACE_D.split(timeStr);
                 long days = Long.parseLong(dayTimeParts[0]);
@@ -130,7 +119,6 @@ public class SheetsUtils {
                 return total;
             }
 
-            // Novo formato: Xd HH:mm (ex: "3d 78:59")
             if (PATTERN_DAYS_HM.matcher(timeStr).matches()) {
                 String[] dayTimeParts = PATTERN_WHITESPACE_D.split(timeStr);
                 long days = Long.parseLong(dayTimeParts[0]);
@@ -142,7 +130,6 @@ public class SheetsUtils {
                 return total;
             }
 
-            // HH:mm:ss (permite horas com até 3 dígitos para casos como "78:59:11")
             if (PATTERN_HMS.matcher(timeStr).matches()) {
                 String[] parts = PATTERN_COLON.split(timeStr);
                 long total = Long.parseLong(parts[0]) * 3600
@@ -152,7 +139,6 @@ public class SheetsUtils {
                 return total;
             }
 
-            // HH:mm (permite horas com até 3 dígitos)
             if (PATTERN_HM.matcher(timeStr).matches()) {
                 String[] parts = PATTERN_COLON.split(timeStr);
                 long total = Long.parseLong(parts[0]) * 3600
@@ -161,12 +147,10 @@ public class SheetsUtils {
                 return total;
             }
 
-            // numérico direto (incluindo notação científica)
             if (PATTERN_NUMERIC.matcher(timeStr).matches()) {
                 double value = Double.parseDouble(timeStr);
                 long seconds;
 
-                // Se for um valor muito pequeno (< 1), provavelmente é fração de dia
                 if (value > 0 && value < 1) {
                     seconds = Math.round(value * 24 * 60 * 60);
                     log.debug("Valor numérico {} interpretado como fração de dia: {}s", value, seconds);
@@ -177,7 +161,6 @@ public class SheetsUtils {
                 return seconds;
             }
 
-            // formatos com SimpleDateFormat
             SimpleDateFormat[] formats = {
                     new SimpleDateFormat("hh:mm:ss a"),
                     new SimpleDateFormat("hh:mm a"),
@@ -207,19 +190,15 @@ public class SheetsUtils {
     public static String normalizeName(String name) {
         if (name == null || name.isBlank()) return null;
 
-        // 1) Remover conteúdo entre parênteses e colchetes e sufixos comuns de turno
         String cleaned = name.replaceAll("\\(.*?\\)", " ")
                 .replaceAll("\\[.*?]", " ")
-                // remove sufixos como " - DIA", " - NOITE", " (NOITE)" etc.
                 .replaceAll("(?i)\\s*[-–—:]\\s*(DIA|NOITE|TURNO|TARDE|MANHA|MATUTINO|NOTURNO)\\b", " ")
                 .replaceAll("(?i)\\b(DIA|NOITE|TURNO|TARDE|MANHA|MATUTINO|NOTURNO)\\b", " ");
 
-        // 2) Normalização de acentos
         String normalized = Normalizer.normalize(cleaned, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .toUpperCase(Locale.ROOT);
 
-        // 3) Manter apenas letras/números e espaços, colapsar múltiplos espaços
         normalized = normalized.replaceAll("[^A-Z0-9 ]", " ")
                 .replaceAll(" +", " ")
                 .trim();

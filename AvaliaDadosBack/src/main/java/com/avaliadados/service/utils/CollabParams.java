@@ -109,7 +109,6 @@ public class CollabParams {
 
         if (agentsCleaned.isEmpty()) return;
 
-        // Combine events into one request
         Map<String, Map<String, EventDetails>> allData = fetchEventData(List.of("pause", "removed"), agentsCleaned, true, true, projeto);
 
         if (allData.isEmpty()) return;
@@ -128,7 +127,6 @@ public class CollabParams {
                 continue;
             }
 
-            // Process pauses
             EventDetails pauseDetails = agentData.get("pause");
             if (pauseDetails != null && pauseDetails.getHistory() != null) {
                 long totalPauseSeconds = pauseDetails.getHistory().stream()
@@ -147,7 +145,6 @@ public class CollabParams {
                 }
             }
 
-            // Process removals
             EventDetails removedDetails = agentData.get("removed");
             if (removedDetails != null && removedDetails.getTotal() != null) {
                 if (pc.getMedicoRole() == MedicoRole.LIDER) {
@@ -183,7 +180,6 @@ public class CollabParams {
                 .duration_average(false)
                 .build();
 
-        // Chunking agent IDs to avoid large request payloads or API timeouts
         int chunkSize = 50;
         List<List<String>> chunks = new ArrayList<>();
         for (int i = 0; i < agentIds.size(); i += chunkSize) {
@@ -219,4 +215,3 @@ public class CollabParams {
         return combinedResults;
     }
 }
-

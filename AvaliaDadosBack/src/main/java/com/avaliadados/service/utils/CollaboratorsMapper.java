@@ -15,23 +15,23 @@ import org.springframework.stereotype.Service;
 public class CollaboratorsMapper {
 
     public CollaboratorsResponse toCollaboratorsResponse(CollaboratorEntity entity) {
-    var idCallRote = entity.getIdCallRote().startsWith("0") ? entity.getIdCallRote().substring(1) : entity.getIdCallRote();
+        var idCallRote = entity.getIdCallRote().startsWith("0") ? entity.getIdCallRote().substring(1) : entity.getIdCallRote();
 
-    CollaboratorsResponse.CollaboratorsResponseBuilder builder = CollaboratorsResponse.builder()
-            .id(entity.getId())
-            .nome(entity.getNome())
-            .cpf(entity.getCpf().replace(".", "").replace("-", ""))
-            .idCallRote(idCallRote.replace("-", "").replace(".", ""))
-            .role(entity.getRole())
-            .pontuacao(entity.getPontuacao());
+        CollaboratorsResponse.CollaboratorsResponseBuilder builder = CollaboratorsResponse.builder()
+                .id(entity.getId())
+                .nome(entity.getNome())
+                .cpf(entity.getCpf().replace(".", "").replace("-", ""))
+                .idCallRote(idCallRote.replace("-", "").replace(".", ""))
+                .role(entity.getRole())
+                .pontuacao(entity.getPontuacao());
 
-    if (entity instanceof MedicoEntity medico) {
-        builder.medicoRole(medico.getMedicoRole())
-               .shiftHours(medico.getShiftHours());
+        if (entity instanceof MedicoEntity medico) {
+            builder.medicoRole(medico.getMedicoRole())
+                    .shiftHours(medico.getShiftHours());
+        }
+
+        return builder.build();
     }
-
-    return builder.build();
-}
 
     public CollaboratorEntity createByRole(CollaboratorRequest request) {
         String role = request.role().toUpperCase();
@@ -70,7 +70,7 @@ public class CollaboratorsMapper {
                         request.cpf(),
                         request.idCallRote(),
                         request.pontuacao(),
-                        request.role(), // Alterado para usar request.role() diretamente
+                        request.role(),
                         null
                 );
             };

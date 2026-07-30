@@ -7,7 +7,10 @@ import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
 import com.avaliadados.model.enums.TypeAv;
 import com.avaliadados.model.roles.MedicoEntity;
-import com.avaliadados.repository.*;
+import com.avaliadados.repository.CollaboratorRepository;
+import com.avaliadados.repository.MedicoEntityRepository;
+import com.avaliadados.repository.ProjetoRepository;
+import com.avaliadados.repository.SheetRowRepository;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
 import com.avaliadados.service.utils.CollabParams;
 import com.avaliadados.service.utils.SheetsUtils;
@@ -87,7 +90,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                         .filter(c -> {
                             String nomeBase = SheetsUtils.normalizeName(c.getNome());
                             if (nomeBase == null) return false;
-                            // Se for igual OU tiver mais de 85% de similaridade, a gente considera
                             return nomeBase.equals(nomeNormPlanilha) || SheetsUtils.similarity(nomeBase, nomeNormPlanilha) > 0.85;
                         })
                         .toList();
@@ -131,8 +133,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
         return sincronizarColaboradores(projectId);
     }
-
-    // ===================== PARSER BLINDADO =====================
 
     private Map<String, Integer> mapearColunasBlindado(Sheet sheet) {
         Map<String, Integer> result = new HashMap<>();
@@ -225,7 +225,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
         List<String> naoEncontrados = new ArrayList<>();
 
-        // Verificar médicos do projeto ausentes na planilha
         for (ProjectCollaborator pc : medicosNoProjeto) {
             CollaboratorEntity collab = collaboratorMap.get(pc.getCollaboratorId());
             if (collab == null) {
@@ -257,7 +256,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
         Map<ProjectCollaborator, String> pcToIdMap = new LinkedHashMap<>();
 
-        // Processar registros da planilha
         for (SheetRow sr : sheetRows) {
             String rawNome = Optional.ofNullable(sr.getData().get("MEDICO.REGULADOR"))
                     .orElse("MEDICO.LIDER");
@@ -293,10 +291,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             }
         }
 
-        // Garantir que todos os médicos estejam no projeto
         List<MedicoEntity> todosMedicos = medicoRepo.findAll();
         for (MedicoEntity med : todosMedicos) {
-            // ✅ Verifica pelo Map, não mais por pcsToUpdate
             boolean jaAdicionado = pcToIdMap.keySet().stream()
                     .anyMatch(pc -> pc.getCollaboratorId().equals(med.getId()));
 
@@ -320,7 +316,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             }
         }
 
-        // Atualizar dados dos médicos a partir da planilha
         for (SheetRow sr : sheetRows) {
             String rawNome = Optional.ofNullable(sr.getData().get("MEDICO.REGULADOR"))
                     .orElse("MEDICO.LIDER");
@@ -372,7 +367,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         MedicoRole medicoRole = pc.getMedicoRole();
 
         var plantaoStr = data.get("PLANTAO");
-        log.info("Plantão: {}", plantaoStr);
 
         if (plantaoStr != null && !plantaoStr.isBlank()) {
             try {
@@ -380,7 +374,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                         ? 0
                         : (int) Math.round(Double.parseDouble(plantaoStr));
 
-                // ✅ Só seta se ainda não foi definido — evita sobrescrita em chamadas repetidas
                 if (pc.getPlantao() == null || pc.getPlantao() == 0) {
                     pc.setPlantao(plantaoQtd);
                 }
@@ -399,6 +392,8 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             case LIDER:
                 criticos = data.containsKey("CRITICOS")
                         ? parseTimeToSeconds(data.get("CRITICOS")) : 0L;
+                break;
+            default:
                 break;
         }
 

@@ -48,7 +48,6 @@ public class AvaliacaoServiceFactory {
                         || normalized2Row.contains("COLABORADOR");
                 boolean isTarmAntigo = normalized0.contains("COLABORADOR TEMPO RESPOSTA TARM E FROTA");
                 boolean isTarmNovo = normalized0.contains("TOTAL DE PLANTAO")
-                        || normalized0.contains("TOTAL DE PLANTAO")
                         || normalized0.contains("PLANTAO")
                         || normalized2.contains("PLANTAO")
                         || normalized2Row.contains("PLANTAO");
