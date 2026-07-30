@@ -14,7 +14,7 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Copiar o JAR gerado para a imagem final
-COPY --from=build /app/target/AvaliaDados-*.jar app.jar
+COPY --from=build /app/target/AvaliaDadosBack-*.jar app.jar
 
 # Expor a porta da aplicação
 EXPOSE 8080

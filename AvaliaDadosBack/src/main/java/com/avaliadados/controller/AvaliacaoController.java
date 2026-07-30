@@ -21,9 +21,15 @@ public class AvaliacaoController {
 
     @PostMapping("/{projectId}/processar")
     @Operation(summary = "Processa uma planilha de avaliação para o projeto especificado")
-    public ResponseEntity<List<String>> processarPlanilha(@RequestParam MultipartFile arquivo, @PathVariable String projectId) throws IOException {
-        var processor = factory.getProcessor(arquivo);
-        return ResponseEntity.ok(processor.processarPlanilha(arquivo, projectId));
+    public ResponseEntity<List<String>> processarPlanilha(@RequestParam MultipartFile arquivo, @PathVariable String projectId) {
+        try {
+            var processor = factory.getProcessor(arquivo);
+            return ResponseEntity.ok(processor.processarPlanilha(arquivo, projectId));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(List.of(ex.getMessage()));
+        } catch (IOException ex) {
+            return ResponseEntity.badRequest().body(List.of("Não foi possível ler o arquivo enviado."));
+        }
     }
 
 }

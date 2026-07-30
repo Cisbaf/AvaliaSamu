@@ -13,6 +13,7 @@ import com.avaliadados.repository.SheetRowRepository;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
 import com.avaliadados.service.utils.CollabParams;
 import com.avaliadados.service.utils.SheetsUtils;
+import com.avaliadados.service.utils.WorkbookReader;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.stereotype.Service;
@@ -43,43 +44,78 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
         Map<String, Map<String, Object>> consolidatedData = new HashMap<>();
 
-        try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
-            Sheet sheet = wb.getSheetAt(0);
+        try (Workbook wb = WorkbookReader.read(arquivo)) {
+            FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator();
+            DataFormatter formatter = new DataFormatter();
 
-            // FIX: cabeçalho agora está na linha 0 (novo formato)
-            Row headerRow = sheet.getRow(0);
-            Map<String, Integer> cols = getColumnMapping(headerRow);
+            Sheet sheet = null;
+            Row headerRow = null;
+            Map<String, Integer> cols = null;
 
-            Integer idxColab   = encontrarIndiceColuna(cols, "COLABORADOR");
-            Integer idxTarm    = encontrarIndiceColuna(cols, "TEMPO REGULAÇÃO TARM");
-            Integer idxFrota   = encontrarIndiceColuna(cols, "OP. FROTA REGULAÇÃO MÉDICA");
-            Integer idxPlantao = encontrarIndiceColuna(cols, "TOTAL DE PLANTÃO DE 12 HORAS");
+            for (int i = 0; i < wb.getNumberOfSheets(); i++) {
+                Sheet currentSheet = wb.getSheetAt(i);
+                if (currentSheet == null) continue;
 
-            if (idxColab == null) {
-                throw new RuntimeException("Coluna de colaborador não encontrada na planilha");
+                for (int rowIndex = 0; rowIndex <= 1; rowIndex++) {
+                    Row tempHeader = currentSheet.getRow(rowIndex);
+                    Map<String, Integer> tempCols = getColumnMapping(tempHeader, evaluator, formatter);
+                    if (temCabecalhoValido(tempCols)) {
+                        sheet = currentSheet;
+                        headerRow = tempHeader;
+                        cols = tempCols;
+                        break;
+                    }
+                }
+
+                if (sheet != null) break;
             }
 
-            // FIX: começa na linha 2 — pula cabeçalho (0) e linha de totais (1)
-            for (int i = 2; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) continue;
+            if (sheet == null) {
+                throw new RuntimeException("Aba com a coluna de COLABORADOR ou MÉDICO REGULADOR não encontrada no arquivo.");
+            }
 
-                String name = getCellStringValue(row, idxColab);
-                if (name == null || name.trim().isEmpty() || name.equalsIgnoreCase("nan")) continue;
+            Integer idxColab   = encontrarIndiceColuna(cols, "COLABORADOR", "MEDICO REGULADOR", "MEDICO REGULADOR");
+            Integer idxTarm    = encontrarIndiceColuna(cols, "TEMPO REGULAÇÃO TARM", "TEMPO REGULACAO TARM", "TEMPO REGULACAO", "TEMPO MEDIO REGULACAO MEDICA", "TEMPO MEDIO REGULACAO");
+            Integer idxFrota   = encontrarIndiceColuna(cols, "OP. FROTA REGULAÇÃO MÉDICA", "OP. FROTA REGULACAO MEDICA", "OP FROTA REGULACAO MEDICA", "TIH", "TEMPO MEDIO TIH", "TEMPO MEDIO CRITICOS", "CRITICOS");
+            Integer idxPlantao = encontrarIndiceColuna(cols, "TOTAL DE PLANTÃO DE 12 HORAS", "TOTAL DE PLANTAO", "PLANTAO 12 HORAS", "PLANTAO");
+
+            int startRow = headerRow.getRowNum() + 1;
+            if (headerRow.getRowNum() <= 1) {
+                for (int offset = 1; offset <= 2; offset++) {
+                    Row rowAfterHeader = sheet.getRow(headerRow.getRowNum() + offset);
+                    if (rowAfterHeader == null) continue;
+                    String valRow = Objects.requireNonNullElse(getCellStringValue(rowAfterHeader, 0, evaluator, formatter), "").toUpperCase();
+                    if (valRow.contains("PLANTAO") || valRow.contains("PLANTÃO")) {
+                        startRow = headerRow.getRowNum() + offset + 1;
+                        break;
+                    }
+                }
+            }
+
+            for (int i = startRow; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null || row == headerRow) continue;
+
+                if (idxColab == null) {
+                    throw new RuntimeException("Não foi possível localizar a coluna de colaborador na planilha.");
+                }
+
+                String name = getCellStringValue(row, idxColab, evaluator, formatter);
+                if (name == null || name.trim().isEmpty() || name.equalsIgnoreCase("nan") || name.equalsIgnoreCase("COLABORADOR") || name.equalsIgnoreCase("MÉDICO REGULADOR") || name.equalsIgnoreCase("MEDICO REGULADOR")) continue;
 
                 double plantao = 0;
                 if (idxPlantao != null) {
-                    plantao = getNumericValue(row.getCell(idxPlantao));
+                    plantao = getNumericValue(row.getCell(idxPlantao), evaluator);
                 }
 
                 long tarmSecs = 0;
                 if (idxTarm != null) {
-                    tarmSecs = parseCellToSeconds(row.getCell(idxTarm));
+                    tarmSecs = parseCellToSeconds(row.getCell(idxTarm), evaluator, formatter);
                 }
 
                 long frotaSecs = 0;
                 if (idxFrota != null) {
-                    frotaSecs = parseCellToSeconds(row.getCell(idxFrota));
+                    frotaSecs = parseCellToSeconds(row.getCell(idxFrota), evaluator, formatter);
                 }
 
                 consolidar(consolidatedData, name.trim(), plantao, tarmSecs, frotaSecs);
@@ -115,6 +151,17 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         return !result.isEmpty() ? result : List.of();
     }
 
+    private boolean temCabecalhoValido(Map<String, Integer> cols) {
+        if (cols == null || cols.isEmpty()) return false;
+
+        boolean hasColaborador = encontrarIndiceColuna(cols, "COLABORADOR", "MEDICO REGULADOR", "MEDICO REGULADOR") != null;
+        boolean hasPlantao = encontrarIndiceColuna(cols, "TOTAL DE PLANTÃO DE 12 HORAS", "TOTAL DE PLANTAO", "PLANTAO 12 HORAS", "PLANTAO") != null;
+        boolean hasTime = encontrarIndiceColuna(cols, "TEMPO REGULAÇÃO TARM", "TEMPO REGULACAO TARM", "TEMPO REGULACAO", "TEMPO MEDIO REGULACAO MEDICA", "TEMPO MEDIO REGULACAO") != null;
+        boolean hasFrota = encontrarIndiceColuna(cols, "OP. FROTA REGULAÇÃO MÉDICA", "OP. FROTA REGULACAO MEDICA", "OP FROTA REGULACAO MEDICA", "TIH", "TEMPO MEDIO TIH", "TEMPO MEDIO CRITICOS", "CRITICOS") != null;
+
+        return hasColaborador && (hasPlantao || hasTime || hasFrota);
+    }
+
     private void consolidar(Map<String, Map<String, Object>> consolidatedData,
                             String name, double plantao, long tarmSecs, long frotaSecs) {
         Map<String, Object> data = consolidatedData.computeIfAbsent(name, k -> {
@@ -129,15 +176,17 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         data.put("FROTA_SECONDS", (long)   data.get("FROTA_SECONDS") + frotaSecs);
     }
 
-    private long parseCellToSeconds(Cell cell) {
+    private long parseCellToSeconds(Cell cell, FormulaEvaluator evaluator, DataFormatter formatter) {
         if (cell == null) return 0;
-        if (cell.getCellType() == CellType.NUMERIC) {
+        CellType type = cell.getCellType() == CellType.FORMULA ? cell.getCachedFormulaResultType() : cell.getCellType();
+
+        if (type == CellType.NUMERIC) {
             double excelTime = cell.getNumericCellValue();
             return Math.round(excelTime * 86400);
-        } else if (cell.getCellType() == CellType.STRING) {
-            return parseStringToSeconds(cell.getStringCellValue().trim());
+        } else {
+            String timeStr = formatter.formatCellValue(cell, evaluator);
+            return parseStringToSeconds(timeStr.trim());
         }
-        return 0;
     }
 
     private long parseStringToSeconds(String timeStr) {
@@ -166,12 +215,16 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         }
     }
 
-    private double getNumericValue(Cell cell) {
+    private double getNumericValue(Cell cell, FormulaEvaluator evaluator) {
         if (cell == null) return 0;
-        if (cell.getCellType() == CellType.NUMERIC) return cell.getNumericCellValue();
-        if (cell.getCellType() == CellType.STRING) {
+        CellType type = cell.getCellType() == CellType.FORMULA ? cell.getCachedFormulaResultType() : cell.getCellType();
+
+        if (type == CellType.NUMERIC) return cell.getNumericCellValue();
+        if (type == CellType.STRING || type == CellType.FORMULA) {
             try {
-                return Double.parseDouble(cell.getStringCellValue().replace(",", "."));
+                String val = cell.getStringCellValue();
+                if(val == null) return 0;
+                return Double.parseDouble(val.replace(",", "."));
             } catch (Exception e) {
                 return 0;
             }
@@ -179,35 +232,30 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         return 0;
     }
 
-    private Map<String, Integer> getColumnMapping(Row row) {
+    private Map<String, Integer> getColumnMapping(Row row, FormulaEvaluator evaluator, DataFormatter formatter) {
         Map<String, Integer> mapping = new HashMap<>();
         if (row == null) return mapping;
-        DataFormatter formatter = new DataFormatter();
         for (int i = 0; i < row.getLastCellNum(); i++) {
             Cell cell = row.getCell(i);
             if (cell == null) continue;
-            String val = formatter.formatCellValue(cell).toUpperCase().trim();
+            String val = formatter.formatCellValue(cell, evaluator).toUpperCase().trim();
             if (!val.isEmpty()) mapping.put(val, i);
         }
         return mapping;
     }
 
-    private String getCellStringValue(Row row, int idx) {
+    private String getCellStringValue(Row row, int idx, FormulaEvaluator evaluator, DataFormatter formatter) {
         Cell cell = row.getCell(idx);
         if (cell == null) return null;
-        if (cell.getCellType() == CellType.STRING) return cell.getStringCellValue();
-        if (cell.getCellType() == CellType.NUMERIC) return String.valueOf(cell.getNumericCellValue());
-        return null;
+        return formatter.formatCellValue(cell, evaluator);
     }
 
     private Integer encontrarIndiceColuna(Map<String, Integer> cols, String... possiveisNomes) {
         for (String nome : possiveisNomes) {
             String normBusca = normalize(nome);
-            // 1. match exato
             for (Map.Entry<String, Integer> e : cols.entrySet()) {
                 if (normalize(e.getKey()).equals(normBusca)) return e.getValue();
             }
-            // 2. contains como fallback
             for (Map.Entry<String, Integer> e : cols.entrySet()) {
                 if (normalize(e.getKey()).contains(normBusca)) return e.getValue();
             }
@@ -242,7 +290,6 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
         List<SheetRow> rows = sheetRowRepository.findByProjectIdAndType(projectId, TypeAv.TARM_FROTA);
 
-        // FIX: pré-carrega todos os idCallRote em 1 única query, evitando N+1
         Map<String, String> idCallRoteMap = colaboradorRepository
                 .findAllById(tarmFrotaColabs.stream()
                         .map(ProjectCollaborator::getCollaboratorId)
@@ -268,14 +315,11 @@ public class AvaliacaoService implements AvaliacaoProcessor {
                                 .ifPresent(pc -> {
                                     atualizarDadosColaborador(pc, sr.getData());
                                     pcsToUpdate.add(pc);
-                                    // FIX: usa mapa pré-carregado — sem query adicional
                                     idCallroutList.add(idCallRoteMap.get(pc.getCollaboratorId()));
                                 });
                     });
         }
 
-        // FIX: pré-computa melhor match por colaborador em O(N×M) passagem única,
-        //      eliminando o duplo loop O(N×M + N×M) anterior
         Map<String, Double>  bestScoreByCollab = new HashMap<>();
         Map<String, String>  bestNameByCollab  = new HashMap<>();
 
@@ -309,7 +353,6 @@ public class AvaliacaoService implements AvaliacaoProcessor {
 
             if (!pcsToUpdate.contains(pc)) {
                 pcsToUpdate.add(pc);
-                // FIX: usa mapa pré-carregado
                 idCallroutList.add(idCallRoteMap.get(pc.getCollaboratorId()));
             }
         }

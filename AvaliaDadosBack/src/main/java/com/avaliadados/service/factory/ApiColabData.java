@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.Map;
 
-@FeignClient(name = "colab-data", url = "http://192.168.1.10:8013")
+@FeignClient(name = "colab-data", url = "http://204.157.124.113:8013")
 public interface ApiColabData {
 
     @PostMapping("/consult")

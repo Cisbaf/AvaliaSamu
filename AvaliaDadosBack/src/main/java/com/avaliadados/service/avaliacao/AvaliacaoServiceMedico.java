@@ -11,6 +11,7 @@ import com.avaliadados.repository.*;
 import com.avaliadados.service.factory.AvaliacaoProcessor;
 import com.avaliadados.service.utils.CollabParams;
 import com.avaliadados.service.utils.SheetsUtils;
+import com.avaliadados.service.utils.WorkbookReader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -22,6 +23,7 @@ import java.io.IOException;
 import java.text.Normalizer;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.avaliadados.service.utils.SheetsUtils.*;
 
@@ -41,7 +43,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
         sheetRowRepo.deleteByProjectIdAndType(projectId, TypeAv.MEDICO);
 
-        try (Workbook wb = WorkbookFactory.create(arquivo.getInputStream())) {
+        try (Workbook wb = WorkbookReader.read(arquivo)) {
 
             Sheet sheet = wb.getSheetAt(0);
 
@@ -53,13 +55,23 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
             Integer idxCrit = cols.get("CRITICOS");
             Integer idxTempoAnalitico = cols.get("TEMPO_ANALITICO");
 
+            if (idxMedReg == null) {
+                throw new IllegalArgumentException("Não foi possível localizar a coluna de MÉDICO REGULADOR na planilha.");
+            }
             if (idxTempoMed == null) {
-                log.warn("⚠️ Fallback tempo regulação -> coluna 16");
-                idxTempoMed = 16;
+                log.warn("⚠️ Fallback tempo regulação -> coluna 15");
+                idxTempoMed = 15;
             }
 
-            // Dados de linha 0 = título, linha 1 = cabeçalho, dados começam na linha 2
-            for (int i = 2; i <= sheet.getLastRowNum(); i++) {
+            int startRow = 2;
+            if (sheet.getRow(1) != null) {
+                String headerRow0 = normalize(getCellStringValue(sheet.getRow(1), 0));
+                if (headerRow0.contains("MEDICO") || headerRow0.contains("COLABORADOR")) {
+                    startRow = 2;
+                }
+            }
+
+            for (int i = startRow; i <= sheet.getLastRowNum(); i++) {
 
                 Row row = sheet.getRow(i);
                 if (row == null) continue;
@@ -125,7 +137,6 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
     private Map<String, Integer> mapearColunasBlindado(Sheet sheet) {
         Map<String, Integer> result = new HashMap<>();
 
-        // Consideramos as linhas 0 e 1 para detectar os cabeçalhos
         Row r0 = sheet.getRow(0);
         Row r1 = sheet.getRow(1);
 
@@ -139,34 +150,28 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         for (int i = 0; i < maxCols; i++) {
             String h0 = normalize(getCell(r0, i));
             String h1 = normalize(getCell(r1, i));
-            String fullHeader = h0 + " " + h1;
+            String fullHeader = Stream.of(h0, h1)
+                    .filter(s -> s != null && !s.isBlank())
+                    .collect(Collectors.joining(" "));
 
-            // Nome do Médico (Pegamos apenas a primeira coluna que encontrar isso, que é a 0)
             if (fullHeader.contains("MEDICO") && fullHeader.contains("REGULADOR")) {
                 result.putIfAbsent("MEDICO", i);
             }
 
-            // Plantão
             if (fullHeader.contains("PLANTAO") && (fullHeader.contains("12") || fullHeader.contains("HORA"))) {
                 result.putIfAbsent("PLANTAO", i);
             }
 
-            // Tempo de Regulação (Geralmente coluna 14)
-            if (fullHeader.contains("REGULACAO") && !fullHeader.contains("MEDICO") && !fullHeader.contains("ANALITICO")) {
+            if (fullHeader.contains("REGULACAO") && !fullHeader.contains("ANALITICO") && !fullHeader.contains("TIH")) {
                 result.putIfAbsent("TEMPO_REG", i);
             }
 
-            // Críticos (Coluna 17) - Buscamos especificamente por "CRITICO" na linha 0
-            if (h0.contains("CRITICO")) {
+            if ((h0.contains("CRITICO") || h1.contains("CRITICO"))) {
                 result.put("CRITICOS", i);
             }
 
-            // Tempo Analítico / TIH (Coluna 16)
-            if (fullHeader.contains("ANALITICO") || fullHeader.contains("TIH")) {
-                // Se houver "MEDICO" no cabeçalho da linha 1 (como na col 15), ignoramos
-                if (!h1.contains("MEDICO")) {
-                    result.put("TEMPO_ANALITICO", i);
-                }
+            if ((fullHeader.contains("ANALITICO") || fullHeader.contains("TIH")) && !fullHeader.contains("MEDICO")) {
+                result.put("TEMPO_ANALITICO", i);
             }
         }
 
