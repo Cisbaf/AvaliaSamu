@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -119,8 +120,11 @@ public class ProjectCollabService {
         boolean existsNoProjeto = projeto.getCollaborators().stream()
                 .anyMatch(c ->
                         !c.getCollaboratorId().equals(collaboratorId) &&
-                                c.getNome().equals(dto.getNome()) &&
-                                c.getMedicoRole().equals(dto.getMedicoRole())
+                                Objects.equals(c.getNome(), dto.getNome()) &&
+                                Objects.equals(
+                                        c.getMedicoRole(),
+                                        Optional.ofNullable(dto.getMedicoRole()).orElse(MedicoRole.NENHUM)
+                                )
                 );
 
         if (existsNoProjeto) {

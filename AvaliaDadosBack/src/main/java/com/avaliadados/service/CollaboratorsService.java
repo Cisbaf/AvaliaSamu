@@ -1,13 +1,11 @@
 package com.avaliadados.service;
 
 import com.avaliadados.model.CollaboratorEntity;
-import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.dto.CollaboratorRequest;
 import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.model.roles.MedicoEntity;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.MedicoRepository;
-import com.avaliadados.repository.ProjetoRepository;
 import com.avaliadados.service.utils.CollaboratorsMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
@@ -23,7 +21,6 @@ public class CollaboratorsService {
     private final CollaboratorRepository collaboratorRepo;
     private final MedicoRepository medicoRepo;
     private final CollaboratorsMapper mapper;
-    private final ProjetoRepository projetoRepository;
 
 
     @Transactional
@@ -65,13 +62,11 @@ public class CollaboratorsService {
         return collaboratorRepo.findByNomeApproximate(nome);
     }
 
+    @Transactional
     public void deleteById(String id) {
         collaboratorRepo.findById(id)
                 .ifPresentOrElse(
-                        entity -> {
-                            collaboratorRepo.delete(entity);
-                            collaboratorRepo.flush();
-                        },
+                        collaboratorRepo::delete,
                         () -> {
                             throw new EntityNotFoundException("Colaborador não encontrado para deleção com ID: " + id);
                         }
@@ -92,7 +87,6 @@ public class CollaboratorsService {
 
         updateCommonFields(existing, request);
         var updated = collaboratorRepo.save(existing);
-        syncIds(existing.getId(), updated.getId());
         return mapper.toCollaboratorsResponse(updated);
     }
 
@@ -106,6 +100,7 @@ public class CollaboratorsService {
         entity.setCpf(request.cpf());
         entity.setIdCallRote(request.idCallRote());
         entity.setPontuacao(request.pontuacao());
+        entity.setRole(request.role());
     }
 
     private CollaboratorsResponse handleRoleChange(CollaboratorEntity oldEntity, CollaboratorRequest request) {
@@ -115,10 +110,7 @@ public class CollaboratorsService {
         collaboratorRepo.delete(oldEntity);
         CollaboratorEntity saved = collaboratorRepo.save(newEntity);
 
-        var updated = mapper.toCollaboratorsResponse(saved);
-
-        syncIds(oldEntity.getId(), updated.getId());
-        return updated;
+        return mapper.toCollaboratorsResponse(saved);
     }
 
     private void copyCommonFields(CollaboratorEntity source, CollaboratorEntity target) {
@@ -128,20 +120,5 @@ public class CollaboratorsService {
         target.setPontuacao(source.getPontuacao());
     }
 
-    public void syncIds(String oldId, String newId) {
-
-        List<ProjetoEntity> projetos = projetoRepository.findByCollaboratorsCollaboratorId(oldId);
-        if (projetos.isEmpty()) {
-            return;
-        }
-        projetos.forEach(projeto -> {
-            projeto.getCollaborators().forEach(pc -> {
-                if (pc.getCollaboratorId().equals(oldId)) {
-                    pc.setCollaboratorId(newId);
-                }
-            });
-            projetoRepository.save(projeto);
-        });
-    }
 
 }
