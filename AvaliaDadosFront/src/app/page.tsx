@@ -1,29 +1,29 @@
 'use client';
 
-import { useEffect, useState, type MouseEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import ConfirmationDialog from '@/components/modal/ConfirmationModal';
+import { formatWorkPeriod } from '@/components/utils';
+import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
+import Delete from '@mui/icons-material/Delete';
+import DownloadIcon from '@mui/icons-material/Download';
 import {
   Box,
   Button,
+  Checkbox,
+  CircularProgress,
+  IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
-  Typography,
-  IconButton,
-  Checkbox,
-  CircularProgress,
   Pagination,
+  Typography,
 } from '@mui/material';
-import Delete from '@mui/icons-material/Delete';
-import DownloadIcon from '@mui/icons-material/Download';
-import { useProjects } from '../context/ProjectContext';
-import ProjectModal from '../components/modal/ProjectModal';
-import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
-import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
-import ConfirmationDialog from '@/components/modal/ConfirmationModal';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, type MouseEvent } from 'react';
+import * as XLSX from 'xlsx';
+import ProjectModal from '../components/modal/ProjectModal';
+import { useProjects } from '../context/ProjectContext';
 
 export default function HomePage() {
   const PROJECTS_PER_PAGE = 10;
@@ -33,7 +33,7 @@ export default function HomePage() {
     projects,
     projectCollaborators,
     globalCollaborators,
-    actions: { deleteProject, fetchProjectCollaborators, updateProjectParameters }
+    actions: { deleteProject, fetchProjectCollaborators }
   } = useProjects();
 
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -70,9 +70,6 @@ export default function HomePage() {
             console.error(`Erro ao buscar colaboradores do projeto ${project.id}:`, error);
           });
         }
-        if (project.parameters.colab.pausas?.length == 0) {
-          updateProjectParameters(project.id!, DEFAULT_PARAMS!)
-        }
       });
     }
   }, [mounted, projects, fetchProjectCollaborators, projectCollaborators]);
@@ -80,7 +77,7 @@ export default function HomePage() {
   if (!mounted) return null;
 
   const handleProjectSelect = (projectId: string) => {
-    router.push(`/dashboard/${projectId}`);
+    router.push(`/projeto/${projectId}`);
   };
 
   const handleDelete = async (projectId: string) => {
@@ -141,6 +138,7 @@ export default function HomePage() {
         [key: string]: {
           nome: string;
           funcao: string;
+          periodo: string;
           pontos_por_mes: { [mes: string]: number };
           pontuacao_total: number;
         }
@@ -174,13 +172,20 @@ export default function HomePage() {
           const globalColab = globalCollaborators?.find(gc => gc.id === colab.id);
           const nome = globalColab?.nome || colab.nome || 'Nome Desconhecido';
           const funcaoFormatada = formatarFuncao(colab, globalColab);
-          const chave = `${nome}#${funcaoFormatada}`;
+          const periodo = formatWorkPeriod(
+            colab.role || globalColab?.role,
+            colab.medicoRole || globalColab?.medicoRole,
+            colab.shiftHours || globalColab?.shiftHours,
+            colab.workPeriod || globalColab?.workPeriod
+          );
+          const chave = `${nome}#${funcaoFormatada}#${periodo}`;
           const pontuacao = Number(colab.pontuacao) || 0;
 
           if (!pontosConsolidados[chave]) {
             pontosConsolidados[chave] = {
               nome: nome,
               funcao: funcaoFormatada,
+              periodo,
               pontos_por_mes: {},
               pontuacao_total: 0
             };
@@ -197,7 +202,8 @@ export default function HomePage() {
       const dadosFinais = Object.values(pontosConsolidados).map(item => {
         const linha: { [key: string]: string | number } = {
           'Nome': item.nome,
-          'Função': item.funcao
+          'Função': item.funcao,
+          'Período': item.periodo
         };
         for (const mes of mesesOrdenados) {
           linha[`Pontos ${mes}`] = item.pontos_por_mes[mes] || 0;
@@ -212,7 +218,7 @@ export default function HomePage() {
       }
 
       const ws = XLSX.utils.json_to_sheet(dadosFinais);
-      const header = ['Nome', 'Função', ...mesesOrdenados.map(mes => ` ${mes}`), 'Pontuação Total'];
+      const header = ['Nome', 'Função', 'Período', ...mesesOrdenados.map(mes => `Pontos ${mes}`), 'Pontuação Total'];
       XLSX.utils.sheet_add_aoa(ws, [header], { origin: 'A1' });
 
       const wb = XLSX.utils.book_new();
