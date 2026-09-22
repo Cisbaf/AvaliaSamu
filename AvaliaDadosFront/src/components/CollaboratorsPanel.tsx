@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import { Edit, Delete, Add, EditNote } from '@mui/icons-material';
 import { useProjects } from '../context/ProjectContext';
-import { GlobalCollaborator, MedicoRole, NestedScoringParameters, ShiftHours } from '@/types/project';
+import { GlobalCollaborator, MedicoRole, ScoringParametersByPeriod, ShiftHours, WorkPeriod } from '@/types/project';
 import CollaboratorModal from './modal/AddCollaboratorModal';
 import AddExistingCollaboratorModal from './modal/AddExistingCollaboratorModal';
 import styles from './styles/CollaboratorsPanel.module.css';
@@ -17,7 +17,7 @@ import DataForPointsModal from './modal/DataForPointsModal';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import UploadWarningsModal from './modal/UploadWarningsModal';
-import { formatSecondsToTime } from './utils';
+import { formatSecondsToTime, formatWorkPeriod, is24hCollaborator } from './utils';
 
 
 export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
@@ -25,8 +25,13 @@ export type CombinedCollaboratorData = Omit<GlobalCollaborator, 'isGlobal'> & {
   projectId?: string;
   medicoRole?: MedicoRole;
   shiftHours?: ShiftHours;
+  // undefined = colaborador 24h (Supervisor, ou Médico Líder/Regulador com turno H24).
+  workPeriod?: WorkPeriod;
   points?: Record<string, number>;
 };
+
+const PERIOD_24H = '24H' as const;
+type PeriodFilter = 'all' | WorkPeriod | typeof PERIOD_24H;
 
 export default function CollaboratorsPanel() {
   const {
@@ -41,6 +46,7 @@ export default function CollaboratorsPanel() {
   const [state, setState] = useState({
     searchTerm: '',
     filterRole: 'all' as 'all' | string,
+    filterPeriod: 'all' as PeriodFilter,
     roles: [] as string[],
     medicoRole: [] as MedicoRole[],
     error: null as string | null,
@@ -104,6 +110,9 @@ export default function CollaboratorsPanel() {
 
         medicoRole: pc.medicoRole || gc?.medicoRole,
         shiftHours: pc.shiftHours || gc?.shiftHours,
+        workPeriod: is24hCollaborator(pc.role, pc.medicoRole || gc?.medicoRole, pc.shiftHours || gc?.shiftHours)
+          ? undefined
+          : (pc.workPeriod || gc?.workPeriod || WorkPeriod.DIURNO),
 
         points: pc.points || {},
       };
@@ -114,10 +123,14 @@ export default function CollaboratorsPanel() {
     combinedCollaborators
       .filter(c =>
         c.nome.toLowerCase().includes(state.searchTerm.toLowerCase()) &&
-        (state.filterRole === 'all' || c.role === state.filterRole || c.medicoRole === state.filterRole)
+        (state.filterRole === 'all' || c.role === state.filterRole || c.medicoRole === state.filterRole) &&
+        (state.filterPeriod === 'all'
+          || (state.filterPeriod === PERIOD_24H
+            ? is24hCollaborator(c.role, c.medicoRole, c.shiftHours)
+            : c.workPeriod === state.filterPeriod))
       )
       .sort((a, b) => a.nome.localeCompare(b.nome)),
-    [combinedCollaborators, state.searchTerm, state.filterRole]
+    [combinedCollaborators, state.searchTerm, state.filterRole, state.filterPeriod]
   );
 
   const availableCollaborators = useMemo(() => {
@@ -158,7 +171,10 @@ export default function CollaboratorsPanel() {
       await addCollaboratorToProject(selectedProject, {
         id, nome: globalCollab.nome, role,
         medicoRole: medicoRole as MedicoRole,
-        shiftHours: shiftHours as ShiftHours
+        shiftHours: shiftHours as ShiftHours,
+        workPeriod: is24hCollaborator(role, medicoRole, shiftHours)
+          ? undefined
+          : (globalCollab.workPeriod || WorkPeriod.DIURNO)
       });
 
       await fetchProjectCollaborators(selectedProject);
@@ -271,7 +287,7 @@ export default function CollaboratorsPanel() {
     }
   };
 
-  const handleSaveParameters = async (params: NestedScoringParameters) => {
+  const handleSaveParameters = async (params: ScoringParametersByPeriod) => {
     if (!selectedProject) return;
 
     updateState({ panelLoading: true, error: null });
@@ -319,6 +335,7 @@ export default function CollaboratorsPanel() {
             ? `${c.role} (${c.medicoRole} - ${c.shiftHours})`
             : c.role,
           'Nome': c.nome,
+          'Período': formatWorkPeriod(c.role, c.medicoRole, c.shiftHours, c.workPeriod),
           'Pausa Mensal': formatSecondsToTime(c.pausaMensal),
           'Pausa Pontos': c.points?.['Pausas'] || 0,
 
@@ -399,6 +416,16 @@ export default function CollaboratorsPanel() {
               ))}
 
             </Select>
+            <Select
+              value={state.filterPeriod}
+              size="small"
+              onChange={e => updateState({ filterPeriod: e.target.value as PeriodFilter, error: null })}
+            >
+              <MenuItem value="all">Todos os períodos</MenuItem>
+              <MenuItem value={WorkPeriod.DIURNO}>Diurno</MenuItem>
+              <MenuItem value={WorkPeriod.NOTURNO}>Noturno</MenuItem>
+              <MenuItem value={PERIOD_24H}>24h</MenuItem>
+            </Select>
           </div>
 
           <div className={styles.actionButtons}>
@@ -451,6 +478,7 @@ export default function CollaboratorsPanel() {
                 <TableRow>
                   <TableCell>Nome</TableCell>
                   <TableCell>Função</TableCell>
+                  <TableCell>Período</TableCell>
                   <TableCell>Pontuação</TableCell>
                   <TableCell>Ações</TableCell>
                 </TableRow>
@@ -459,11 +487,11 @@ export default function CollaboratorsPanel() {
               <TableBody>
                 {isTableLoading ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center"><CircularProgress /></TableCell>
+                    <TableCell colSpan={5} align="center"><CircularProgress /></TableCell>
                   </TableRow>
                 ) : filteredCollaborators.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} align="center">Nenhum colaborador encontrado</TableCell>
+                    <TableCell colSpan={5} align="center">Nenhum colaborador encontrado</TableCell>
                   </TableRow>
                 ) : (
                   filteredCollaborators.map(c => (
@@ -474,6 +502,7 @@ export default function CollaboratorsPanel() {
                         {c.role === 'MEDICO' && c.medicoRole && c.shiftHours
                           ? ` (${c.medicoRole} - ${c.shiftHours})` : ''}
                       </TableCell>
+                      <TableCell>{formatWorkPeriod(c.role, c.medicoRole, c.shiftHours, c.workPeriod)}</TableCell>
                       <TableCell>{c.pontuacao}</TableCell>
                       <TableCell>
                         <IconButton
@@ -513,7 +542,7 @@ export default function CollaboratorsPanel() {
             open={state.scoringParamsModalOpen}
             onClose={() => updateState({ scoringParamsModalOpen: false })}
             onSave={handleSaveParameters}
-            initialParams={currentProject?.parameters}
+            initialParams={currentProject?.scoringParameters}
           />
 
           <DataForPointsModal
