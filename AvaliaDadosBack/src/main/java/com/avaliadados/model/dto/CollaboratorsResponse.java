@@ -40,4 +40,9 @@ public class CollaboratorsResponse implements Serializable {
 
     Map<String, Integer> points;
 
+    // Equipe do supervisor. No retorno do cadastro global (CollaboratorEntity) são IDs
+    // globais de colaboradores; no retorno de dentro de um projeto são collaboratorId
+    // de outros colaboradores daquele mesmo projeto.
+    private java.util.List<String> equipeIds;
+
 }

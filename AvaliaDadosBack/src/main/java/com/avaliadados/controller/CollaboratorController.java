@@ -43,6 +43,15 @@ public class CollaboratorController {
         }
     }
 
+    @PutMapping("/{id}/equipe")
+    @Operation(summary = "Atualiza a equipe padrão do supervisor (Colab/TARM/Frota/Médico)")
+    public ResponseEntity<CollaboratorsResponse> updateEquipe(
+            @PathVariable String id, @RequestBody EquipeRequest request) {
+        return ResponseEntity.ok(service.updateEquipe(id, request.equipeIds()));
+    }
+
+    public record EquipeRequest(List<String> equipeIds) {}
+
     @GetMapping("/id/{id}")
     @Operation(summary = "Busca um colaborador global pelo ID")
     public ResponseEntity<CollaboratorsResponse> findById(@PathVariable String id) {

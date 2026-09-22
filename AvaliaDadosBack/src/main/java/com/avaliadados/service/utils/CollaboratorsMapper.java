@@ -25,7 +25,8 @@ public class CollaboratorsMapper {
                 .idCallRote(idCallRote.replace("-", "").replace(".", ""))
                 .role(entity.getRole())
                 .workPeriod(entity.getWorkPeriod() != null ? entity.getWorkPeriod() : WorkPeriod.DIURNO)
-                .pontuacao(entity.getPontuacao());
+                .pontuacao(entity.getPontuacao())
+                .equipeIds(entity.getEquipeIds() != null ? entity.getEquipeIds() : java.util.List.of());
 
         if (entity instanceof MedicoEntity medico) {
             builder.medicoRole(medico.getMedicoRole())
@@ -79,6 +80,7 @@ public class CollaboratorsMapper {
             };
         }
         collaborator.setWorkPeriod(WorkPeriod.resolve(request.role(), request.medicoRole(), request.shiftHours(), request.workPeriod()));
+        collaborator.setEquipeIds(request.equipeIds() != null ? request.equipeIds() : new java.util.ArrayList<>());
         return collaborator;
     }
 

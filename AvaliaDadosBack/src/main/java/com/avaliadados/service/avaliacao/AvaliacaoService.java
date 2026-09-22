@@ -376,6 +376,7 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             }
         }
 
+        collabParams.recalcularSupervisoresComEquipe(projeto);
         projetoRepository.save(projeto);
         return naoEncontrados;
     }

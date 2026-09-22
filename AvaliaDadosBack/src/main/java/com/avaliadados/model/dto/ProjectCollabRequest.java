@@ -61,4 +61,8 @@ public class ProjectCollabRequest {
 
     @NotBlank(message = "O ID do CallRote é obrigatório")
     private String idCallRote;
+
+    // Equipe do supervisor só neste projeto (collaboratorId de outros colaboradores
+    // já adicionados a este mesmo projeto). Opcional; null/ausente mantém a equipe atual.
+    private java.util.List<String> equipeIds;
 }

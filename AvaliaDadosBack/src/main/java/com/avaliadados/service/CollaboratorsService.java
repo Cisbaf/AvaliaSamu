@@ -111,6 +111,20 @@ public class CollaboratorsService {
         entity.setPontuacao(request.pontuacao());
         entity.setRole(request.role());
         entity.setWorkPeriod(WorkPeriod.resolve(request.role(), request.medicoRole(), request.shiftHours(), request.workPeriod()));
+        if (request.equipeIds() != null) {
+            entity.setEquipeIds(request.equipeIds());
+        }
+    }
+
+    // Atualiza só a equipe padrão do supervisor (usado pelo botão "Equipe" no cadastro
+    // global), sem exigir reenvio de nome/cpf/idCallRote como o update completo pede.
+    @Transactional
+    public CollaboratorsResponse updateEquipe(String id, List<String> equipeIds) {
+        CollaboratorEntity existing = collaboratorRepo.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Colaborador não encontrado"));
+        existing.setEquipeIds(equipeIds != null ? equipeIds : List.of());
+        var updated = collaboratorRepo.save(existing);
+        return mapper.toCollaboratorsResponse(updated);
     }
 
     private boolean needsWorkPeriodFix(CollaboratorEntity collaborator) {
@@ -146,6 +160,7 @@ public class CollaboratorsService {
         target.setCpf(source.getCpf());
         target.setIdCallRote(source.getIdCallRote());
         target.setPontuacao(source.getPontuacao());
+        target.setEquipeIds(source.getEquipeIds());
     }
 
 

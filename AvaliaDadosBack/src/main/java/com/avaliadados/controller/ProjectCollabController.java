@@ -49,6 +49,17 @@ public class ProjectCollabController {
         );
     }
 
+    @PutMapping("/{collaboratorId}/equipe")
+    @Operation(summary = "Atualiza a equipe do supervisor só neste projeto")
+    public ResponseEntity<ProjetoEntity> updateEquipe(
+            @PathVariable String projectId,
+            @PathVariable String collaboratorId,
+            @RequestBody EquipeRequest request) {
+        return ResponseEntity.ok(service.updateEquipe(projectId, collaboratorId, request.equipeIds()));
+    }
+
+    public record EquipeRequest(List<String> equipeIds) {}
+
     @DeleteMapping("/{collaboratorId}")
     @Operation(summary = "Remove um colaborador do projeto")
     public ResponseEntity<Void> delete(

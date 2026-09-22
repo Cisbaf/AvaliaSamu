@@ -39,6 +39,10 @@ public class ProjectCollabService {
         var medicoRole = Optional.ofNullable(dto.getMedicoRole())
                 .orElse(com.avaliadados.model.enums.MedicoRole.NENHUM);
 
+        // Supervisor herda a equipe padrão do cadastro global ao entrar num projeto novo;
+        // se o request já vier com equipeIds (ex.: reenvio de um form já editado), respeita.
+        List<String> equipeIds = dto.getEquipeIds() != null ? dto.getEquipeIds() : collab.getEquipeIds();
+
         ProjectCollaborator pc = ProjectCollaborator.builder()
                 .collaboratorId(dto.getCollaboratorId())
                 .nome(collab.getNome())
@@ -57,6 +61,7 @@ public class ProjectCollabService {
                         dto.getWorkPeriod() != null ? dto.getWorkPeriod() : collab.getWorkPeriod()
                 ))
                 .idCallRote(collab.getIdCallRote())
+                .equipeIds("SUPERVISOR".equals(dto.getRole()) && equipeIds != null ? equipeIds : new java.util.ArrayList<>())
                 .build();
 
         sheetProcessingService
@@ -85,6 +90,7 @@ public class ProjectCollabService {
 
         projeto.getCollaborators().removeIf(p -> p.getCollaboratorId().equals(dto.getCollaboratorId()));
         projeto.getCollaborators().add(pc);
+        collabParams.recalcularSupervisoresComEquipe(projeto);
         return projetoRepo.save(projeto);
     }
 
@@ -109,6 +115,7 @@ public class ProjectCollabService {
                         .criticos(pc.getCriticos())
                         .points(pc.getPoints())
                         .idCallRote(pc.getIdCallRote())
+                        .equipeIds(pc.getEquipeIds() != null ? pc.getEquipeIds() : List.of())
                         .build()
         ).toList();
     }
@@ -165,6 +172,7 @@ public class ProjectCollabService {
                     Optional.ofNullable(dto.getRemovidos()).ifPresent(pc::setRemovidos);
                     Optional.ofNullable(dto.getRemovidosLider()).ifPresent(pc::setRemovidosLider);
                     Optional.ofNullable(dto.getPausaMensalSeconds()).ifPresent(pc::setPausaMensalSeconds);
+                    Optional.ofNullable(dto.getEquipeIds()).ifPresent(pc::setEquipeIds);
 
                     if (!dto.getPontuacao().equals(pc.getPontuacao())) {
                         Optional.of(dto.getPontuacao()).ifPresent(pc::setPontuacao);
@@ -187,6 +195,26 @@ public class ProjectCollabService {
 
                 });
 
+        collabParams.recalcularSupervisoresComEquipe(projeto);
+        return projetoRepo.save(projeto);
+    }
+
+    // Atualiza só a equipe do supervisor dentro deste projeto (botão "Equipe" na
+    // tabela de colaboradores do projeto), sem reenviar todo o ProjectCollabRequest.
+    @Transactional
+    public ProjetoEntity updateEquipe(String projectId, String collaboratorId, List<String> equipeIds) {
+        ProjetoEntity projeto = projetoRepo.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
+
+        projeto.getCollaborators().stream()
+                .filter(pc -> pc.getCollaboratorId().equals(collaboratorId))
+                .findFirst()
+                .ifPresentOrElse(
+                        pc -> pc.setEquipeIds(equipeIds != null ? equipeIds : List.of()),
+                        () -> { throw new RuntimeException("Colaborador não encontrado no projeto: " + collaboratorId); }
+                );
+
+        collabParams.recalcularSupervisoresComEquipe(projeto);
         return projetoRepo.save(projeto);
     }
 
@@ -195,6 +223,7 @@ public class ProjectCollabService {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
         projeto.getCollaborators().removeIf(pc -> pc.getCollaboratorId().equals(collaboratorId));
+        collabParams.recalcularSupervisoresComEquipe(projeto);
         projetoRepo.save(projeto);
     }
 }

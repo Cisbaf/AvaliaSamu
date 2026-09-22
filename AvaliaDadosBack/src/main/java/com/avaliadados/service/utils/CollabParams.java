@@ -33,6 +33,17 @@ public class CollabParams {
     public int setParams(ProjectCollaborator pc, ProjetoEntity project, int removeds, int removedsLider, long duration, long criticos, long pausaMensal, long saidaVtr) {
         if (pc.getRole() == null) return 0;
 
+        // Supervisor com equipe definida: a pontuação dele é a média da pontuação dos
+        // colaboradores da equipe (não passa pelas regras normais de Colab/pausas).
+        // Sem equipe, cai no cálculo antigo (seção Colab) mais abaixo.
+        if ("SUPERVISOR".equals(pc.getRole())) {
+            Integer mediaEquipe = calcularMediaEquipe(pc, project);
+            if (mediaEquipe != null) {
+                pc.setPoints(new HashMap<>(Map.of("MediaEquipe", mediaEquipe, "Total", mediaEquipe)));
+                return mediaEquipe;
+            }
+        }
+
         NestedScoringParameters params = Optional.ofNullable(pc.getParametros())
                 .orElseGet(() -> {
                     pc.setParametros(new NestedScoringParameters());
@@ -94,6 +105,51 @@ public class CollabParams {
 
         return pontos.get("Total");
 
+    }
+
+    // Retorna a média (arredondada) da pontuação dos membros da equipe do supervisor
+    // NESTE projeto, ou null se o supervisor não tem equipe (ou nenhum membro da
+    // equipe foi encontrado entre os colaboradores do projeto) — sinal para usar o
+    // cálculo antigo em setParams.
+    private Integer calcularMediaEquipe(ProjectCollaborator supervisor, ProjetoEntity project) {
+        List<String> equipe = supervisor.getEquipeIds();
+        if (equipe == null || equipe.isEmpty() || project.getCollaborators() == null) return null;
+
+        Set<String> membrosIds = new HashSet<>(equipe);
+        List<Integer> pontos = project.getCollaborators().stream()
+                .filter(pc -> pc != supervisor)
+                .filter(pc -> membrosIds.contains(pc.getCollaboratorId()))
+                .map(pc -> Optional.ofNullable(pc.getPontuacao()).orElse(0))
+                .toList();
+
+        if (pontos.isEmpty()) return null;
+
+        double media = pontos.stream().mapToInt(Integer::intValue).average().orElse(0);
+        return (int) Math.round(media);
+    }
+
+    // Recalcula a pontuação de todos os supervisores com equipe definida neste
+    // projeto. Deve ser chamado sempre que a pontuação de algum colaborador do
+    // projeto mudar (import de planilha, edição manual, adição/remoção de membro),
+    // pois a média do(s) supervisor(es) pode ter mudado junto.
+    public void recalcularSupervisoresComEquipe(ProjetoEntity projeto) {
+        if (projeto.getCollaborators() == null) return;
+        projeto.getCollaborators().stream()
+                .filter(pc -> "SUPERVISOR".equals(pc.getRole()))
+                .filter(pc -> pc.getEquipeIds() != null && !pc.getEquipeIds().isEmpty())
+                .forEach(supervisor -> {
+                    int pontos = setParams(
+                            supervisor,
+                            projeto,
+                            Optional.ofNullable(supervisor.getRemovidos()).orElse(0),
+                            Optional.ofNullable(supervisor.getRemovidosLider()).orElse(0),
+                            Optional.ofNullable(supervisor.getDurationSeconds()).orElse(0L),
+                            Optional.ofNullable(supervisor.getCriticos()).orElse(0L),
+                            Optional.ofNullable(supervisor.getPausaMensalSeconds()).orElse(0L),
+                            Optional.ofNullable(supervisor.getSaidaVtrSeconds()).orElse(0L)
+                    );
+                    supervisor.setPontuacao(pontos);
+                });
     }
 
     public void setDataFromApi(Map<ProjectCollaborator, String> pcToIdMap, ProjetoEntity projeto) {

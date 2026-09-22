@@ -43,4 +43,12 @@ public class ProjectCollaborator {
     @Builder.Default
     private Boolean wasEdited = false;
 
+    // Equipe do supervisor NESTE projeto: collaboratorId de outros ProjectCollaborator
+    // (TARM/FROTA/MEDICO) deste mesmo projeto. Quando preenchida, a pontuação do
+    // supervisor passa a ser a média da pontuação desses colaboradores (ver CollabParams).
+    // Ao adicionar um supervisor a um projeto, é copiada de CollaboratorEntity.equipeIds
+    // e pode ser editada livremente só neste projeto, sem afetar o cadastro global.
+    @Builder.Default
+    private java.util.List<String> equipeIds = new java.util.ArrayList<>();
+
 }

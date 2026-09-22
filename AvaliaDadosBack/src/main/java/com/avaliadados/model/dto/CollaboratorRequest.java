@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 import java.io.Serializable;
+import java.util.List;
 
 public record CollaboratorRequest(
         String id,
@@ -24,7 +25,11 @@ public record CollaboratorRequest(
 
         MedicoRole medicoRole,
         ShiftHours shiftHours,
-        WorkPeriod workPeriod
+        WorkPeriod workPeriod,
+
+        // Equipe padrão do supervisor (IDs de colaboradores globais). Opcional; null
+        // mantém a equipe atual sem alterá-la (ver CollaboratorsService.updateCommonFields).
+        List<String> equipeIds
 
 )
         implements Serializable {

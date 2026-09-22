@@ -100,6 +100,9 @@ public class ProjetosService {
                         .role(g.getRole())
                         .idCallRote(g.getIdCallRote())
                         .workPeriod(WorkPeriod.resolve(g.getRole(), null, null, g.getWorkPeriod()))
+                        // Supervisor entra no projeto novo já com a equipe padrão do cadastro
+                        // global; pode ser ajustada depois só neste projeto.
+                        .equipeIds(g.getEquipeIds() != null ? new java.util.ArrayList<>(g.getEquipeIds()) : new java.util.ArrayList<>())
                         .build();
             }
             return medicos.stream()
