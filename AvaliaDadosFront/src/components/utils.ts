@@ -1,3 +1,37 @@
+import { MedicoRole, ShiftHours, WorkPeriod } from '@/types/project';
+
+// Um colaborador é "24h" quando o conceito de Diurno/Noturno não se aplica a ele:
+// Supervisores são sempre 24h, e Médico Líder/Regulador com turno H24 também.
+// Nesses casos o período é forçado pra WorkPeriod.H24 (o backend faz o mesmo).
+export const is24hCollaborator = (
+  role?: string,
+  medicoRole?: MedicoRole,
+  shiftHours?: ShiftHours
+): boolean => {
+  if (role === 'SUPERVISOR') return true;
+  if (
+    role === 'MEDICO' &&
+    (medicoRole === MedicoRole.LIDER || medicoRole === MedicoRole.REGULADOR) &&
+    shiftHours === ShiftHours.H24
+  ) {
+    return true;
+  }
+  return false;
+};
+
+// Rótulo de período pronto pra exibir, já considerando o caso 24h.
+// Confia primeiro no valor real de workPeriod (H24 explícito); cai pra regra de
+// função só como rede de segurança pra registros antigos que não têm o campo certo.
+export const formatWorkPeriod = (
+  role: string | undefined,
+  medicoRole: MedicoRole | undefined,
+  shiftHours: ShiftHours | undefined,
+  workPeriod: WorkPeriod | undefined
+): string => {
+  if (workPeriod === WorkPeriod.H24 || is24hCollaborator(role, medicoRole, shiftHours)) return '24h';
+  return workPeriod === WorkPeriod.NOTURNO ? 'Noturno' : 'Diurno';
+};
+
 export const parseTimeToSeconds = (timeString: string): number | null => {
   if (timeString === null || typeof timeString === 'undefined' || timeString.trim() === '') {
     return 0; // Tratar string vazia como 0 segundos, ou null se preferir validação mais estrita

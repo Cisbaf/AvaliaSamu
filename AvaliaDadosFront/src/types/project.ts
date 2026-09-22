@@ -5,6 +5,9 @@ export interface BaseCollaborator {
   idCallRote: string;
   role: string;
   shiftHours?: ShiftHours;
+  // WorkPeriod.H24 = colaborador 24h (Médico Líder/Regulador com turno H24, ou Supervisor).
+  // Diurno/Noturno só se aplica a quem tem um período de fato. Opcional só por causa de dados legados.
+  workPeriod?: WorkPeriod;
   medicoRole?: MedicoRole;
   pontuacao: number;
   removidos?: number;
@@ -23,6 +26,12 @@ export enum MedicoRole {
 
 export enum ShiftHours {
   H12 = 'H12',
+  H24 = 'H24',
+}
+
+export enum WorkPeriod {
+  DIURNO = 'DIURNO',
+  NOTURNO = 'NOTURNO',
   H24 = 'H24',
 }
 
@@ -59,16 +68,24 @@ export interface NestedScoringParameters {
   medico: ScoringSectionParams;
 }
 
+export interface ScoringParametersByPeriod {
+  diurno: NestedScoringParameters;
+  noturno: NestedScoringParameters;
+  h24: NestedScoringParameters;
+}
+
 
 export interface Project {
   id?: string;
   name: string;
   month: string;
-  parameters: NestedScoringParameters;
+  scoringParameters: ScoringParametersByPeriod;
+  parameters?: NestedScoringParameters;
   collaborators: Array<{
     collaboratorId: string;
     role: string;
     shiftHours?: ShiftHours;
+    workPeriod?: WorkPeriod;
     medicoRole?: MedicoRole;
     pontuacao: number;
     quantity?: number;
@@ -89,6 +106,7 @@ export interface UpdateProjectCollabDto {
   pausaMensalSeconds?: number;
   medicoRole?: MedicoRole;
   shiftHours?: ShiftHours;
+  workPeriod?: WorkPeriod;
   saidaVtr?: number;
   pontuacao: number;
 }
