@@ -6,16 +6,7 @@ Para contexto completo de implementação, decisões e próximos passos, consult
 
 O frontend usa uma senha compartilhada e um cookie `HttpOnly` válido por 21 dias. Não há JWT nem página de login.
 
-Configure as variáveis apenas no ambiente do servidor (não use `NEXT_PUBLIC_`):
-
-```env
-API_URL=http://backend:8080/api
-APP_PASSWORD=escolha-uma-senha-forte
-# Use false somente em servidor HTTP sem HTTPS.
-APP_COOKIE_SECURE=true
-```
-
-O arquivo [`AvaliaDadosFront/.env.example`](AvaliaDadosFront/.env.example) contém o modelo. Alterar `APP_PASSWORD` invalida automaticamente todos os cookies existentes.
+As variáveis de ambiente necessárias (URL da API, senha de acesso e flag de cookie seguro) são configuradas apenas no servidor — nunca com prefixo `NEXT_PUBLIC_`. Veja o modelo em [`AvaliaDadosFront/.env.example`](AvaliaDadosFront/.env.example) (não versionar o `.env` real). Alterar a senha invalida automaticamente todos os cookies existentes.
 
 ## Período dos profissionais
 
@@ -34,7 +25,7 @@ Projetos antigos têm seus parâmetros atuais copiados para os dois períodos na
 
 - `/`: administração dos projetos.
 - `/colaboradores`: cadastro-base dos profissionais.
-- `/dashboard/{projectId}`: edição dos dados de um projeto.
+- `/projeto/{projectId}`: edição dos dados de um projeto.
 - `/dash`: dashboard independente e sem navegação para a home.
 
 ## Validação
