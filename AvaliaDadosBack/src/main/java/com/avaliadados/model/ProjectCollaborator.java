@@ -2,6 +2,7 @@ package com.avaliadados.model;
 
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
+import com.avaliadados.model.enums.WorkPeriod;
 import com.avaliadados.model.params.NestedScoringParameters;
 import lombok.*;
 
@@ -19,6 +20,8 @@ public class ProjectCollaborator {
     private String role;
     private Integer plantao;
     private ShiftHours shiftHours;
+    @Builder.Default
+    private WorkPeriod workPeriod = WorkPeriod.DIURNO;
     private MedicoRole medicoRole;
     @Builder.Default
     private Long durationSeconds = 0L;
