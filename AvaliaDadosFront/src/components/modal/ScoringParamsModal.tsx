@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -20,15 +20,15 @@ import {
   Tab,
   Box
 } from '@mui/material';
-import { NestedScoringParameters, ScoringRule, ScoringSectionParams } from '@/types/project';
-import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
+import { NestedScoringParameters, ScoringParametersByPeriod, ScoringRule, ScoringSectionParams } from '@/types/project';
+import { DEFAULT_SCORING_PARAMETERS } from '@/components/utils/scoring-params';
 import { formatSecondsToTime, parseTimeInputToSeconds } from '../utils';
 
 interface ScoringParamsModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (params: NestedScoringParameters) => void;
-  initialParams?: NestedScoringParameters;
+  onSave: (params: ScoringParametersByPeriod) => void;
+  initialParams?: ScoringParametersByPeriod;
 }
 
 function TabPanel({ children, value, index }: { children?: ReactNode; value: number; index: number }) {
@@ -43,14 +43,42 @@ function a11yProps(idx: number) {
   return { id: `tab-${idx}`, 'aria-controls': `tabpanel-${idx}` };
 }
 
+type SectionKey = keyof NestedScoringParameters;
+
+const ALL_SECTIONS: { key: SectionKey; label: string }[] = [
+  { key: 'colab', label: 'COLAB' },
+  { key: 'tarm', label: 'TARM' },
+  { key: 'frota', label: 'FROTA' },
+  { key: 'medico', label: 'MÉDICO' },
+];
+
+// 24h só se aplica a Supervisor (Colab) e Médico Líder/Regulador — TARM e FROTA não têm turno 24h.
+const H24_SECTIONS: SectionKey[] = ['colab', 'medico'];
+
 export default function ScoringParamsModal({ open, onClose, onSave, initialParams }: ScoringParamsModalProps) {
   const [tabIndex, setTabIndex] = useState(0);
+  const [periodTab, setPeriodTab] = useState<keyof ScoringParametersByPeriod>('diurno');
 
-  const [params, setParams] = useState<NestedScoringParameters>(() =>
+  const visibleSections = periodTab === 'h24'
+    ? ALL_SECTIONS.filter(s => H24_SECTIONS.includes(s.key))
+    : ALL_SECTIONS;
+
+  const handlePeriodTabChange = (value: keyof ScoringParametersByPeriod) => {
+    setPeriodTab(value);
+    setTabIndex(0);
+  };
+
+  const [params, setParams] = useState<ScoringParametersByPeriod>(() =>
     initialParams
       ? JSON.parse(JSON.stringify(initialParams))
-      : JSON.parse(JSON.stringify(DEFAULT_PARAMS))
+      : JSON.parse(JSON.stringify(DEFAULT_SCORING_PARAMETERS))
   );
+
+  useEffect(() => {
+    if (open) {
+      setParams(JSON.parse(JSON.stringify(initialParams || DEFAULT_SCORING_PARAMETERS)));
+    }
+  }, [open, initialParams]);
 
   const handleParamChange = (
     section: keyof NestedScoringParameters,
@@ -60,8 +88,8 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
     val: string
   ) => {
     setParams(prev => {
-      const next = JSON.parse(JSON.stringify(prev)) as NestedScoringParameters;
-      const rule = (next[section][field] as ScoringRule[])[idx];
+      const next = JSON.parse(JSON.stringify(prev)) as ScoringParametersByPeriod;
+      const rule = (next[periodTab][section][field] as ScoringRule[])[idx];
       if (key === 'points' || key === 'quantity') rule[key] = Number(val);
       else if (key === 'duration') {
         const parts = val.split(':').map(v => Number(v));
@@ -74,9 +102,9 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
 
   const handleAddRule = (section: keyof NestedScoringParameters, field: keyof ScoringSectionParams) => {
     setParams(prev => {
-      const next = JSON.parse(JSON.stringify(prev)) as NestedScoringParameters;
-      const arr = next[section][field] as ScoringRule[];
-      arr.push({ ...arr[arr.length - 1] });
+      const next = JSON.parse(JSON.stringify(prev)) as ScoringParametersByPeriod;
+      const arr = next[periodTab][section][field] as ScoringRule[];
+      arr.push(arr.length > 0 ? { ...arr[arr.length - 1] } : { points: 0 });
       return next;
     });
   };
@@ -87,8 +115,8 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
     idx: number
   ) => {
     setParams(prev => {
-      const next = JSON.parse(JSON.stringify(prev)) as NestedScoringParameters;
-      const arr = next[section][field] as ScoringRule[];
+      const next = JSON.parse(JSON.stringify(prev)) as ScoringParametersByPeriod;
+      const arr = next[periodTab][section][field] as ScoringRule[];
       if (arr.length > 1) arr.splice(idx, 1);
       return next;
     });
@@ -133,7 +161,7 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
     field: keyof ScoringSectionParams,
     columns: string[]
   ) => {
-    const arr = params[section][field] as ScoringRule[];
+    const arr = (params[periodTab]?.[section]?.[field] || []) as ScoringRule[];
 
     return (
       <>
@@ -193,63 +221,93 @@ export default function ScoringParamsModal({ open, onClose, onSave, initialParam
     );
   };
 
+  const renderSectionContent = (key: SectionKey) => {
+    switch (key) {
+      case 'colab':
+        return (
+          <>
+            <Typography variant="subtitle1">Pausas Mensais</Typography>
+            {renderTable('colab', 'pausas', ['Duração', 'Pontuação'])}
+          </>
+        );
+      case 'tarm':
+        return (
+          <>
+            <Typography variant="subtitle1">Removidos TARM</Typography>
+            {renderTable('tarm', 'removidos', ['Quantidade', 'Pontuação'])}
+
+            <Typography variant="subtitle1">Tempo de Regulação TARM</Typography>
+            {renderTable('tarm', 'regulacao', ['Duração', 'Pontuação'])}
+          </>
+        );
+      case 'frota':
+        return (
+          <>
+            <Typography variant="subtitle1">Saída VTR</Typography>
+            {renderTable('frota', 'saidaVtr', ['Duração', 'Pontuação'])}
+
+            <Typography variant="subtitle1">Tempo de Regulação Frota</Typography>
+            {renderTable('frota', 'regulacao', ['Duração', 'Pontuação'])}
+          </>
+        );
+      case 'medico':
+        return (
+          <>
+            <Typography variant="subtitle1">Removidos Médico Regulador</Typography>
+            {renderTable('medico', 'removidos', ['Quantidade', 'Pontuação'])}
+
+            <Typography variant="subtitle1">Removidos Médico Lider</Typography>
+            {renderTable('medico', 'removidosLider', ['Quantidade', 'Pontuação'])}
+
+            <Typography variant="subtitle1">Tempo de Regulação Médica</Typography>
+            {renderTable('medico', 'regulacao', ['Duração', 'Pontuação'])}
+
+            <Typography variant="subtitle1">Tempo de Criticos Líder</Typography>
+            {renderTable('medico', 'regulacaoLider', ['Duração', 'Pontuação'])}
+          </>
+        );
+    }
+  };
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>Configuração de Parâmetros de Pontuação</DialogTitle>
       <DialogContent>
         <Tabs
+          value={periodTab}
+          onChange={(_, value) => handlePeriodTabChange(value)}
+          variant="fullWidth"
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
+        >
+          <Tab value="diurno" label="Diurno" />
+          <Tab value="noturno" label="Noturno" />
+          <Tab value="h24" label="24h" />
+        </Tabs>
+        <Tabs
           value={tabIndex}
           onChange={(_, v) => setTabIndex(v)}
           sx={{ mb: 2 }}
         >
-          <Tab label="COLAB" {...a11yProps(0)} />
-          <Tab label="TARM" {...a11yProps(1)} />
-          <Tab label="FROTA" {...a11yProps(2)} />
-          <Tab label="MÉDICO" {...a11yProps(3)} />
-
+          {visibleSections.map((s, i) => (
+            <Tab key={s.key} label={s.label} {...a11yProps(i)} />
+          ))}
         </Tabs>
-        <TabPanel value={tabIndex} index={0}>
-          <Typography variant="subtitle1">Pausas Mensais</Typography>
-          {renderTable('colab', 'pausas', ['Duração', 'Pontuação'])}
-        </TabPanel>
-
-        <TabPanel value={tabIndex} index={1}>
-          <Typography variant="subtitle1">Removidos TARM</Typography>
-          {renderTable('tarm', 'removidos', ['Quantidade', 'Pontuação'])}
-
-          <Typography variant="subtitle1">Tempo de Regulação TARM</Typography>
-          {renderTable('tarm', 'regulacao', ['Duração', 'Pontuação'])}
-
-
-        </TabPanel>
-        <TabPanel value={tabIndex} index={2}>
-          <Typography variant="subtitle1">Saída VTR</Typography>
-          {renderTable('frota', 'saidaVtr', ['Duração', 'Pontuação'])}
-
-          <Typography variant="subtitle1">Tempo de Regulação Frota</Typography>
-          {renderTable('frota', 'regulacao', ['Duração', 'Pontuação'])}
-        </TabPanel>
-        <TabPanel value={tabIndex} index={3}>
-          <Typography variant="subtitle1">Removidos Médico Regulador</Typography>
-          {renderTable('medico', 'removidos', ['Quantidade', 'Pontuação'])}
-
-          <Typography variant="subtitle1">Removidos Médico Lider</Typography>
-          {renderTable('medico', 'removidosLider', ['Quantidade', 'Pontuação'])}
-
-          <Typography variant="subtitle1">Tempo de Regulação Médica</Typography>
-          {renderTable('medico', 'regulacao', ['Duração', 'Pontuação'])}
-
-          <Typography variant="subtitle1">Tempo de Criticos Líder</Typography>
-          {renderTable('medico', 'regulacaoLider', ['Duração', 'Pontuação'])}
-        </TabPanel>
-
+        {visibleSections.map((s, i) => (
+          <TabPanel key={s.key} value={tabIndex} index={i}>
+            {renderSectionContent(s.key)}
+          </TabPanel>
+        ))}
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>
         <Button
           variant="contained"
           onClick={() => {
-            const clean = normalizeParams(params);
+            const clean: ScoringParametersByPeriod = {
+              diurno: normalizeParams(params.diurno),
+              noturno: normalizeParams(params.noturno),
+              h24: normalizeParams(params.h24),
+            };
             onSave(clean);
           }}
         >
