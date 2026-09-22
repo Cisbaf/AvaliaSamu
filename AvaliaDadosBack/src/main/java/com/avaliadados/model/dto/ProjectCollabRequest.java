@@ -2,6 +2,7 @@ package com.avaliadados.model.dto;
 
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
+import com.avaliadados.model.enums.WorkPeriod;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -55,6 +56,8 @@ public class ProjectCollabRequest {
 
     @NotNull(message = "O turno é obrigatório")
     private ShiftHours shiftHours;
+
+    private WorkPeriod workPeriod;
 
     @NotBlank(message = "O ID do CallRote é obrigatório")
     private String idCallRote;

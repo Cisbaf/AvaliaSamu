@@ -2,6 +2,7 @@ package com.avaliadados.model.dto;
 
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
+import com.avaliadados.model.enums.WorkPeriod;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import lombok.*;
@@ -25,6 +26,8 @@ public class CollaboratorsResponse implements Serializable {
     private ShiftHours shiftHours;
     @Enumerated(EnumType.STRING)
     private MedicoRole medicoRole;
+    @Enumerated(EnumType.STRING)
+    private WorkPeriod workPeriod;
     private Integer plantao;
 
     private Long durationSeconds;

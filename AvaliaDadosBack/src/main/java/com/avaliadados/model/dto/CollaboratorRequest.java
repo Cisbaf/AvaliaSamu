@@ -2,6 +2,7 @@ package com.avaliadados.model.dto;
 
 import com.avaliadados.model.enums.MedicoRole;
 import com.avaliadados.model.enums.ShiftHours;
+import com.avaliadados.model.enums.WorkPeriod;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
@@ -22,7 +23,8 @@ public record CollaboratorRequest(
         String role,
 
         MedicoRole medicoRole,
-        ShiftHours shiftHours
+        ShiftHours shiftHours,
+        WorkPeriod workPeriod
 
 )
         implements Serializable {
