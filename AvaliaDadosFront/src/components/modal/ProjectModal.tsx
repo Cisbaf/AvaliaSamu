@@ -16,6 +16,7 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format } from 'date-fns';
 import { enGB } from 'date-fns/locale';
+import { DEFAULT_SCORING_PARAMETERS } from '@/components/utils/scoring-params';
 
 export default function ProjectModal({
   open,
@@ -45,12 +46,7 @@ export default function ProjectModal({
       await createProject({
         name: projectName,
         month: month,
-        parameters: {
-          colab: {},
-          tarm: {},
-          frota: {},
-          medico: {}
-        }
+        scoringParameters: DEFAULT_SCORING_PARAMETERS
       });
       onClose();
       setProjectName('');

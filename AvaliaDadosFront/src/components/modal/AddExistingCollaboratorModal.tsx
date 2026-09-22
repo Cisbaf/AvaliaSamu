@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { GlobalCollaborator, MedicoRole, ShiftHours } from '@/types/project';
+import { formatWorkPeriod } from '../utils';
 
 interface AddExistingCollaboratorModalProps {
     open: boolean;
@@ -77,6 +78,7 @@ export default function AddExistingCollaboratorModal({
                                     secondary={
                                         <>
                                             {collab.role}
+                                            {` • ${formatWorkPeriod(collab.role, collab.medicoRole, collab.shiftHours, collab.workPeriod)}`}
                                             {collab.role === 'MEDICO' && collab.medicoRole && collab.shiftHours &&
                                                 ` (${collab.medicoRole} - ${collab.shiftHours})`
                                             }

@@ -1,5 +1,5 @@
-import { addCollaboratorToProjectApi, createProjectApi, deleteProjectApi, fetchGlobalCollaboratorsApi, fetchProjectsApi, updateProjectApi } from "@/lib/api";
-import { NestedScoringParameters, Project } from "@/types/project";
+import { createProjectApi, deleteProjectApi, fetchProjectsApi, updateProjectApi } from "@/lib/api";
+import { Project, ScoringParametersByPeriod } from "@/types/project";
 import { useCallback, useEffect, useState } from "react";
 
 export function useProjectActions() {
@@ -12,46 +12,8 @@ export function useProjectActions() {
     }, []);
 
     const createProject = useCallback(
-        async (data: { name: string; month: string; parameters: NestedScoringParameters }) => {
+        async (data: { name: string; month: string; scoringParameters?: ScoringParametersByPeriod }) => {
             const { data: newProject } = await createProjectApi(data);
-
-            const { data: globals } = await fetchGlobalCollaboratorsApi();
-
-            // Filtra e mapeia apenas colaboradores médicos completos
-            const medicosCompletos = globals.filter(g =>
-                g.role === 'MEDICO' &&
-                g.medicoRole &&
-                g.shiftHours
-            );
-
-            // Adiciona outros tipos de colaboradores
-            const outrosColabs = globals.filter(g => g.role !== 'MEDICO');
-
-            await Promise.all([
-                ...medicosCompletos.map(m =>
-                    addCollaboratorToProjectApi(
-                        newProject.id!,
-                        m.id!,
-                        m.role,
-                        m.durationSeconds,
-                        m.removidos,
-                        m.pausaMensalSeconds,
-                        undefined,
-                        m.medicoRole,
-                        m.shiftHours
-                    )
-                ),
-                ...outrosColabs.map(o =>
-                    addCollaboratorToProjectApi(
-                        newProject.id!,
-                        o.id!,
-                        o.role,
-                        o.durationSeconds,
-                        o.removidos,
-                        o.pausaMensalSeconds
-                    )
-                )
-            ]);
 
             await fetchProjects();
             return newProject;
@@ -60,7 +22,7 @@ export function useProjectActions() {
     );
 
     const updateProject = useCallback(
-        async (id: string, updates: { name?: string; month?: string; parameters?: NestedScoringParameters }) => {
+        async (id: string, updates: { name?: string; month?: string; scoringParameters?: ScoringParametersByPeriod }) => {
             await updateProjectApi(id, updates);
             await fetchProjects();
         },
@@ -68,9 +30,9 @@ export function useProjectActions() {
     );
 
     const updateProjectParameters = useCallback(
-        async (projectId: string, parameters: NestedScoringParameters) => {
+        async (projectId: string, scoringParameters: ScoringParametersByPeriod) => {
             try {
-                const resp = await updateProjectApi(projectId, { parameters });
+                const resp = await updateProjectApi(projectId, { scoringParameters });
                 setProjects(prev =>
                     prev.map(p => (p.id === projectId ? resp.data : p))
                 );

@@ -7,7 +7,7 @@ import {
     updateProjectCollaboratorApi,
     deleteProjectCollaboratorApi,
 } from '@/lib/api';
-import { MedicoRole, ProjectCollaborator, ShiftHours, UpdateProjectCollabDto } from '@/types/project';
+import { MedicoRole, ProjectCollaborator, ShiftHours, UpdateProjectCollabDto, WorkPeriod } from '@/types/project';
 
 export function useProjectCollaborators() {
     const [projectCollaborators, setProjectCollaborators] = useState<Record<string, ProjectCollaborator[]>>({});
@@ -21,7 +21,8 @@ export function useProjectCollaborators() {
                     ...c,
                     points: c.points as Record<string, number> | undefined,
                     medicoRole: c.medicoRole as MedicoRole | undefined,
-                    shiftHours: c.shiftHours as ShiftHours | undefined
+                    shiftHours: c.shiftHours as ShiftHours | undefined,
+                    workPeriod: (c.workPeriod || WorkPeriod.DIURNO) as WorkPeriod
                 }))
             }));
         } catch (err) {
@@ -31,7 +32,7 @@ export function useProjectCollaborators() {
 
     const addCollaboratorToProject = useCallback(async (
         projectId: string,
-        payload: { id: string; role: string; durationSeconds?: number; quantity?: number; pausaMensalSeconds?: number; parametros?: Record<string, number>; medicoRole?: MedicoRole; shiftHours?: ShiftHours }
+        payload: { id: string; role: string; durationSeconds?: number; quantity?: number; pausaMensalSeconds?: number; parametros?: Record<string, number>; medicoRole?: MedicoRole; shiftHours?: ShiftHours; workPeriod?: WorkPeriod }
     ) => {
         await addCollaboratorToProjectApi(
             projectId,
@@ -42,7 +43,8 @@ export function useProjectCollaborators() {
             payload.pausaMensalSeconds,
             payload.parametros,
             payload.medicoRole,
-            payload.shiftHours
+            payload.shiftHours,
+            payload.workPeriod
         );
         await fetchProjectCollaborators(projectId);
     }, [fetchProjectCollaborators]);

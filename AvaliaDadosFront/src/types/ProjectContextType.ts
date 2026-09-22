@@ -1,12 +1,12 @@
-import { Project, GlobalCollaborator, Collaborator, ProjectCollaborator, NestedScoringParameters, MedicoRole, ShiftHours, UpdateProjectCollabDto } from '@/types/project';
+import { Project, GlobalCollaborator, Collaborator, ProjectCollaborator, ScoringParametersByPeriod, MedicoRole, ShiftHours, UpdateProjectCollabDto, WorkPeriod } from '@/types/project';
 
 export interface ProjectContextType {
     projects: Project[];
     selectedProject: string | null;
     setSelectedProject: (id: string | null) => void;
     actions: {
-        createProject: (data: { name: string; month: string; parameters: NestedScoringParameters }) => Promise<Project>;
-        updateProject: (id: string, updates: { name?: string; month?: string; parameters?: NestedScoringParameters }) => Promise<void>;
+        createProject: (data: { name: string; month: string; scoringParameters?: ScoringParametersByPeriod }) => Promise<Project>;
+        updateProject: (id: string, updates: { name?: string; month?: string; scoringParameters?: ScoringParametersByPeriod }) => Promise<void>;
         deleteProject: (id: string) => Promise<void>;
 
         createGlobalCollaborator: (collab: Omit<GlobalCollaborator, "id">) => Promise<void>;
@@ -14,10 +14,10 @@ export interface ProjectContextType {
         deleteGlobalCollaborator: (id: string) => Promise<void>;
 
         fetchProjectCollaborators: (projectId: string) => Promise<void>;
-        addCollaboratorToProject: (projectId: string, params: { id: string; nome: string; role: string; medicoRole: MedicoRole; shiftHours: ShiftHours }) => Promise<void>;
+        addCollaboratorToProject: (projectId: string, params: { id: string; nome: string; role: string; medicoRole: MedicoRole; shiftHours: ShiftHours; workPeriod?: WorkPeriod }) => Promise<void>;
         updateProjectCollaborator: (projectId: string, collabId: string, updates: UpdateProjectCollabDto, wasEdited: boolean) => Promise<void>;
         deleteCollaboratorFromProject: (projectId: string, collabId: string) => Promise<void>;
-        updateProjectParameters: (projectId: string, parameters: NestedScoringParameters) => Promise<void>;
+        updateProjectParameters: (projectId: string, parameters: ScoringParametersByPeriod) => Promise<void>;
 
     };
 

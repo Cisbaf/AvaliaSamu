@@ -1,5 +1,6 @@
 package com.avaliadados.model;
 
+import com.avaliadados.model.enums.WorkPeriod;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,6 +21,8 @@ public class CollaboratorEntity {
     private String idCallRote;
     private int pontuacao;
     private String role;
+    @Enumerated(EnumType.STRING)
+    private WorkPeriod workPeriod = WorkPeriod.DIURNO;
     @Version
     private Long version;
 
@@ -33,4 +36,3 @@ public class CollaboratorEntity {
         this.version = version;
     }
 }
-

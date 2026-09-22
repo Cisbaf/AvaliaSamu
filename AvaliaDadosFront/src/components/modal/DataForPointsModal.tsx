@@ -110,6 +110,7 @@ export default function DataForPointsModal({
                     nome: initialData!.nome,
                     medicoRole: initialData!.medicoRole,
                     shiftHours: initialData!.shiftHours as ShiftHours,
+                    workPeriod: initialData!.workPeriod,
                     pontuacao: formData.points || 0,
                 };
 

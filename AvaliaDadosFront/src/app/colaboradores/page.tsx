@@ -21,10 +21,14 @@ import styles from '@/components/styles/CollaboratorsPanel.module.css';
 import EditIcon from '@mui/icons-material/Edit';
 import CollaboratorModal from '@/components/modal/AddCollaboratorModal';
 import api, { deleteGlobalCollaboratorApi } from '@/lib/api';
-import { GlobalCollaborator } from "@/types/project"
+import { GlobalCollaborator, WorkPeriod } from "@/types/project"
 import { Delete } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import ConfirmationDialog from '@/components/modal/ConfirmationModal';
+import { formatWorkPeriod, is24hCollaborator } from '@/components/utils';
+
+const PERIOD_24H = '24H' as const;
+type PeriodFilter = 'all' | WorkPeriod | typeof PERIOD_24H;
 
 export default function CollaboratorsPage() {
     const [collaborators, setCollaborators] = useState<GlobalCollaborator[]>([]);
@@ -34,6 +38,7 @@ export default function CollaboratorsPage() {
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterRole, setFilterRole] = useState('all');
+    const [filterPeriod, setFilterPeriod] = useState<PeriodFilter>('all');
     const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
     const [collaboratorToDelete, setCollaboratorToDelete] = useState<string | null>(null);
 
@@ -102,7 +107,11 @@ export default function CollaboratorsPage() {
             const nameMatch = typeof collaborator.nome === 'string' && collaborator.nome.toLowerCase().includes(searchTerm.toLowerCase());
             const roleMatch = filterRole === 'all' || (typeof collaborator.role === 'string' && collaborator.role === filterRole || typeof collaborator.medicoRole === 'string' && collaborator.medicoRole === filterRole);
             const passesSearch = searchTerm === '' || nameMatch;
-            return passesSearch && roleMatch;
+            const periodMatch = filterPeriod === 'all'
+                || (filterPeriod === PERIOD_24H
+                    ? is24hCollaborator(collaborator.role, collaborator.medicoRole, collaborator.shiftHours)
+                    : (collaborator.workPeriod || WorkPeriod.DIURNO) === filterPeriod);
+            return passesSearch && roleMatch && periodMatch;
         }).sort((a, b) => {
             const nameA = a.nome.toUpperCase();
             const nameB = b.nome.toUpperCase();
@@ -114,7 +123,7 @@ export default function CollaboratorsPage() {
             }
             return 0;
         });
-    }, [collaborators, searchTerm, filterRole]);
+    }, [collaborators, searchTerm, filterRole, filterPeriod]);
 
     return (
         <div style={{ margin: '15px' }}>
@@ -167,6 +176,17 @@ export default function CollaboratorsPage() {
                                 <MenuItem key={role} value={role}>{role}</MenuItem>
                             ))}
                         </Select>
+                        <Select
+                            value={filterPeriod}
+                            onChange={(e) => setFilterPeriod(e.target.value as PeriodFilter)}
+                            size="small"
+                            sx={{ minWidth: 170, ml: 2 }}
+                        >
+                            <MenuItem value="all">Todos os períodos</MenuItem>
+                            <MenuItem value={WorkPeriod.DIURNO}>Diurno</MenuItem>
+                            <MenuItem value={WorkPeriod.NOTURNO}>Noturno</MenuItem>
+                            <MenuItem value={PERIOD_24H}>24h</MenuItem>
+                        </Select>
                     </div>
                     <TableContainer component={Paper}>
                         <Table stickyHeader aria-label="global collaborators table">
@@ -176,19 +196,20 @@ export default function CollaboratorsPage() {
                                     <TableCell sx={{ fontWeight: 'bold' }}>ID CallRote</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>CPF</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Função</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Período</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold' }}>Ações</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {loading && collaborators.length > 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} align="center">
+                                        <TableCell colSpan={6} align="center">
                                             <CircularProgress size={30} />
                                         </TableCell>
                                     </TableRow>
                                 ) : filteredCollaborators.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} align="center">
+                                        <TableCell colSpan={6} align="center">
                                             Nenhum colaborador encontrado.
                                         </TableCell>
                                     </TableRow>
@@ -202,6 +223,9 @@ export default function CollaboratorsPage() {
                                             </TableCell>
                                             <TableCell>
                                                 {(collaborator.role ?? '') + (collaborator.medicoRole ? ` (${collaborator.medicoRole} - ${collaborator.shiftHours})` : '')}
+                                            </TableCell>
+                                            <TableCell>
+                                                {formatWorkPeriod(collaborator.role, collaborator.medicoRole, collaborator.shiftHours, collaborator.workPeriod)}
                                             </TableCell>
                                             <TableCell>
                                                 <IconButton

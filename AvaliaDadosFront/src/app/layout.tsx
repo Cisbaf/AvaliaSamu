@@ -4,7 +4,8 @@ import { ThemeProvider } from '@mui/material/styles';
 import { ProjectProvider } from '../context/ProjectContext';
 import theme from '../theme/theme';
 import './globals.css';
-import { Header } from '@/components/Header';
+import { AppShell } from '@/components/AppShell';
+import { AuthGate } from '@/components/AuthGate';
 
 export default function RootLayout({
   children,
@@ -17,12 +18,13 @@ export default function RootLayout({
         <title>Avaliação SAMU</title>
         <link rel="icon" href="/logo.svg" />
         <ThemeProvider theme={theme}>
-          <ProjectProvider>
-            <main >
-              <Header />
-              {children}
-            </main>
-          </ProjectProvider>
+          <AuthGate>
+            <ProjectProvider>
+              <main>
+                <AppShell>{children}</AppShell>
+              </main>
+            </ProjectProvider>
+          </AuthGate>
         </ThemeProvider>
       </body>
     </html>

@@ -6,6 +6,7 @@ import com.avaliadados.model.ProjetoEntity;
 import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.model.dto.ProjectCollabRequest;
 import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.WorkPeriod;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.ProjetoRepository;
 import com.avaliadados.service.utils.CollabParams;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -48,6 +50,12 @@ public class ProjectCollabService {
                 .parametros(new com.avaliadados.model.params.NestedScoringParameters())
                 .medicoRole(medicoRole)
                 .shiftHours(dto.getShiftHours())
+                .workPeriod(WorkPeriod.resolve(
+                        dto.getRole(),
+                        medicoRole,
+                        dto.getShiftHours(),
+                        dto.getWorkPeriod() != null ? dto.getWorkPeriod() : collab.getWorkPeriod()
+                ))
                 .idCallRote(collab.getIdCallRote())
                 .build();
 
@@ -91,6 +99,7 @@ public class ProjectCollabService {
                         .role(pc.getRole())
                         .medicoRole(pc.getMedicoRole())
                         .shiftHours(pc.getShiftHours())
+                        .workPeriod(Optional.ofNullable(pc.getWorkPeriod()).orElse(WorkPeriod.DIURNO))
                         .durationSeconds(pc.getDurationSeconds())
                         .removidos(pc.getRemovidos())
                         .removidosLider(pc.getRemovidosLider())
@@ -119,8 +128,11 @@ public class ProjectCollabService {
         boolean existsNoProjeto = projeto.getCollaborators().stream()
                 .anyMatch(c ->
                         !c.getCollaboratorId().equals(collaboratorId) &&
-                                c.getNome().equals(dto.getNome()) &&
-                                c.getMedicoRole().equals(dto.getMedicoRole())
+                                Objects.equals(c.getNome(), dto.getNome()) &&
+                                Objects.equals(
+                                        c.getMedicoRole(),
+                                        Optional.ofNullable(dto.getMedicoRole()).orElse(MedicoRole.NENHUM)
+                                )
                 );
 
         if (existsNoProjeto) {
@@ -144,6 +156,8 @@ public class ProjectCollabService {
                     Optional.ofNullable(dto.getCriticos()).ifPresent(pc::setCriticos);
                     pc.setMedicoRole(Optional.ofNullable(dto.getMedicoRole()).orElse(MedicoRole.NENHUM));
                     Optional.ofNullable(dto.getShiftHours()).ifPresent(pc::setShiftHours);
+                    WorkPeriod requestedPeriod = dto.getWorkPeriod() != null ? dto.getWorkPeriod() : pc.getWorkPeriod();
+                    pc.setWorkPeriod(WorkPeriod.resolve(pc.getRole(), pc.getMedicoRole(), pc.getShiftHours(), requestedPeriod));
                     Optional.ofNullable(dto.getIdCallRote()).ifPresent(pc::setIdCallRote);
                     pc.setWasEdited(wasEdited || pc.getWasEdited());
                     Optional.ofNullable(dto.getSaidaVtr()).ifPresent(pc::setSaidaVtrSeconds);

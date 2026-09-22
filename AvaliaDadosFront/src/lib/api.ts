@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { GlobalCollaborator, Project, ProjectCollaborator, NestedScoringParameters, UpdateProjectCollabDto, MedicoRole, ShiftHours } from '@/types/project';
+import { GlobalCollaborator, Project, ProjectCollaborator, ScoringParametersByPeriod, UpdateProjectCollabDto, MedicoRole, ShiftHours, WorkPeriod } from '@/types/project';
 
 const uri = '/api/proxy';
 
@@ -9,10 +9,10 @@ export const api = axios.create({
 });
 
 export const fetchProjectsApi = () => api.get<Project[]>('/projetos');
-export const createProjectApi = (data: { name: string; month: string; parameters: NestedScoringParameters }) =>
+export const createProjectApi = (data: { name: string; month: string; scoringParameters?: ScoringParametersByPeriod }) =>
   api.post<Project>('/projetos', data);
 
-export const updateProjectApi = (id: string, updates: { name?: string; month?: string; parameters?: NestedScoringParameters }) =>
+export const updateProjectApi = (id: string, updates: { name?: string; month?: string; scoringParameters?: ScoringParametersByPeriod }) =>
   api.put<Project>(`/projetos/${id}`, updates);
 export const deleteProjectApi = (id: string) =>
   api.delete<void>(`/projetos/${id}`);
@@ -43,11 +43,12 @@ export const addCollaboratorToProjectApi = (
   pausaMensalSeconds?: number,
   parametros?: Record<string, number>,
   medicoRole?: MedicoRole,
-  shiftHours?: ShiftHours
+  shiftHours?: ShiftHours,
+  workPeriod?: WorkPeriod
 ) =>
   api.post<void>(
     `/projetos/${projectId}/collaborator`,
-    { collaboratorId, role, durationSeconds, quantity, pausaMensalSeconds, parametros, medicoRole, shiftHours } // Include all parameters
+    { collaboratorId, role, durationSeconds, removidos: quantity, pausaMensalSeconds, parametros, medicoRole, shiftHours, workPeriod }
   );
 
 

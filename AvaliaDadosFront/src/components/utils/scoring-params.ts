@@ -1,4 +1,4 @@
-import { NestedScoringParameters } from '@/types/project';
+import { NestedScoringParameters, ScoringParametersByPeriod } from '@/types/project';
 
 export const DEFAULT_PARAMS: NestedScoringParameters = {
 
@@ -74,4 +74,9 @@ export const DEFAULT_PARAMS: NestedScoringParameters = {
     }
 };
 
+export const DEFAULT_SCORING_PARAMETERS: ScoringParametersByPeriod = {
+    diurno: JSON.parse(JSON.stringify(DEFAULT_PARAMS)),
+    noturno: JSON.parse(JSON.stringify(DEFAULT_PARAMS)),
+    h24: JSON.parse(JSON.stringify(DEFAULT_PARAMS)),
+};
 

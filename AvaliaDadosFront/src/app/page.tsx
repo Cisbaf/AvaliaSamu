@@ -1,47 +1,66 @@
 'use client';
 
-import { useEffect, useState, type MouseEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import ConfirmationDialog from '@/components/modal/ConfirmationModal';
+import { formatWorkPeriod } from '@/components/utils';
+import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
+import Delete from '@mui/icons-material/Delete';
+import DownloadIcon from '@mui/icons-material/Download';
 import {
   Box,
   Button,
+  Checkbox,
+  CircularProgress,
+  IconButton,
   List,
   ListItem,
   ListItemButton,
   ListItemText,
+  Pagination,
   Typography,
-  IconButton,
-  Checkbox,
-  CircularProgress,
 } from '@mui/material';
-import Delete from '@mui/icons-material/Delete';
-import DownloadIcon from '@mui/icons-material/Download';
-import { useProjects } from '../context/ProjectContext';
-import ProjectModal from '../components/modal/ProjectModal';
-import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { GlobalCollaborator, ProjectCollaborator } from '@/types/project';
-import { DEFAULT_PARAMS } from '@/components/utils/scoring-params';
-import ConfirmationDialog from '@/components/modal/ConfirmationModal';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState, type MouseEvent } from 'react';
+import * as XLSX from 'xlsx';
+import ProjectModal from '../components/modal/ProjectModal';
+import { useProjects } from '../context/ProjectContext';
 
 export default function HomePage() {
+  const PROJECTS_PER_PAGE = 10;
   const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const {
     projects,
     projectCollaborators,
     globalCollaborators,
-    actions: { deleteProject, fetchProjectCollaborators, updateProjectParameters }
+    actions: { deleteProject, fetchProjectCollaborators }
   } = useProjects();
 
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
+
+  const sortedProjects = [...projects].sort(
+    (firstProject, secondProject) =>
+      new Date(secondProject.createdAt).getTime() - new Date(firstProject.createdAt).getTime()
+  );
+  const totalPages = Math.ceil(sortedProjects.length / PROJECTS_PER_PAGE);
+  const visibleProjects = sortedProjects.slice(
+    (currentPage - 1) * PROJECTS_PER_PAGE,
+    currentPage * PROJECTS_PER_PAGE
+  );
+
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   useEffect(() => {
     if (mounted) {
@@ -51,9 +70,6 @@ export default function HomePage() {
             console.error(`Erro ao buscar colaboradores do projeto ${project.id}:`, error);
           });
         }
-        if (project.parameters.colab.pausas?.length == 0) {
-          updateProjectParameters(project.id!, DEFAULT_PARAMS!)
-        }
       });
     }
   }, [mounted, projects, fetchProjectCollaborators, projectCollaborators]);
@@ -61,7 +77,7 @@ export default function HomePage() {
   if (!mounted) return null;
 
   const handleProjectSelect = (projectId: string) => {
-    router.push(`/dashboard/${projectId}`);
+    router.push(`/projeto/${projectId}`);
   };
 
   const handleDelete = async (projectId: string) => {
@@ -122,6 +138,7 @@ export default function HomePage() {
         [key: string]: {
           nome: string;
           funcao: string;
+          periodo: string;
           pontos_por_mes: { [mes: string]: number };
           pontuacao_total: number;
         }
@@ -155,13 +172,20 @@ export default function HomePage() {
           const globalColab = globalCollaborators?.find(gc => gc.id === colab.id);
           const nome = globalColab?.nome || colab.nome || 'Nome Desconhecido';
           const funcaoFormatada = formatarFuncao(colab, globalColab);
-          const chave = `${nome}#${funcaoFormatada}`;
+          const periodo = formatWorkPeriod(
+            colab.role || globalColab?.role,
+            colab.medicoRole || globalColab?.medicoRole,
+            colab.shiftHours || globalColab?.shiftHours,
+            colab.workPeriod || globalColab?.workPeriod
+          );
+          const chave = `${nome}#${funcaoFormatada}#${periodo}`;
           const pontuacao = Number(colab.pontuacao) || 0;
 
           if (!pontosConsolidados[chave]) {
             pontosConsolidados[chave] = {
               nome: nome,
               funcao: funcaoFormatada,
+              periodo,
               pontos_por_mes: {},
               pontuacao_total: 0
             };
@@ -178,7 +202,8 @@ export default function HomePage() {
       const dadosFinais = Object.values(pontosConsolidados).map(item => {
         const linha: { [key: string]: string | number } = {
           'Nome': item.nome,
-          'Função': item.funcao
+          'Função': item.funcao,
+          'Período': item.periodo
         };
         for (const mes of mesesOrdenados) {
           linha[`Pontos ${mes}`] = item.pontos_por_mes[mes] || 0;
@@ -193,7 +218,7 @@ export default function HomePage() {
       }
 
       const ws = XLSX.utils.json_to_sheet(dadosFinais);
-      const header = ['Nome', 'Função', ...mesesOrdenados.map(mes => ` ${mes}`), 'Pontuação Total'];
+      const header = ['Nome', 'Função', 'Período', ...mesesOrdenados.map(mes => `Pontos ${mes}`), 'Pontuação Total'];
       XLSX.utils.sheet_add_aoa(ws, [header], { origin: 'A1' });
 
       const wb = XLSX.utils.book_new();
@@ -240,63 +265,78 @@ export default function HomePage() {
       </Box>
 
       {projects.length > 0 ? (
-        <List
-          sx={{
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            border: '1px solid rgba(255, 255, 255, 0.3)',
-            overflow: 'hidden',
-            transition: 'all 0.3s ease-in-out'
-          }}
-        >
-          {projects.map((project) => (
-            <ListItem
-              key={project.id}
-              disablePadding
-              secondaryAction={
-                <IconButton
-                  edge="end"
-                  aria-label="delete"
-                  onClick={(e) => handleOpenDeleteDialog(project.id!, e)}
-                  color="error"
-                >
-                  <Delete fontSize="small" />
-                </IconButton>
-              }
-            >
-              <ListItemButton
-                role={undefined}
-                onClick={() => handleProjectSelect(project.id!)}
-                dense
-                sx={{
-                  pr: 8,
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    background: '#ffffff',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)'
-                  }
-                }}
+        <>
+          <List
+            sx={{
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              borderRadius: 3,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              overflow: 'hidden',
+              transition: 'all 0.3s ease-in-out'
+            }}
+          >
+            {visibleProjects.map((project) => (
+              <ListItem
+                key={project.id}
+                disablePadding
+                secondaryAction={
+                  <IconButton
+                    edge="end"
+                    aria-label="delete"
+                    onClick={(e) => handleOpenDeleteDialog(project.id!, e)}
+                    color="error"
+                  >
+                    <Delete fontSize="small" />
+                  </IconButton>
+                }
               >
-                <ListItemText
-                  id={`checkbox-list-label-${project.id}`}
-                  primary={project.name}
-                  secondary={`Data: ${project.month || 'N/A'}`}
-                  sx={{ '& .MuiListItemText-secondary': { mt: 0.5 } }}
+                <ListItemButton
+                  role={undefined}
+                  onClick={() => handleProjectSelect(project.id!)}
+                  dense
+                  sx={{
+                    pr: 8,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      background: '#ffffff',
+                      backdropFilter: 'blur(12px)',
+                      WebkitBackdropFilter: 'blur(12px)'
+                    }
+                  }}
+                >
+                  <ListItemText
+                    id={`checkbox-list-label-${project.id}`}
+                    primary={project.name}
+                    secondary={`Data: ${project.month || 'N/A'}`}
+                    sx={{ '& .MuiListItemText-secondary': { mt: 0.5 } }}
+                  />
+                </ListItemButton>
+                <Checkbox
+                  edge="start"
+                  checked={selectedProjectIds.includes(project.id!)}
+                  onChange={(e) => handleCheckboxChange(project.id!, e.target.checked)}
+                  inputProps={{ 'aria-labelledby': `checkbox-list-label-${project.id}` }}
+                  sx={{ marginRight: 5 }}
                 />
-              </ListItemButton>
-              <Checkbox
-                edge="start"
-                checked={selectedProjectIds.includes(project.id!)}
-                onChange={(e) => handleCheckboxChange(project.id!, e.target.checked)}
-                inputProps={{ 'aria-labelledby': `checkbox-list-label-${project.id}` }}
-                sx={{ marginRight: 5 }}
+              </ListItem>
+            ))}
+          </List>
+          {totalPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={(_, page) => setCurrentPage(page)}
+                color="primary"
+                showFirstButton
+                showLastButton
+                aria-label="Paginação de projetos"
               />
-            </ListItem>
-          ))}
-        </List>
+            </Box>
+          )}
+        </>
       ) : (
         <Box sx={{ textAlign: 'center', p: 4, border: '1px dashed', borderRadius: 2, borderColor: 'text.disabled' }}>
           <Typography variant="body1" color="text.secondary">

@@ -23,6 +23,7 @@ import { CombinedCollaboratorData } from '../CollaboratorsPanel';
 import {
     MedicoRole,
     ShiftHours,
+    WorkPeriod,
     UpdateProjectCollabDto,
     GlobalCollaborator
 } from '@/types/project';
@@ -30,6 +31,7 @@ import {
     createGlobalCollaboratorApi,
     updateGlobalCollaboratorApi
 } from '@/lib/api';
+import { is24hCollaborator } from '../utils';
 
 interface CollaboratorModalProps {
     open: boolean;
@@ -46,6 +48,8 @@ type FormData = {
     baseRole: string;
     medicoRole?: MedicoRole;
     shiftHours?: ShiftHours;
+    // WorkPeriod.H24 = colaborador 24h (Supervisor, ou Médico Líder/Regulador com turno H24).
+    workPeriod?: WorkPeriod;
     durationSeconds?: number;
     quantity?: number;
     pausaMensalSeconds?: number;
@@ -65,6 +69,7 @@ export default function CollaboratorModal({
 
     const [formData, setFormData] = useState<FormData>({
         nome: '', cpf: '', idCallRote: '', baseRole: '',
+        workPeriod: WorkPeriod.DIURNO,
         medicoRole: undefined, shiftHours: undefined,
         durationSeconds: undefined, quantity: undefined, pausaMensalSeconds: undefined
     });
@@ -74,33 +79,49 @@ export default function CollaboratorModal({
     useEffect(() => {
         if (initialData) {
             const isMedico = initialData.role.toUpperCase().startsWith('MEDICO');
+            const medicoRole = isMedico ? (initialData as any).medicoRole : undefined;
+            const shiftHours = isMedico ? (initialData as any).shiftHours : undefined;
+            const is24h = is24hCollaborator(initialData.role, medicoRole, shiftHours);
             setFormData({
                 nome: initialData.nome,
                 cpf: initialData.cpf,
                 idCallRote: initialData.idCallRote,
                 baseRole: isMedico ? 'MEDICO' : initialData.role,
-                medicoRole: isMedico ? (initialData as any).medicoRole : undefined,
-                shiftHours: isMedico ? (initialData as any).shiftHours : undefined,
+                medicoRole,
+                shiftHours,
+                workPeriod: is24h ? WorkPeriod.H24 : (initialData.workPeriod || WorkPeriod.DIURNO),
                 durationSeconds: (initialData as any).durationSeconds,
                 quantity: (initialData as any).quantity,
                 pausaMensalSeconds: (initialData as any).pausaMensalSeconds
             });
         } else {
-            setFormData({ nome: '', cpf: '', idCallRote: '', baseRole: '' });
+            setFormData({ nome: '', cpf: '', idCallRote: '', baseRole: '', workPeriod: WorkPeriod.DIURNO });
         }
         setError('');
     }, [initialData]);
 
     const isEdit = Boolean(initialData && 'id' in initialData && initialData.id);
 
+    const is24h = is24hCollaborator(formData.baseRole, formData.medicoRole, formData.shiftHours);
+
     const handleChange = (key: keyof FormData, value: any) => {
-        setFormData(prev => ({ ...prev, [key]: value }));
+        setFormData(prev => {
+            const next = { ...prev, [key]: value };
+            const willBe24h = is24hCollaborator(next.baseRole, next.medicoRole, next.shiftHours);
+            if (willBe24h) {
+                next.workPeriod = WorkPeriod.H24;
+            } else if (!next.workPeriod || next.workPeriod === WorkPeriod.H24) {
+                next.workPeriod = WorkPeriod.DIURNO;
+            }
+            return next;
+        });
     };
 
     const handleClose = async () => {
         onClose();
         setFormData({
             nome: '', cpf: '', idCallRote: '', baseRole: '',
+            workPeriod: WorkPeriod.DIURNO,
             medicoRole: undefined, shiftHours: undefined,
             durationSeconds: undefined, quantity: undefined, pausaMensalSeconds: undefined
         })
@@ -123,6 +144,7 @@ export default function CollaboratorModal({
                         pausaMensalSeconds: formData.pausaMensalSeconds,
                         pontuacao: (initialData as CombinedCollaboratorData)?.pontuacao ?? 0,
                         idCallRote: formData.idCallRote,
+                        workPeriod: formData.workPeriod,
                     };
 
                     const medicoFields = finalRole === 'MEDICO' ? {
@@ -148,6 +170,7 @@ export default function CollaboratorModal({
                         quantity: formData.quantity,
                         pausaMensalSeconds: formData.pausaMensalSeconds,
                         idCallRote: formData.idCallRote,
+                        workPeriod: formData.workPeriod,
                         ...(finalRole === 'MEDICO' && {
                             medicoRole: formData.medicoRole,
                             shiftHours: formData.shiftHours,
@@ -166,6 +189,7 @@ export default function CollaboratorModal({
                     role: finalRole,
                     pontuacao: isEdit ? (initialData as GlobalCollaborator).pontuacao : 0,
                     isGlobal: true,
+                    workPeriod: formData.workPeriod,
                     ...(finalRole === 'MEDICO' && {
                         medicoRole: formData.medicoRole,
                         shiftHours: formData.shiftHours,
@@ -194,6 +218,7 @@ export default function CollaboratorModal({
             setLoading(false);
             setFormData({
                 nome: '', cpf: '', idCallRote: '', baseRole: '',
+                workPeriod: WorkPeriod.DIURNO,
                 medicoRole: undefined, shiftHours: undefined,
                 durationSeconds: undefined, quantity: undefined, pausaMensalSeconds: undefined
             })
@@ -205,6 +230,7 @@ export default function CollaboratorModal({
         || !formData.cpf
         || !formData.idCallRote
         || !formData.baseRole
+        || !formData.workPeriod
         || (formData.baseRole === 'MEDICO' && (!formData.medicoRole || !formData.shiftHours));
 
     return (
@@ -248,6 +274,29 @@ export default function CollaboratorModal({
                                 <MenuItem value="SUPERVISOR">SUPERVISOR</MenuItem>
                             </Select>
                         </FormControl>
+                        {is24h ? (
+                            <TextField
+                                label="Período"
+                                fullWidth
+                                margin="dense"
+                                value="24h — não se aplica Diurno/Noturno"
+                                variant="filled"
+                                slotProps={{ input: { readOnly: true } }}
+                            />
+                        ) : (
+                            <FormControl fullWidth margin="dense">
+                                <InputLabel id="work-period-label">Período</InputLabel>
+                                <Select
+                                    labelId="work-period-label"
+                                    label="Período"
+                                    value={formData.workPeriod ?? ''}
+                                    onChange={e => handleChange('workPeriod', e.target.value as WorkPeriod)}
+                                >
+                                    <MenuItem value={WorkPeriod.DIURNO}>Diurno</MenuItem>
+                                    <MenuItem value={WorkPeriod.NOTURNO}>Noturno</MenuItem>
+                                </Select>
+                            </FormControl>
+                        )}
                         {formData.baseRole === 'MEDICO' && (
                             <>
                                 <FormControl fullWidth margin="dense">

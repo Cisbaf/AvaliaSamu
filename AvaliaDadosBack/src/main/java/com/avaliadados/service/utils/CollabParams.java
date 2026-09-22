@@ -87,7 +87,7 @@ public class CollabParams {
                 removidosLider,
                 pausas,
                 saida,
-                project.getParameters()
+                project.parametersFor(pc.getWorkPeriod())
         );
         pc.setPoints(pontos);
 
