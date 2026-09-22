@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import FormData from "form-data";
+import { AUTH_COOKIE_NAME, isValidSessionToken } from '@/lib/auth';
 
 // Polyfill: em algumas versões/runtimes do Node, `File` não está exposto
 // globalmente (fica só atrás de node:buffer, com warning "experimental").
@@ -19,6 +20,24 @@ if (typeof (globalThis as any).File === "undefined") {
 
 const API_URL = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL)?.replace(/\/$/, "");
 
+// O /dash é público (sem login) e busca esses dois endpoints de leitura pra montar o painel.
+// Nenhum dos dois expõe CPF (isso só existe em /collaborator, que continua protegido).
+// Só GET é liberado — criar/editar/excluir continua exigindo senha em qualquer rota.
+function isPublicDashboardRequest(request: NextRequest): boolean {
+    if (request.method !== 'GET') return false;
+    const url = new URL(request.url);
+    const proxyPrefix = '/api/proxy/';
+    const path = url.pathname.startsWith(proxyPrefix) ? url.pathname.slice(proxyPrefix.length) : url.pathname;
+    return path === 'projetos' || /^projetos\/[^/]+\/collaborator$/.test(path);
+}
+
+function unauthorized(request: NextRequest) {
+    if (isPublicDashboardRequest(request)) return null;
+    return isValidSessionToken(request.cookies.get(AUTH_COOKIE_NAME)?.value)
+        ? null
+        : NextResponse.json({ message: 'Acesso não autorizado.' }, { status: 401 });
+}
+
 function getTargetUrl(request: NextRequest) {
     const url = new URL(request.url);
     const proxyPrefix = "/api/proxy/";
@@ -33,6 +52,8 @@ function getTargetUrl(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+    const authError = unauthorized(request);
+    if (authError) return authError;
     try {
         const targetUrl = getTargetUrl(request);
 
@@ -65,14 +86,20 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+    const authError = unauthorized(request);
+    if (authError) return authError;
     return handleProxy(request);
 }
 
 export async function PUT(request: NextRequest) {
+    const authError = unauthorized(request);
+    if (authError) return authError;
     return handleProxy(request);
 }
 
 export async function DELETE(request: NextRequest) {
+    const authError = unauthorized(request);
+    if (authError) return authError;
     try {
         const targetUrl = getTargetUrl(request);
 
@@ -175,4 +202,3 @@ async function handleProxy(request: NextRequest) {
         );
     }
 }
-
