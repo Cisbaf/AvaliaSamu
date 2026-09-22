@@ -7,6 +7,7 @@ import com.avaliadados.model.roles.FrotaEntity;
 import com.avaliadados.model.roles.GenericEntity;
 import com.avaliadados.model.roles.MedicoEntity;
 import com.avaliadados.model.roles.TarmEntity;
+import com.avaliadados.model.enums.WorkPeriod;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,7 @@ public class CollaboratorsMapper {
                 .cpf(entity.getCpf().replace(".", "").replace("-", ""))
                 .idCallRote(idCallRote.replace("-", "").replace(".", ""))
                 .role(entity.getRole())
+                .workPeriod(entity.getWorkPeriod() != null ? entity.getWorkPeriod() : WorkPeriod.DIURNO)
                 .pontuacao(entity.getPontuacao());
 
         if (entity instanceof MedicoEntity medico) {
@@ -36,8 +38,9 @@ public class CollaboratorsMapper {
     public CollaboratorEntity createByRole(CollaboratorRequest request) {
         String role = request.role().toUpperCase();
 
+        CollaboratorEntity collaborator;
         if (role.startsWith("MEDICO")) {
-            return new MedicoEntity(
+            collaborator = new MedicoEntity(
                     request.nome().toUpperCase(),
                     request.cpf(),
                     request.idCallRote(),
@@ -48,7 +51,7 @@ public class CollaboratorsMapper {
                     0L
             );
         } else {
-            return switch (request.role().toUpperCase()) {
+            collaborator = switch (request.role().toUpperCase()) {
                 case "TARM" -> new TarmEntity(
                         request.nome().toUpperCase(),
                         request.cpf(),
@@ -75,6 +78,8 @@ public class CollaboratorsMapper {
                 );
             };
         }
+        collaborator.setWorkPeriod(WorkPeriod.resolve(request.role(), request.medicoRole(), request.shiftHours(), request.workPeriod()));
+        return collaborator;
     }
 
 }

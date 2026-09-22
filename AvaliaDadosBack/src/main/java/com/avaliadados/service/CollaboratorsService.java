@@ -4,6 +4,9 @@ import com.avaliadados.model.CollaboratorEntity;
 import com.avaliadados.model.dto.CollaboratorRequest;
 import com.avaliadados.model.dto.CollaboratorsResponse;
 import com.avaliadados.model.roles.MedicoEntity;
+import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.ShiftHours;
+import com.avaliadados.model.enums.WorkPeriod;
 import com.avaliadados.repository.CollaboratorRepository;
 import com.avaliadados.repository.MedicoRepository;
 import com.avaliadados.service.utils.CollaboratorsMapper;
@@ -55,7 +58,13 @@ public class CollaboratorsService {
 
 
     public List<CollaboratorEntity> findAll() {
-        return collaboratorRepo.findAll();
+        List<CollaboratorEntity> collaborators = collaboratorRepo.findAll();
+        List<CollaboratorEntity> toFix = collaborators.stream()
+                .filter(this::needsWorkPeriodFix)
+                .toList();
+        toFix.forEach(this::ensureWorkPeriod);
+        if (!toFix.isEmpty()) collaboratorRepo.saveAll(toFix);
+        return collaborators;
     }
 
     public List<CollaboratorEntity> findByName(String nome) {
@@ -101,6 +110,25 @@ public class CollaboratorsService {
         entity.setIdCallRote(request.idCallRote());
         entity.setPontuacao(request.pontuacao());
         entity.setRole(request.role());
+        entity.setWorkPeriod(WorkPeriod.resolve(request.role(), request.medicoRole(), request.shiftHours(), request.workPeriod()));
+    }
+
+    private boolean needsWorkPeriodFix(CollaboratorEntity collaborator) {
+        return resolvedWorkPeriod(collaborator) != collaborator.getWorkPeriod();
+    }
+
+    private void ensureWorkPeriod(CollaboratorEntity collaborator) {
+        collaborator.setWorkPeriod(resolvedWorkPeriod(collaborator));
+    }
+
+    private WorkPeriod resolvedWorkPeriod(CollaboratorEntity collaborator) {
+        MedicoRole medicoRole = null;
+        ShiftHours shiftHours = null;
+        if (collaborator instanceof MedicoEntity medico) {
+            medicoRole = medico.getMedicoRole();
+            shiftHours = medico.getShiftHours();
+        }
+        return WorkPeriod.resolve(collaborator.getRole(), medicoRole, shiftHours, collaborator.getWorkPeriod());
     }
 
     private CollaboratorsResponse handleRoleChange(CollaboratorEntity oldEntity, CollaboratorRequest request) {
