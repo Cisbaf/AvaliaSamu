@@ -26,6 +26,9 @@ export async function createGlobalCollaboratorApi(
   const resp = await api.post<GlobalCollaborator>('/collaborator', data);
   return resp.data;
 }
+// Busca colaboradores globais pelo CPF (cadastro de médico: puxa os dados já existentes).
+export const fetchGlobalCollaboratorsByCpfApi = (cpf: string) =>
+  api.get<GlobalCollaborator[]>(`/collaborator/cpf/${cpf.replace(/\D/g, '')}`);
 export const updateGlobalCollaboratorApi = (id: string, data: Partial<GlobalCollaborator>) =>
   api.put<GlobalCollaborator>(`/collaborator/${id}`, data);
 export const deleteGlobalCollaboratorApi = (id: string) =>
