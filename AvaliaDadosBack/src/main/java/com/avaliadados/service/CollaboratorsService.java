@@ -39,8 +39,12 @@ public class CollaboratorsService {
             if (collaboratorRepo.existsByIdCallRote(request.idCallRote())) {
                 throw new IllegalArgumentException("Colaborador com ID de Call Rote já existente: " + request.idCallRote());
             }
-        } else if (medicoRepo.existsByNomeAndMedicoRole(request.nome(), request.medicoRole())) {
-            throw new IllegalArgumentException("Colaborador médico com nome e função já existente: " + request.nome() + " - " + request.medicoRole());
+        } else {
+            // Mesmo nome e função só pode existir uma vez por período (diurno e noturno podem coexistir).
+            WorkPeriod periodo = WorkPeriod.resolve(request.role(), request.medicoRole(), request.shiftHours(), request.workPeriod());
+            if (medicoRepo.existsByNomeAndMedicoRoleAndWorkPeriod(request.nome(), request.medicoRole(), periodo)) {
+                throw new IllegalArgumentException("Colaborador médico com nome, função e período já existente: " + request.nome() + " - " + request.medicoRole() + " - " + periodo);
+            }
         }
 
 
@@ -65,6 +69,13 @@ public class CollaboratorsService {
         toFix.forEach(this::ensureWorkPeriod);
         if (!toFix.isEmpty()) collaboratorRepo.saveAll(toFix);
         return collaborators;
+    }
+
+    public List<CollaboratorsResponse> findByCpf(String cpf) {
+        String limpo = cpf == null ? "" : cpf.replaceAll("[^0-9]", "");
+        return collaboratorRepo.findByCpf(limpo).stream()
+                .map(mapper::toCollaboratorsResponse)
+                .toList();
     }
 
     public List<CollaboratorEntity> findByName(String nome) {
@@ -101,7 +112,14 @@ public class CollaboratorsService {
 
     private void updateMedicoFields(MedicoEntity entity, CollaboratorRequest request) {
         entity.setMedicoRole(request.medicoRole());
-        entity.setShiftHours(request.shiftHours());
+        // Líder é 24h (H24); Regulador usa o turno enviado.
+        entity.setShiftHours(request.medicoRole() == MedicoRole.LIDER ? ShiftHours.H24 : request.shiftHours());
+        // Plantão duplo só existe para REGULADOR; ao virar Líder a flag é desligada.
+        if (request.medicoRole() != MedicoRole.REGULADOR) {
+            entity.setPlantaoDuplo(false);
+        } else if (request.plantaoDuplo() != null) {
+            entity.setPlantaoDuplo(request.plantaoDuplo());
+        }
     }
 
     private void updateCommonFields(CollaboratorEntity entity, CollaboratorRequest request) {

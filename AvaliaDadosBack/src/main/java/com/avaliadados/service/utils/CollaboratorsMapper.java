@@ -30,7 +30,8 @@ public class CollaboratorsMapper {
 
         if (entity instanceof MedicoEntity medico) {
             builder.medicoRole(medico.getMedicoRole())
-                    .shiftHours(medico.getShiftHours());
+                    .shiftHours(medico.getShiftHours())
+                    .plantaoDuplo(medico.plantaoDuploAtivo());
         }
 
         return builder.build();
@@ -48,9 +49,15 @@ public class CollaboratorsMapper {
                     request.pontuacao(),
                     request.role(),
                     request.medicoRole(),
-                    request.shiftHours(),
+                    // Líder é 24h (H24); Regulador usa o turno enviado.
+                    request.medicoRole() == com.avaliadados.model.enums.MedicoRole.LIDER
+                            ? com.avaliadados.model.enums.ShiftHours.H24 : request.shiftHours(),
                     0L
             );
+            // Plantão duplo só existe para REGULADOR.
+            ((MedicoEntity) collaborator).setPlantaoDuplo(
+                    request.medicoRole() == com.avaliadados.model.enums.MedicoRole.REGULADOR
+                            && Boolean.TRUE.equals(request.plantaoDuplo()));
         } else {
             collaborator = switch (request.role().toUpperCase()) {
                 case "TARM" -> new TarmEntity(

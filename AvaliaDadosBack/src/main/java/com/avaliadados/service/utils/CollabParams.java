@@ -6,7 +6,9 @@ import com.avaliadados.model.api.ApiOptions;
 import com.avaliadados.model.api.ApiRequest;
 import com.avaliadados.model.api.DateRange;
 import com.avaliadados.model.api.EventDetails;
+import com.avaliadados.model.api.HistoryItem;
 import com.avaliadados.model.enums.MedicoRole;
+import com.avaliadados.model.enums.WorkPeriod;
 import com.avaliadados.model.params.NestedScoringParameters;
 import com.avaliadados.model.params.ScoringRule;
 import com.avaliadados.service.ScoringService;
@@ -15,10 +17,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Month;
 import java.time.Year;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.avaliadados.service.utils.SheetsUtils.parseTimeToSeconds;
@@ -184,32 +193,82 @@ public class CollabParams {
             }
 
             EventDetails pauseDetails = agentData.get("pause");
+//            log.info("History pausa = {}", pauseDetails.getHistory() );
             if (pauseDetails != null && pauseDetails.getHistory() != null) {
-                long totalPauseSeconds = pauseDetails.getHistory().stream()
+                // Só médico é separado por diurno/noturno. Os outros papéis mantêm o cálculo geral.
+                // Líder é 24h e tem parâmetros próprios: não filtra por período nem conta plantões
+                // pelos turnos da API (usa o plantão da planilha, como os demais papéis).
+                boolean medico = "MEDICO".equals(pc.getRole()) && pc.getMedicoRole() != MedicoRole.LIDER;
+                // Médico não existe mais como 24h: cadastro antigo com H24 vira 12h diurno.
+                if (medico && (pc.getWorkPeriod() == null || pc.getWorkPeriod() == WorkPeriod.H24)) {
+                    pc.setWorkPeriod(WorkPeriod.DIURNO);
+                }
+                WorkPeriod periodo = pc.getWorkPeriod();
+
+                // Médico: só os itens do período (diurno 07h-19h, noturno 19h-07h).
+                List<HistoryItem> itens = pauseDetails.getHistory().stream()
                         .filter(h -> !"CONFERENCE".equals(h.getType()))
                         .filter(h -> h.getDuration() != null && !h.getDuration().isBlank())
                         .filter(h -> !h.getDuration().trim().startsWith("-"))
-                        .mapToLong(item -> parseTimeToSeconds(item.getDuration()))
-                        .filter(s -> s > 0)
+                        .filter(h -> parseTimeToSeconds(h.getDuration()) > 0)
+                        .filter(h -> !medico || pertenceAoPeriodo(h, periodo))
+                        .toList();
+
+                long totalPauseSeconds = itens.stream()
+                        .mapToLong(h -> parseTimeToSeconds(h.getDuration()))
                         .sum();
 
-                Integer plantao = pc.getPlantao();
-                if (plantao != null && plantao > 0) {
-                    pc.setPausaMensalSeconds(totalPauseSeconds / plantao);
+                int divisor;
+                if (medico) {
+                    // Médico: conta os turnos com pausa na API e compara com a planilha; usa o maior.
+                    int plantoesApi = contarPlantoes(itens);
+                    int plantoesPlanilha = Optional.ofNullable(pc.getPlantao()).orElse(0);
+                    divisor = Math.max(plantoesApi, plantoesPlanilha);
                 } else {
-                    pc.setPausaMensalSeconds(0L);
+                    divisor = Optional.ofNullable(pc.getPlantao()).orElse(0);
                 }
+
+                pc.setPausaMensalSeconds(pausaPorPlantao(pc, periodo, totalPauseSeconds, divisor));
             }
 
             EventDetails removedDetails = agentData.get("removed");
-            if (removedDetails != null && removedDetails.getTotal() != null) {
+//            log.info("History removed = {}", removedDetails );
+            if (removedDetails != null && (removedDetails.getTotal() != null || removedDetails.getHistory() != null)) {
+                int quantidade = contarRemovidos(pc, removedDetails);
                 if (pc.getMedicoRole() == MedicoRole.LIDER) {
-                    pc.setRemovidosLider(removedDetails.getTotal());
+                    // Líder tem parâmetros próprios: plantão duplo não se aplica.
+                    pc.setRemovidosLider(quantidade);
                 } else {
-                    pc.setRemovidos(removedDetails.getTotal());
+                    pc.setRemovidos(aplicarPlantaoDuplo(pc, quantidade));
                 }
             }
         }
+    }
+
+    // Plantão duplo: o que o médico recebe (planilha e API) é dividido por 2.
+    // Tempos em segundos: divisão inteira. Quantidades (removidos): arredonda para cima no .5
+    // (1 removido não vira 0). Depois disso a pontuação é calculada igual à de um médico comum.
+    public static long aplicarPlantaoDuplo(ProjectCollaborator pc, long segundos) {
+        return pc.plantaoDuploAtivo() ? segundos / 2 : segundos;
+    }
+
+    public static int aplicarPlantaoDuplo(ProjectCollaborator pc, int quantidade) {
+        return pc.plantaoDuploAtivo() ? (quantidade + 1) / 2 : quantidade;
+    }
+
+    // Pausa por plantão. totalSeconds é o TOTAL BRUTO de pausas da API (sem dividir).
+    // Médico comum: total / plantões.
+    // Plantão duplo: total de pausas ÷ 2 (como todos os valores) e número de plantões
+    // ÷ 2 (diurno) ou ÷ 4 (noturno). Sem nenhuma divisão extra sobre o resultado.
+    //   = (total / 2) / (plantões / fator) = total * fator / (2 * plantões), fator 2 ou 4.
+    // Fazemos a conta numa fração só para não truncar o divisor (ex.: 7 / 2 = 3,5).
+    public static long pausaPorPlantao(ProjectCollaborator pc, WorkPeriod periodo, long totalSeconds, int plantoes) {
+        if (plantoes <= 0) return 0L;
+        if (pc.plantaoDuploAtivo()) {
+            long fator = periodo == WorkPeriod.NOTURNO ? 4 : 2;
+            return totalSeconds * fator / (2L * plantoes);
+        }
+        return totalSeconds / plantoes;
     }
 
     public void setDataFromApi(List<ProjectCollaborator> pcs, ProjetoEntity projeto, List<String> ids) {
@@ -218,6 +277,74 @@ public class CollabParams {
             map.put(pcs.get(i), i < ids.size() ? ids.get(i) : null);
         }
         setDataFromApi(map, projeto);
+    }
+
+    private static final Pattern DATA_HORA = Pattern.compile("(\\d{2}/\\d{2}/\\d{4})\\D*(\\d{2}:\\d{2}(?::\\d{2})?)");
+    private static final LocalTime INICIO_DIURNO = LocalTime.of(7, 0);
+    private static final LocalTime FIM_DIURNO = LocalTime.of(19, 0);
+
+    // Diurno: 07h até 18h59:59. Noturno: 19h até 06h59:59.
+    static boolean isDiurno(LocalTime t) {
+        return !t.isBefore(INICIO_DIURNO) && t.isBefore(FIM_DIURNO);
+    }
+
+    // Classifica pelo início do evento. H24 (legado) não filtra.
+    static boolean pertenceAoPeriodo(HistoryItem h, WorkPeriod periodo) {
+        if (periodo != WorkPeriod.DIURNO && periodo != WorkPeriod.NOTURNO) return true;
+        LocalDateTime dt = parseDataHora(h.getDate());
+        if (dt == null) return false;
+        boolean diurno = isDiurno(dt.toLocalTime());
+        return periodo == WorkPeriod.DIURNO ? diurno : !diurno;
+    }
+
+    // Removidos: médico conta só os eventos do seu período (diurno/noturno), pela data
+    // de cada evento do histórico, igual à pausa. Se a API não trouxer datas válidas,
+    // usa o total geral. Os demais papéis continuam usando o total.
+    static int contarRemovidos(ProjectCollaborator pc, EventDetails details) {
+        int total = Optional.ofNullable(details.getTotal()).orElse(0);
+        // Líder (24h) usa sempre o total, sem filtrar por período.
+        if (!"MEDICO".equals(pc.getRole()) || pc.getMedicoRole() == MedicoRole.LIDER
+                || details.getHistory() == null) return total;
+
+        boolean temData = details.getHistory().stream()
+                .anyMatch(h -> parseDataHora(h.getDate()) != null);
+        if (!temData) return total;
+
+        WorkPeriod periodo = pc.getWorkPeriod();
+        return (int) details.getHistory().stream()
+                .filter(h -> pertenceAoPeriodo(h, periodo))
+                .count();
+    }
+
+    // Lê "dd/MM/yyyy, HH:mm:ss" (ou só a data/hora) do campo date do histórico.
+    static LocalDateTime parseDataHora(String s) {
+        if (s == null) return null;
+        Matcher m = DATA_HORA.matcher(s);
+        if (!m.find()) return null;
+        try {
+            LocalDate d = LocalDate.parse(m.group(1), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            LocalTime t = LocalTime.parse(m.group(2), DateTimeFormatter.ofPattern("HH:mm[:ss]"));
+            return LocalDateTime.of(d, t);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    // Cada turno vale um plantão. Madrugada (00h-06h59) pertence ao noturno do dia anterior.
+    static int contarPlantoes(List<HistoryItem> itens) {
+        Set<String> turnos = new HashSet<>();
+        for (HistoryItem h : itens) {
+            LocalDateTime dt = parseDataHora(h.getDate());
+            if (dt == null) continue;
+            LocalTime t = dt.toLocalTime();
+            if (isDiurno(t)) {
+                turnos.add(dt.toLocalDate() + "-DIURNO");
+            } else {
+                LocalDate inicio = t.isBefore(INICIO_DIURNO) ? dt.toLocalDate().minusDays(1) : dt.toLocalDate();
+                turnos.add(inicio + "-NOTURNO");
+            }
+        }
+        return turnos.size();
     }
 
     private Map<String, Map<String, EventDetails>> fetchEventData(List<String> eventNames, List<String> agentIds, boolean history, boolean total, ProjetoEntity projeto) {

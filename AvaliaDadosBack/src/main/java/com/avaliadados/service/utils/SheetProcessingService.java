@@ -109,7 +109,7 @@ public class SheetProcessingService {
             case REGULADOR:
                 String tempoReg = data.get("TEMPO.REGULACAO");
                 if (tempoReg != null) {
-                    Long segundos = parseTimeToSeconds(tempoReg);
+                    Long segundos = CollabParams.aplicarPlantaoDuplo(pc, parseTimeToSeconds(tempoReg));
                     pc.setDurationSeconds(segundos);
                     pc.setParametros(NestedScoringParameters.builder().medico(ScoringSectionParams.builder().regulacao(List.of(ScoringRule.builder().duration(segundos).build())).build()).build());
                     pc.setPlantao(plantaotemp);

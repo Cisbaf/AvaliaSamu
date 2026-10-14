@@ -23,6 +23,9 @@ public class ProjectCollaborator {
     @Builder.Default
     private WorkPeriod workPeriod = WorkPeriod.DIURNO;
     private MedicoRole medicoRole;
+    // Cópia do plantão duplo do cadastro do médico: planilha e API entram divididas por 2.
+    @Builder.Default
+    private Boolean plantaoDuplo = false;
     @Builder.Default
     private Long durationSeconds = 0L;
     @Builder.Default
@@ -42,6 +45,29 @@ public class ProjectCollaborator {
     private NestedScoringParameters parametros;
     @Builder.Default
     private Boolean wasEdited = false;
+
+    // Período como está gravado (sem a regra do Líder 24h do getter). Usado só na correção de dados.
+    public WorkPeriod periodoGravado() {
+        return workPeriod;
+    }
+
+    // Nome fora do padrão getX/isX de propósito: não vira propriedade no JSON.
+    // Só vale para médico REGULADOR. Líder tem parâmetros próprios e nunca é afetado.
+    public boolean plantaoDuploAtivo() {
+        return "MEDICO".equals(role) && medicoRole == MedicoRole.REGULADOR && Boolean.TRUE.equals(plantaoDuplo);
+    }
+
+    // Médico nunca é 24h: qualquer leitura de um médico com H24 (cadastro antigo) vira DIURNO.
+    public WorkPeriod getWorkPeriod() {
+        // Líder é 24h: não tem Diurno/Noturno.
+        if ("MEDICO".equals(role) && medicoRole == MedicoRole.LIDER) {
+            return WorkPeriod.H24;
+        }
+        if ("MEDICO".equals(role) && (workPeriod == null || workPeriod == WorkPeriod.H24)) {
+            return WorkPeriod.DIURNO;
+        }
+        return workPeriod;
+    }
 
     // Equipe do supervisor NESTE projeto: collaboratorId de outros ProjectCollaborator
     // (TARM/FROTA/MEDICO) deste mesmo projeto. Quando preenchida, a pontuação do

@@ -225,6 +225,11 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
 
         List<String> naoEncontrados = new ArrayList<>();
 
+        // Reguladores do projeto por nome. Dois com o mesmo nome dividem a planilha entre eles.
+        Map<String, Long> reguladoresPorNome = projeto.getCollaborators().stream()
+                .filter(pc -> "MEDICO".equals(pc.getRole()) && pc.getMedicoRole() == MedicoRole.REGULADOR)
+                .collect(Collectors.groupingBy(pc -> normalizeName(pc.getNome()), Collectors.counting()));
+
         for (ProjectCollaborator pc : medicosNoProjeto) {
             CollaboratorEntity collab = collaboratorMap.get(pc.getCollaboratorId());
             if (collab == null) {
@@ -329,7 +334,20 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
                 projeto.getCollaborators().stream()
                         .filter(c -> c.getCollaboratorId().equals(collabId))
                         .findFirst()
-                        .ifPresent(pc -> atualizarDadosMedico(pc, sr.getData()));
+                        .ifPresent(pc -> {
+                            pc.setPlantaoDuplo(med.plantaoDuploAtivo());
+                            atualizarDadosMedico(pc, sr.getData(), divisorRegulador(pc, reguladoresPorNome));
+                        });
+            }
+        }
+
+        // Médicos que não estão na planilha também precisam do plantão duplo (vale para a API).
+        Map<String, MedicoEntity> medicosPorId = todosMedicos.stream()
+                .collect(Collectors.toMap(MedicoEntity::getId, m -> m, (a, b) -> a));
+        for (ProjectCollaborator pc : pcToIdMap.keySet()) {
+            MedicoEntity med = medicosPorId.get(pc.getCollaboratorId());
+            if (med != null) {
+                pc.setPlantaoDuplo(med.plantaoDuploAtivo());
             }
         }
 
@@ -359,7 +377,14 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         return naoEncontrados;
     }
 
-    private void atualizarDadosMedico(ProjectCollaborator pc, Map<String, String> data) {
+    // Dois reguladores com o mesmo nome dividem o tempo da planilha. Líder não entra na divisão.
+    private int divisorRegulador(ProjectCollaborator pc, Map<String, Long> reguladoresPorNome) {
+        if (pc.getMedicoRole() != MedicoRole.REGULADOR) return 1;
+        long qtd = reguladoresPorNome.getOrDefault(normalizeName(pc.getNome()), 1L);
+        return (int) Math.max(1L, qtd);
+    }
+
+    private void atualizarDadosMedico(ProjectCollaborator pc, Map<String, String> data, int divisor) {
 
         long duration = 0L;
         long criticos = 0L;
@@ -386,7 +411,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         switch (medicoRole) {
             case REGULADOR:
                 duration = data.containsKey("TEMPO.REGULACAO")
-                        ? parseTimeToSeconds(data.get("TEMPO.REGULACAO")) : 0L;
+                        ? CollabParams.aplicarPlantaoDuplo(pc, parseTimeToSeconds(data.get("TEMPO.REGULACAO")) / divisor) : 0L;
                 break;
 
             case LIDER:
@@ -398,7 +423,7 @@ public class AvaliacaoServiceMedico implements AvaliacaoProcessor {
         }
 
         if (pc.getShiftHours() == null) {
-            pc.setShiftHours(ShiftHours.H12);
+            pc.setShiftHours(pc.getMedicoRole() == MedicoRole.LIDER ? ShiftHours.H24 : ShiftHours.H12);
         }
 
         pc.setDurationSeconds(duration);

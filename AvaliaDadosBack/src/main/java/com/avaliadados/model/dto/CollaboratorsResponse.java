@@ -29,6 +29,7 @@ public class CollaboratorsResponse implements Serializable {
     @Enumerated(EnumType.STRING)
     private WorkPeriod workPeriod;
     private Integer plantao;
+    private Boolean plantaoDuplo;
 
     private Long durationSeconds;
     private Long pausaMensalSeconds;

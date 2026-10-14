@@ -22,6 +22,21 @@ public class MedicoEntity extends CollaboratorEntity {
     @Enumerated(EnumType.STRING)
     private ShiftHours shiftHours;
 
+    // Plantão duplo: tudo que o médico recebe (planilha e API) é dividido por 2.
+    // Boolean (e não boolean) porque cadastros antigos ficam com a coluna nula.
+    private Boolean plantaoDuplo = false;
+
+    // Líder é 24h: não tem Diurno/Noturno, qualquer valor guardado é ignorado.
+    @Override
+    public com.avaliadados.model.enums.WorkPeriod getWorkPeriod() {
+        if (medicoRole == MedicoRole.LIDER) return com.avaliadados.model.enums.WorkPeriod.H24;
+        return super.getWorkPeriod();
+    }
+
+    // Plantão duplo só existe para REGULADOR. Líder tem parâmetros próprios e nunca é afetado.
+    public boolean plantaoDuploAtivo() {
+        return Boolean.TRUE.equals(plantaoDuplo) && medicoRole == MedicoRole.REGULADOR;
+    }
 
     public MedicoEntity(String nome, String cpf, String idCallRote,
                         int pontuacao, String role,

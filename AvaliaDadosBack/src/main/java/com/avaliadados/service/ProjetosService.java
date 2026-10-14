@@ -64,7 +64,7 @@ public class ProjetosService {
         return projetoRepo.save(p);
     }
 
-    private void recalculateCollaboratorPoints(ProjectCollaborator collaborator, ProjetoEntity projeto) {
+    public void recalculateCollaboratorPoints(ProjectCollaborator collaborator, ProjetoEntity projeto) {
         if (collaborator.getMedicoRole() == null)
             collaborator.setMedicoRole(MedicoRole.valueOf("NENHUM"));
 
@@ -114,6 +114,7 @@ public class ProjetosService {
                             .idCallRote(m.getIdCallRote())
                             .medicoRole(m.getMedicoRole())
                             .shiftHours(m.getShiftHours())
+                            .plantaoDuplo(m.plantaoDuploAtivo())
                             .workPeriod(WorkPeriod.resolve(g.getRole(), m.getMedicoRole(), m.getShiftHours(), m.getWorkPeriod()))
                             .build())
                     .findFirst()

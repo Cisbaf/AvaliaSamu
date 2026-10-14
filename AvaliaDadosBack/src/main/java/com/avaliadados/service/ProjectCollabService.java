@@ -53,6 +53,7 @@ public class ProjectCollabService {
                 .pausaMensalSeconds(dto.getPausaMensalSeconds())
                 .parametros(new com.avaliadados.model.params.NestedScoringParameters())
                 .medicoRole(medicoRole)
+                .plantaoDuplo(collab instanceof com.avaliadados.model.roles.MedicoEntity m && m.plantaoDuploAtivo())
                 .shiftHours(dto.getShiftHours())
                 .workPeriod(WorkPeriod.resolve(
                         dto.getRole(),
@@ -110,6 +111,7 @@ public class ProjectCollabService {
                         .removidos(pc.getRemovidos())
                         .removidosLider(pc.getRemovidosLider())
                         .pausaMensalSeconds(pc.getPausaMensalSeconds())
+                        .plantaoDuplo(pc.plantaoDuploAtivo())
                         .saidaVtr(pc.getSaidaVtrSeconds())
                         .pontuacao(pc.getPontuacao())
                         .criticos(pc.getCriticos())
@@ -129,8 +131,17 @@ public class ProjectCollabService {
     ) {
         ProjetoEntity projeto = projetoRepo.findById(projectId)
                 .orElseThrow(() -> new RuntimeException("Projeto não encontrado"));
-        collaboratorRepo.findById(collaboratorId)
+        CollaboratorEntity globalCollab = collaboratorRepo.findById(collaboratorId)
                 .orElseThrow(() -> new RuntimeException("Colaborador não encontrado: " + collaboratorId));
+
+        // Mesmo nome e mesmo papel só são bloqueados se o período também for igual.
+        // Dois reguladores com o mesmo nome podem existir desde que um seja diurno e o outro noturno.
+        WorkPeriod periodoDto = WorkPeriod.resolve(
+                dto.getRole(),
+                Optional.ofNullable(dto.getMedicoRole()).orElse(MedicoRole.NENHUM),
+                dto.getShiftHours(),
+                dto.getWorkPeriod()
+        );
 
         boolean existsNoProjeto = projeto.getCollaborators().stream()
                 .anyMatch(c ->
@@ -139,7 +150,8 @@ public class ProjectCollabService {
                                 Objects.equals(
                                         c.getMedicoRole(),
                                         Optional.ofNullable(dto.getMedicoRole()).orElse(MedicoRole.NENHUM)
-                                )
+                                ) &&
+                                Objects.equals(c.getWorkPeriod(), periodoDto)
                 );
 
         if (existsNoProjeto) {
@@ -152,6 +164,11 @@ public class ProjectCollabService {
                 .ifPresent(pc -> {
                     boolean pointEdited = false;
 
+                    // A fonte do plantão duplo é o cadastro do médico; o projeto só guarda a cópia.
+                    if (globalCollab instanceof com.avaliadados.model.roles.MedicoEntity m) {
+                        pc.setPlantaoDuplo(m.plantaoDuploAtivo());
+                    }
+
                     if (!wasEdited && !pc.getWasEdited()) {
                         sheetProcessingService
                                 .findAndAssociateSheetRow(collaboratorId, projectId, pc.getNome())
@@ -163,6 +180,10 @@ public class ProjectCollabService {
                     Optional.ofNullable(dto.getCriticos()).ifPresent(pc::setCriticos);
                     pc.setMedicoRole(Optional.ofNullable(dto.getMedicoRole()).orElse(MedicoRole.NENHUM));
                     Optional.ofNullable(dto.getShiftHours()).ifPresent(pc::setShiftHours);
+                    // Líder é 24h (H24).
+                    if (pc.getMedicoRole() == MedicoRole.LIDER) {
+                        pc.setShiftHours(com.avaliadados.model.enums.ShiftHours.H24);
+                    }
                     WorkPeriod requestedPeriod = dto.getWorkPeriod() != null ? dto.getWorkPeriod() : pc.getWorkPeriod();
                     pc.setWorkPeriod(WorkPeriod.resolve(pc.getRole(), pc.getMedicoRole(), pc.getShiftHours(), requestedPeriod));
                     Optional.ofNullable(dto.getIdCallRote()).ifPresent(pc::setIdCallRote);

@@ -27,6 +27,9 @@ public record CollaboratorRequest(
         ShiftHours shiftHours,
         WorkPeriod workPeriod,
 
+        // Só médico. Null mantém o valor atual.
+        Boolean plantaoDuplo,
+
         // Equipe padrão do supervisor (IDs de colaboradores globais). Opcional; null
         // mantém a equipe atual sem alterá-la (ver CollaboratorsService.updateCommonFields).
         List<String> equipeIds
