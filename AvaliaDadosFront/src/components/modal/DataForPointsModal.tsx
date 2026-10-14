@@ -1,18 +1,19 @@
-import { useState, useEffect, type ChangeEvent } from 'react';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    TextField,
-    Alert,
-    Grid // Importe o Grid
-} from '@mui/material';
-import styles from "../styles/Modal.module.css"
 import { useProjectCollaborators } from '@/context/project/hooks/useProjectCollaborators';
+import { GlobalCollaborator, MedicoRole, ShiftHours, UpdateProjectCollabDto } from '@/types/project';
+import {
+    Alert,
+    Button,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Grid // Importe o Grid
+    ,
+    TextField
+} from '@mui/material';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { CombinedCollaboratorData } from '../CollaboratorsPanel';
-import { UpdateProjectCollabDto, GlobalCollaborator, ShiftHours, MedicoRole } from '@/types/project';
+import styles from "../styles/Modal.module.css";
 import { formatSecondsToTime, parseTimeInputToSeconds } from '../utils';
 
 interface DataForPointsModalProps {
@@ -80,12 +81,31 @@ export default function DataForPointsModal({
         }
     }, [initialData]);
 
+    // Campos de tempo são texto HH:MM:SS (aceitam mais de 24h). O rascunho guarda o que o
+    // usuário digita e só vira segundos ao sair do campo.
+    const [timeDrafts, setTimeDrafts] = useState<Record<string, string>>({});
+
     const handleChangeTime = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtr' | 'criticos') =>
         (e: ChangeEvent<HTMLInputElement>) => {
-            const timeValue = e.target.value;
-            const seconds = parseTimeInputToSeconds(timeValue);
-            setFormData(prev => ({ ...prev, [field]: seconds }));
+            const raw = e.target.value;
+            setTimeDrafts(prev => ({ ...prev, [field]: raw }));
         };
+
+    const handleBlurTime = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtr' | 'criticos') =>
+        () => {
+            const raw = timeDrafts[field];
+            if (raw === undefined) return;
+            const seconds = parseTimeInputToSeconds(raw);
+            setFormData(prev => ({ ...prev, [field]: seconds }));
+            setTimeDrafts(prev => {
+                const next = { ...prev };
+                delete next[field];
+                return next;
+            });
+        };
+
+    const valorTempo = (field: 'durationSeconds' | 'pausaMensalSeconds' | 'saidaVtr' | 'criticos') =>
+        timeDrafts[field] ?? formatSecondsToTime(formData[field]);
 
     const handleChangeNumber = (field: keyof Pick<FormData, 'criticos' | 'removidos' | 'points' | 'removidosLider'>) =>
         (e: ChangeEvent<HTMLInputElement>) => {
@@ -157,12 +177,14 @@ export default function DataForPointsModal({
                                 <Grid size={{ xs: 12, sm: 4 }}>
                                     <TextField
                                         label="Tempo de Regulação"
-                                        type="time"
+                                        type="text"
+                                        placeholder="HH:MM:SS"
                                         fullWidth
                                         InputLabelProps={{ shrink: true }}
                                         inputProps={{ step: 1 }}
-                                        value={formatSecondsToTime(formData.durationSeconds)}
+                                        value={valorTempo('durationSeconds')}
                                         onChange={handleChangeTime('durationSeconds')}
+                                        onBlur={handleBlurTime('durationSeconds')}
                                     />
                                 </Grid>
                             )}
@@ -171,12 +193,14 @@ export default function DataForPointsModal({
                                 <Grid size={{ xs: 12, sm: 4 }}>
                                     <TextField
                                         label="Criticos"
-                                        type="time"
+                                        type="text"
+                                        placeholder="HH:MM:SS"
                                         fullWidth
                                         InputLabelProps={{ shrink: true }}
                                         inputProps={{ step: 1 }}
-                                        value={formatSecondsToTime(formData.criticos)}
+                                        value={valorTempo('criticos')}
                                         onChange={handleChangeTime('criticos')}
+                                        onBlur={handleBlurTime('criticos')}
                                     />
                                 </Grid>
                             )}
@@ -207,13 +231,15 @@ export default function DataForPointsModal({
                             {isFrota && (
                                 <Grid size={{ xs: 12, sm: 4 }}>
                                     <TextField
-                                        label="Liberação VTR"
-                                        type="time"
+                                        label="Saida VTR"
+                                        type="text"
+                                        placeholder="HH:MM:SS"
                                         fullWidth
                                         InputLabelProps={{ shrink: true }}
                                         inputProps={{ step: 1 }}
-                                        value={formatSecondsToTime(formData.saidaVtr)}
+                                        value={valorTempo('saidaVtr')}
                                         onChange={handleChangeTime('saidaVtr')}
+                                        onBlur={handleBlurTime('saidaVtr')}
                                     />
                                 </Grid>
                             )}
@@ -223,12 +249,13 @@ export default function DataForPointsModal({
                     <Grid size={{ xs: 12, sm: 4 }}>
                         <TextField
                             label="Pausas Mensais"
-                            type="time"
+                            type="text"
                             fullWidth
                             InputLabelProps={{ shrink: true }}
                             inputProps={{ step: 1 }}
-                            value={formatSecondsToTime(formData.pausaMensalSeconds)}
+                            value={valorTempo('pausaMensalSeconds')}
                             onChange={handleChangeTime('pausaMensalSeconds')}
+                            onBlur={handleBlurTime('pausaMensalSeconds')}
                             placeholder="HH:MM:SS"
                         />
                     </Grid>

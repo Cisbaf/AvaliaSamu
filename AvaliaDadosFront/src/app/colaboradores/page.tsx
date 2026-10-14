@@ -15,7 +15,8 @@ import {
     Select,
     MenuItem,
     IconButton,
-    Button,
+    Fab,
+    Typography,
 } from '@mui/material';
 import styles from '@/components/styles/CollaboratorsPanel.module.css';
 import EditIcon from '@mui/icons-material/Edit';
@@ -69,8 +70,9 @@ export default function CollaboratorsPage() {
 
 
     const loadCollaborators = useCallback(async () => {
+        // Não liga o "loading" aqui: ele esconde a lista inteira e a página volta pro topo.
+        // O spinner só aparece na primeira carga (estado inicial).
         try {
-            setLoading(true);
             const response = await api.get('/collaborator');
             setCollaborators(response.data as GlobalCollaborator[]);
             setError(null);
@@ -95,7 +97,6 @@ export default function CollaboratorsPage() {
         if (!collaboratorToDelete) return;
 
         try {
-            setLoading(true);
             setError(null);
             await deleteGlobalCollaboratorApi(collaboratorToDelete);
             await loadCollaborators();
@@ -153,27 +154,22 @@ export default function CollaboratorsPage() {
 
             {!loading && !error && (
                 <>
-                    <div className={styles.filters}>
+                    <Typography variant="h5" sx={{ fontWeight: 700, color: '#111827' }}>
+                        Colaboradores
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
+                        {filteredCollaborators.length} de {collaborators.length} cadastrados
+                    </Typography>
+
+                    <Paper elevation={0} sx={{ p: 2, mb: 2, border: '1px solid #e5e7eb', borderRadius: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
                         <TextField
                             placeholder="Pesquisar por nome"
-                            variant="standard"
+                            variant="outlined"
                             size="small"
-                            sx={{ mr: 2, width: '300px' }}
+                            sx={{ width: '300px' }}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
-                        <Button
-                            variant="contained"
-                            onClick={() => {
-                                setSelectedCollaborator(undefined);
-                                setModalOpen(true)
-                            }}
-                            className={styles.addButton}
-                            startIcon={<AddIcon />}
-                            sx={{ mr: 2 }}
-                        >
-                            Novo Colaborador
-                        </Button>
 
                         <Select
                             value={filterRole}
@@ -199,8 +195,8 @@ export default function CollaboratorsPage() {
                             <MenuItem value={WorkPeriod.NOTURNO}>Noturno</MenuItem>
                             <MenuItem value={PERIOD_24H}>24h</MenuItem>
                         </Select>
-                    </div>
-                    <TableContainer component={Paper}>
+                    </Paper>
+                    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e5e7eb', borderRadius: 2 }}>
                         <Table stickyHeader aria-label="global collaborators table">
                             <TableHead>
                                 <TableRow>
@@ -276,6 +272,20 @@ export default function CollaboratorsPage() {
                     </TableContainer>
                 </>
             )}
+
+            <Fab
+                variant="extended"
+                color="primary"
+                aria-label="novo colaborador"
+                onClick={() => {
+                    setSelectedCollaborator(undefined);
+                    setModalOpen(true);
+                }}
+                sx={{ position: 'fixed', right: 24, bottom: 24, zIndex: 1200, textTransform: 'none', fontWeight: 600, boxShadow: 4 }}
+            >
+                <AddIcon sx={{ mr: 1 }} />
+                Novo colaborador
+            </Fab>
 
             <CollaboratorModal
                 open={modalOpen}
