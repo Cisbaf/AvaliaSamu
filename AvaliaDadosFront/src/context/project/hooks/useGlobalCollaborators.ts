@@ -24,6 +24,7 @@ export function useGlobalCollaborators() {
                 isGlobal: true,
                 medicoRole: c.medicoRole as MedicoRole | undefined,
                 shiftHours: c.shiftHours as ShiftHours | undefined,
+                plantaoDuplo: c.plantaoDuplo === true,
                 workPeriod: (c.workPeriod || WorkPeriod.DIURNO) as WorkPeriod,
                 equipeIds: (c.equipeIds || []) as string[]
             })));

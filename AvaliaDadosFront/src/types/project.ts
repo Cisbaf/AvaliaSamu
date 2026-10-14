@@ -5,10 +5,12 @@ export interface BaseCollaborator {
   idCallRote: string;
   role: string;
   shiftHours?: ShiftHours;
-  // WorkPeriod.H24 = colaborador 24h (Médico Líder/Regulador com turno H24, ou Supervisor).
-  // Diurno/Noturno só se aplica a quem tem um período de fato. Opcional só por causa de dados legados.
+  // WorkPeriod.H24 = colaborador 24h (somente Supervisor). Médicos são 12h e usam DIURNO ou NOTURNO.
+  // Opcional só por causa de dados legados.
   workPeriod?: WorkPeriod;
   medicoRole?: MedicoRole;
+  // Só médico. Plantão duplo: o que ele recebe (planilha e API) é dividido por 2.
+  plantaoDuplo?: boolean;
   pontuacao: number;
   removidos?: number;
   removidosLider?: number;

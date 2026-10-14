@@ -1,22 +1,15 @@
 import { MedicoRole, ShiftHours, WorkPeriod } from '@/types/project';
 
-// Um colaborador é "24h" quando o conceito de Diurno/Noturno não se aplica a ele:
-// Supervisores são sempre 24h, e Médico Líder/Regulador com turno H24 também.
-// Nesses casos o período é forçado pra WorkPeriod.H24 (o backend faz o mesmo).
+// Um colaborador é "24h" quando o conceito de Diurno/Noturno não se aplica a ele.
+// Supervisor e Médico LÍDER são 24h. Médico REGULADOR (12h) é sempre DIURNO ou NOTURNO,
+// escolhido no cadastro. O parâmetro de turno fica na assinatura pra não quebrar as chamadas.
 export const is24hCollaborator = (
   role?: string,
   medicoRole?: MedicoRole,
-  shiftHours?: ShiftHours
+  _shiftHours?: ShiftHours
 ): boolean => {
   if (role === 'SUPERVISOR') return true;
-  if (
-    role === 'MEDICO' &&
-    (medicoRole === MedicoRole.LIDER || medicoRole === MedicoRole.REGULADOR) &&
-    shiftHours === ShiftHours.H24
-  ) {
-    return true;
-  }
-  return false;
+  return role === 'MEDICO' && medicoRole === MedicoRole.LIDER;
 };
 
 // Rótulo de período pronto pra exibir, já considerando o caso 24h.
@@ -28,7 +21,9 @@ export const formatWorkPeriod = (
   shiftHours: ShiftHours | undefined,
   workPeriod: WorkPeriod | undefined
 ): string => {
-  if (workPeriod === WorkPeriod.H24 || is24hCollaborator(role, medicoRole, shiftHours)) return '24h';
+  // Regulador nunca é 24h: cadastro antigo com H24 aparece como Diurno. Líder e Supervisor são 24h.
+  const isMedico = role === 'MEDICO';
+  if (is24hCollaborator(role, medicoRole, shiftHours) || (workPeriod === WorkPeriod.H24 && !isMedico)) return '24h';
   return workPeriod === WorkPeriod.NOTURNO ? 'Noturno' : 'Diurno';
 };
 

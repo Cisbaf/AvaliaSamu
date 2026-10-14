@@ -13,6 +13,10 @@ import {
     CircularProgress,
     InputLabel,
     FormControl,
+    FormControlLabel,
+    FormLabel,
+    Radio,
+    RadioGroup,
     Alert
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -29,7 +33,8 @@ import {
 } from '@/types/project';
 import {
     createGlobalCollaboratorApi,
-    updateGlobalCollaboratorApi
+    updateGlobalCollaboratorApi,
+    fetchGlobalCollaboratorsByCpfApi
 } from '@/lib/api';
 import { is24hCollaborator } from '../utils';
 
@@ -48,8 +53,10 @@ type FormData = {
     baseRole: string;
     medicoRole?: MedicoRole;
     shiftHours?: ShiftHours;
-    // WorkPeriod.H24 = colaborador 24h (Supervisor, ou Médico Líder/Regulador com turno H24).
+    // WorkPeriod.H24 = colaborador 24h (somente Supervisor). Médico escolhe DIURNO ou NOTURNO.
     workPeriod?: WorkPeriod;
+    // Só médico: o que ele recebe (planilha e API) é dividido por 2. Vazio = não.
+    plantaoDuplo?: boolean;
     durationSeconds?: number;
     quantity?: number;
     pausaMensalSeconds?: number;
@@ -75,12 +82,18 @@ export default function CollaboratorModal({
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    // Médicos já cadastrados com este CPF (busca feita ao sair do campo CPF).
+    const [cadastrosDoCpf, setCadastrosDoCpf] = useState<GlobalCollaborator[]>([]);
 
     useEffect(() => {
         if (initialData) {
             const isMedico = initialData.role.toUpperCase().startsWith('MEDICO');
             const medicoRole = isMedico ? (initialData as any).medicoRole : undefined;
-            const shiftHours = isMedico ? (initialData as any).shiftHours : undefined;
+            // Médico é sempre 12h: o turno não é escolhido, o período (Diurno/Noturno) é.
+            // Regulador é 12h; Líder é 24h.
+            const shiftHours = isMedico
+                ? (medicoRole === MedicoRole.LIDER ? ShiftHours.H24 : ShiftHours.H12)
+                : undefined;
             const is24h = is24hCollaborator(initialData.role, medicoRole, shiftHours);
             setFormData({
                 nome: initialData.nome,
@@ -90,6 +103,7 @@ export default function CollaboratorModal({
                 medicoRole,
                 shiftHours,
                 workPeriod: is24h ? WorkPeriod.H24 : (initialData.workPeriod || WorkPeriod.DIURNO),
+                plantaoDuplo: Boolean((initialData as any).plantaoDuplo),
                 durationSeconds: (initialData as any).durationSeconds,
                 quantity: (initialData as any).quantity,
                 pausaMensalSeconds: (initialData as any).pausaMensalSeconds
@@ -104,9 +118,52 @@ export default function CollaboratorModal({
 
     const is24h = is24hCollaborator(formData.baseRole, formData.medicoRole, formData.shiftHours);
 
+    // Ao sair do campo CPF: se for um médico já cadastrado, puxa nome, ID Call Rote e função.
+    // O período (diurno/noturno) continua sendo escolhido pelo usuário.
+    const buscarPorCpf = async (cpfDigitado: string) => {
+        if (isEdit) return;
+        const digitos = cpfDigitado.replace(/\D/g, '');
+        if (digitos.length !== 11) {
+            setCadastrosDoCpf([]);
+            return;
+        }
+        try {
+            const { data } = await fetchGlobalCollaboratorsByCpfApi(digitos);
+            const medicos = (data || []).filter(c => (c.role || '').toUpperCase().startsWith('MEDICO'));
+            setCadastrosDoCpf(medicos);
+            if (medicos.length > 0) {
+                const base = medicos[0] as any;
+                setFormData(prev => ({
+                    ...prev,
+                    nome: prev.nome || base.nome,
+                    idCallRote: prev.idCallRote || base.idCallRote,
+                    baseRole: 'MEDICO',
+                    medicoRole: base.medicoRole ?? prev.medicoRole,
+                    shiftHours: (base.medicoRole ?? prev.medicoRole) === MedicoRole.LIDER ? ShiftHours.H24 : ShiftHours.H12,
+                }));
+            }
+        } catch {
+            // Sem resultado ou erro de rede: segue como cadastro manual.
+            setCadastrosDoCpf([]);
+        }
+    };
+
+    const periodosJaCadastrados = cadastrosDoCpf.map(c => (c as any).workPeriod as WorkPeriod);
+    const periodoJaCadastrado = !isEdit
+        && formData.baseRole === 'MEDICO'
+        && periodosJaCadastrados.includes(formData.workPeriod as WorkPeriod);
+
     const handleChange = (key: keyof FormData, value: any) => {
         setFormData(prev => {
             const next = { ...prev, [key]: value };
+            // O turno do médico é fixado e não aparece no formulário: Regulador 12h, Líder 24h.
+            if (next.baseRole === 'MEDICO' && (key === 'baseRole' || key === 'medicoRole')) {
+                next.shiftHours = next.medicoRole === MedicoRole.LIDER ? ShiftHours.H24 : ShiftHours.H12;
+            }
+            // Plantão duplo só vale para Regulador: ao trocar para outro papel, desmarca.
+            if (key === 'medicoRole' && value !== MedicoRole.REGULADOR) {
+                next.plantaoDuplo = false;
+            }
             const willBe24h = is24hCollaborator(next.baseRole, next.medicoRole, next.shiftHours);
             if (willBe24h) {
                 next.workPeriod = WorkPeriod.H24;
@@ -193,6 +250,7 @@ export default function CollaboratorModal({
                     ...(finalRole === 'MEDICO' && {
                         medicoRole: formData.medicoRole,
                         shiftHours: formData.shiftHours,
+                        plantaoDuplo: formData.medicoRole === MedicoRole.REGULADOR && Boolean(formData.plantaoDuplo),
                     }),
                 };
 
@@ -231,7 +289,8 @@ export default function CollaboratorModal({
         || !formData.idCallRote
         || !formData.baseRole
         || !formData.workPeriod
-        || (formData.baseRole === 'MEDICO' && (!formData.medicoRole || !formData.shiftHours));
+        || (formData.baseRole === 'MEDICO' && (!formData.medicoRole || !formData.shiftHours))
+        || periodoJaCadastrado;
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -239,6 +298,13 @@ export default function CollaboratorModal({
                 <DialogTitle>{isEdit ? 'Editar Colaborador' : 'Novo Colaborador'}</DialogTitle>
                 <DialogContent className={styles.modalContent}>
                     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+                    {cadastrosDoCpf.length > 0 && !isEdit && (
+                        <Alert severity={periodoJaCadastrado ? 'warning' : 'info'} sx={{ mb: 2 }}>
+                            {periodoJaCadastrado
+                                ? `Este médico já está cadastrado no período ${formData.workPeriod === WorkPeriod.NOTURNO ? 'Noturno' : 'Diurno'}. Escolha o outro período.`
+                                : `Médico já cadastrado (${periodosJaCadastrados.map(p => p === WorkPeriod.NOTURNO ? 'Noturno' : 'Diurno').join(', ')}). Escolha o período deste cadastro.`}
+                        </Alert>
+                    )}
                     <div className={styles.formGrid}>
                         <TextField label="Nome" fullWidth margin="dense"
                             value={formData.nome} onChange={e => handleChange('nome', e.target.value)}
@@ -246,6 +312,7 @@ export default function CollaboratorModal({
                         />
                         <TextField label="CPF" fullWidth margin="dense"
                             value={formData.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')} onChange={e => handleChange('cpf', e.target.value)}
+                            onBlur={() => buscarPorCpf(formData.cpf)}
                             variant={isEdit && projectId ? 'filled' : 'outlined'}
                             slotProps={{
                                 input: {
@@ -313,20 +380,21 @@ export default function CollaboratorModal({
                                         ))}
                                     </Select>
                                 </FormControl>
-                                <FormControl fullWidth margin="dense">
-                                    <InputLabel id="shift-hours-label">Turno</InputLabel>
-                                    <Select
-                                        labelId="shift-hours-label"
-                                        label="Turno"
-                                        value={formData.shiftHours ?? ''}
-                                        onChange={e => handleChange('shiftHours', e.target.value as ShiftHours)}
-                                    >
-                                        <MenuItem value="" disabled>Selecione um turno</MenuItem>
-                                        {Object.values(ShiftHours).map(sh => (
-                                            <MenuItem key={sh} value={sh}>{sh}</MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                                {/* Plantão duplo só existe para Regulador; Líder tem parâmetros próprios. */}
+                                {!projectId && formData.medicoRole === MedicoRole.REGULADOR && (
+                                    <FormControl margin="dense">
+                                        <FormLabel id="plantao-duplo-label">Plantão duplo</FormLabel>
+                                        <RadioGroup
+                                            row
+                                            aria-labelledby="plantao-duplo-label"
+                                            value={formData.plantaoDuplo ? 'sim' : 'nao'}
+                                            onChange={e => handleChange('plantaoDuplo', e.target.value === 'sim')}
+                                        >
+                                            <FormControlLabel value="nao" control={<Radio />} label="Não" />
+                                            <FormControlLabel value="sim" control={<Radio />} label="Sim (valores divididos por 2)" />
+                                        </RadioGroup>
+                                    </FormControl>
+                                )}
                             </>
                         )}
 
