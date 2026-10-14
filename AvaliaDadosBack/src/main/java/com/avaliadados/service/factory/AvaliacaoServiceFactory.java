@@ -1,6 +1,7 @@
 package com.avaliadados.service.factory;
 
 import com.avaliadados.service.avaliacao.AvaliacaoService;
+import com.avaliadados.service.avaliacao.AvaliacaoServiceFrotaVtr;
 import com.avaliadados.service.avaliacao.AvaliacaoServiceMedico;
 import com.avaliadados.service.utils.WorkbookReader;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -16,6 +19,7 @@ public class AvaliacaoServiceFactory {
 
     private final AvaliacaoService avaliacaoService;
     private final AvaliacaoServiceMedico avaliacaoServiceMedico;
+    private final AvaliacaoServiceFrotaVtr avaliacaoServiceFrotaVtr;
 
     public AvaliacaoProcessor getProcessor(MultipartFile arquivo) throws IOException {
         try (Workbook wb = WorkbookReader.read(arquivo)) {
@@ -24,6 +28,12 @@ public class AvaliacaoServiceFactory {
 
             for (int i = 0; i < wb.getNumberOfSheets(); i++) {
                 Sheet sheet = wb.getSheetAt(i);
+
+                // Planilha de VTR (TEMPO RESPOSTA ANALÍTICO): checada antes das outras.
+                if (temCabecalhoFrotaVtr(sheet, evaluator, formatter)) {
+                    return avaliacaoServiceFrotaVtr;
+                }
+
                 Row primeiraLinha = sheet.getRow(0);
                 Row segundaLinha = sheet.getRow(1);
 
@@ -62,6 +72,21 @@ public class AvaliacaoServiceFactory {
                     "Tipo de planilha nao reconhecido em nenhuma das abas. Envie um arquivo Excel .xls ou .xlsx valido."
             );
         }
+    }
+
+    private boolean temCabecalhoFrotaVtr(Sheet sheet, FormulaEvaluator evaluator, DataFormatter formatter) {
+        for (int r = 0; r <= Math.min(4, sheet.getLastRowNum()); r++) {
+            Row row = sheet.getRow(r);
+            if (row == null) continue;
+            Set<String> celulas = new HashSet<>();
+            for (int c = 0; c < row.getLastCellNum(); c++) {
+                celulas.add(normalizeHeader(readHeaderValue(row, c, formatter, evaluator)));
+            }
+            if (celulas.contains("SOLICITACAO VTR") && celulas.contains("EMPENHO VTR")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String readHeaderValue(Row row, int cellIndex, DataFormatter formatter, FormulaEvaluator evaluator) {

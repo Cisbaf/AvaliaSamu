@@ -357,6 +357,8 @@ public class AvaliacaoService implements AvaliacaoProcessor {
             }
         }
 
+        naoEncontrados.addAll(aplicarFrotaVtr(projeto, projectId));
+
         collabParams.setDataFromApi(pcsToUpdate, projeto, idCallroutList);
 
         for (ProjectCollaborator pc : pcsToUpdate) {
@@ -379,6 +381,39 @@ public class AvaliacaoService implements AvaliacaoProcessor {
         collabParams.recalcularSupervisoresComEquipe(projeto);
         projetoRepository.save(projeto);
         return naoEncontrados;
+    }
+
+    // Frota: tempo de regulação, tempo de saída e plantões vêm da planilha de VTR
+    // (EMPENHO - SOLICITAÇÃO, SAÍDA - EMPENHO), não da planilha TARM/Frota.
+    // Sobrescreve mesmo se o frota foi editado à mão: a planilha de VTR é a fonte desses valores.
+    // Frota sem correspondência é devolvido na lista de avisos do upload.
+    private List<String> aplicarFrotaVtr(ProjetoEntity projeto, String projectId) {
+        List<String> semCorrespondencia = new ArrayList<>();
+        List<SheetRow> rowsVtr = sheetRowRepository.findByProjectIdAndType(projectId, TypeAv.FROTA_VTR);
+        if (rowsVtr.isEmpty()) return semCorrespondencia;
+
+        for (ProjectCollaborator pc : projeto.getCollaborators()) {
+            if (!"FROTA".equals(pc.getRole())) continue;
+
+            String nomeNorm = normalizeName(pc.getNome());
+
+            Optional<SheetRow> melhor = rowsVtr.stream()
+                    .max(Comparator.comparingDouble(sr ->
+                            similarity(nomeNorm, normalizeName(sr.getData().get("COLABORADOR")))));
+
+            if (melhor.isEmpty()
+                    || similarity(nomeNorm, normalizeName(melhor.get().getData().get("COLABORADOR"))) < 0.85) {
+                semCorrespondencia.add(pc.getNome() + " (frota sem correspondência na planilha de VTR)");
+                continue;
+            }
+
+            SheetRow sr = melhor.get();
+            // Só a saída vem da planilha de VTR (média de SAÍDA VTR - EMPENHO VTR).
+            // Regulação e plantão continuam vindo da planilha TARM/Frota.
+            long mediaSaida = Long.parseLong(sr.getData().get("SAIDA.VTR"));
+            pc.setSaidaVtrSeconds(mediaSaida);
+        }
+        return semCorrespondencia;
     }
 
     private void atualizarDadosColaborador(ProjectCollaborator pc, Map<String, String> data) {
