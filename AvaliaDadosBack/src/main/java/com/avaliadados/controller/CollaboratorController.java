@@ -64,6 +64,12 @@ public class CollaboratorController {
         return ResponseEntity.ok(service.findAll());
     }
 
+    @GetMapping("/cpf/{cpf}")
+    @Operation(summary = "Busca colaboradores globais pelo CPF (usado no cadastro de médico)")
+    public ResponseEntity<List<CollaboratorsResponse>> findByCpf(@PathVariable String cpf) {
+        return ResponseEntity.ok(service.findByCpf(cpf));
+    }
+
     @GetMapping("/name/{nome}")
     @Operation(summary = "Busca colaboradores globais pelo nome")
     public ResponseEntity<List<CollaboratorEntity>> findByName(@PathVariable String nome) {

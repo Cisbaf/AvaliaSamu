@@ -27,6 +27,14 @@ public class CollaboratorEntity {
     @Enumerated(EnumType.STRING)
     private WorkPeriod workPeriod = WorkPeriod.DIURNO;
 
+    // Médico nunca é 24h: cadastro antigo com H24 é lido como DIURNO.
+    public WorkPeriod getWorkPeriod() {
+        if ("MEDICO".equals(role) && (workPeriod == null || workPeriod == WorkPeriod.H24)) {
+            return WorkPeriod.DIURNO;
+        }
+        return workPeriod;
+    }
+
     // Equipe padrão do supervisor: IDs (CollaboratorEntity.id) de TARM/FROTA/MEDICO
     // que formam o time dele. Serve de modelo ao criar um novo projeto (o time é
     // copiado para ProjectCollaborator.equipeIds e pode ser ajustado só naquele projeto).

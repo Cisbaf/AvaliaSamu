@@ -17,5 +17,7 @@ public interface CollaboratorRepository extends JpaRepository<CollaboratorEntity
 
     boolean existsByCpf(String cpf);
 
+    List<CollaboratorEntity> findByCpf(String cpf);
+
     boolean existsByIdCallRote(String idCallRote);
 }
